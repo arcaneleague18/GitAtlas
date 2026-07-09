@@ -1,0 +1,225 @@
+/**
+ * Design System — CSS custom properties, theme tokens, and base styles.
+ *
+ * Dark-mode-first design with curated colors inspired by
+ * GitHub Desktop, Linear, and Figma aesthetics.
+ *
+ * Syncs with VS Code theme via --vscode-* CSS variables.
+ */
+
+/* ── Google Fonts ──────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ── CSS Reset ─────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  --text-xs: 0.6875rem;    /* 11px */
+  --text-sm: 0.75rem;      /* 12px */
+  --text-base: 0.8125rem;  /* 13px */
+  --text-md: 0.875rem;     /* 14px */
+  --text-lg: 1rem;         /* 16px */
+  --text-xl: 1.25rem;      /* 20px */
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-glow: 0 0 12px rgba(88, 166, 255, 0.3);
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+
+  /* Branch Colors */
+  --branch-blue: #58a6ff;
+  --branch-green: #3fb950;
+  --branch-yellow: #d29922;
+  --branch-orange: #f78166;
+  --branch-purple: #bc8cff;
+  --branch-red: #ff7b72;
+  --branch-cyan: #79c0ff;
+  --branch-lime: #7ee787;
+  --branch-gold: #e3b341;
+  --branch-amber: #ffa657;
+}
+
+/* ── Dark Theme (Default) ──────────────────────────────────── */
+body,
+.theme-dark {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #1c2128;
+  --bg-elevated: #21262d;
+  --bg-hover: #30363d;
+  --bg-active: #388bfd26;
+
+  --border-default: #30363d;
+  --border-muted: #21262d;
+  --border-accent: #58a6ff;
+
+  --text-primary: #e6edf3;
+  --text-secondary: #8b949e;
+  --text-tertiary: #6e7681;
+  --text-link: #58a6ff;
+  --text-danger: #f85149;
+  --text-success: #3fb950;
+  --text-warning: #d29922;
+
+  --node-bg: #1c2128;
+  --node-border: #30363d;
+  --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+
+  --head-glow: rgba(88, 166, 255, 0.4);
+  --head-ring: #58a6ff;
+
+  --edge-default: #30363d;
+  --edge-active: #58a6ff;
+
+  --tooltip-bg: #1c2128;
+  --tooltip-border: #30363d;
+
+  --minimap-bg: rgba(22, 27, 34, 0.85);
+  --minimap-mask: rgba(88, 166, 255, 0.15);
+  --minimap-node: rgba(139, 148, 158, 0.8);
+
+  --glass-bg: rgba(22, 27, 34, 0.7);
+  --glass-border: rgba(48, 54, 61, 0.6);
+  --glass-blur: 12px;
+}
+
+/* ── Light Theme ───────────────────────────────────────────── */
+.theme-light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #f0f2f5;
+  --bg-elevated: #ffffff;
+  --bg-hover: #eaeef2;
+  --bg-active: #ddf4ff;
+
+  --border-default: #d0d7de;
+  --border-muted: #e1e4e8;
+  --border-accent: #0969da;
+
+  --text-primary: #1f2328;
+  --text-secondary: #656d76;
+  --text-tertiary: #8b949e;
+  --text-link: #0969da;
+  --text-danger: #cf222e;
+  --text-success: #1a7f37;
+  --text-warning: #9a6700;
+
+  --node-bg: #ffffff;
+  --node-border: #d0d7de;
+  --node-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+
+  --head-glow: rgba(9, 105, 218, 0.25);
+  --head-ring: #0969da;
+
+  --edge-default: #d0d7de;
+  --edge-active: #0969da;
+
+  --tooltip-bg: #ffffff;
+  --tooltip-border: #d0d7de;
+
+  --minimap-bg: rgba(246, 248, 250, 0.9);
+  --minimap-mask: rgba(9, 105, 218, 0.12);
+  --minimap-node: rgba(101, 109, 118, 0.7);
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(208, 215, 222, 0.6);
+  --glass-blur: 12px;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* ── Base Styles ───────────────────────────────────────────── */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Scrollbar Styling ─────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* ── Selection ─────────────────────────────────────────────── */
+::selection {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* ── Utility Classes ───────────────────────────────────────── */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+}
