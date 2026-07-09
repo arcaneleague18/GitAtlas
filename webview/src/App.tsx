@@ -1,0 +1,61 @@
+/**
+ * App — Root React component for the Git Tree Explorer webview.
+ *
+ * Responsibilities:
+ * - Listen for messages from the extension host
+ * - Route graph updates and theme changes to the Zustand store
+ * - Apply theme class to the document body
+ * - Signal "ready" to the extension on mount
+ * - Render the GraphView
+ */
+
+import { useEffect, useCallback } from 'react';
+import { ReactFlowProvider } from '@xyflow/react';
+import { useGraphStore } from './store/graph.store';
+import { useVSCodeMessage } from './hooks/useVSCodeMessage';
+import { postMessage } from './vscode';
+import { GraphView } from './components/GraphView';
+import type { ExtensionToWebviewMessage } from './types';
+
+export function App() {
+  const { setGraph, setTheme, setLoading, selectNode, theme } = useGraphStore();
+
+  // Handle messages from the extension host
+  const handleMessage = useCallback(
+    (message: ExtensionToWebviewMessage) => {
+      switch (message.type) {
+        case 'graph-update':
+          setGraph(message.graph);
+          break;
+        case 'theme-change':
+          setTheme(message.theme);
+          break;
+        case 'node-focus':
+          selectNode(message.nodeId);
+          break;
+        case 'loading':
+          setLoading(message.loading);
+          break;
+      }
+    },
+    [setGraph, setTheme, setLoading, selectNode]
+  );
+
+  useVSCodeMessage(handleMessage);
+
+  // Apply theme class to body
+  useEffect(() => {
+    document.body.className = `theme-${theme}`;
+  }, [theme]);
+
+  // Signal ready to extension on mount
+  useEffect(() => {
+    postMessage({ type: 'ready' });
+  }, []);
+
+  return (
+    <ReactFlowProvider>
+      <GraphView />
+    </ReactFlowProvider>
+  );
+}
