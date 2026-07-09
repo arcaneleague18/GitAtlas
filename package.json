@@ -1,0 +1,88 @@
+{
+  "name": "git-tree-explorer",
+  "displayName": "Git Tree Explorer",
+  "description": "Transform Git into an interactive visual state machine graph. Understand Git through visualization, not commands.",
+  "version": "0.1.0",
+  "publisher": "git-tree-explorer",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Visualization"
+  ],
+  "icon": "resources/icon.svg",
+  "keywords": [
+    "git",
+    "graph",
+    "visualization",
+    "tree",
+    "explorer",
+    "state machine"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitTreeExplorer",
+          "title": "Git Tree Explorer",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "gitTreeExplorer": [
+        {
+          "id": "gitTreeExplorer.sidebar",
+          "name": "Repository"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "gitTreeExplorer.openGraph",
+        "title": "Open Commit Graph",
+        "category": "Git Tree Explorer",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "gitTreeExplorer.refresh",
+        "title": "Refresh",
+        "category": "Git Tree Explorer",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "gitTreeExplorer.openGraph",
+          "when": "view == gitTreeExplorer.sidebar",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitTreeExplorer.refresh",
+          "when": "view == gitTreeExplorer.sidebar",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "build:webview": "cd webview && npm run build",
+    "build": "npm run build:webview && npm run compile",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  }
+}

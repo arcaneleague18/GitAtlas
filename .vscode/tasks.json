@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "compile-extension",
+      "type": "shell",
+      "command": "node esbuild.js",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "watch-extension",
+      "type": "npm",
+      "script": "watch",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "watch-webview",
+      "type": "shell",
+      "command": "cd webview && npm run dev",
+      "isBackground": true,
+      "group": "build"
+    },
+    {
+      "label": "build-webview",
+      "type": "shell",
+      "command": "cd webview && npm run build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "build-all",
+      "dependsOn": ["build-webview", "compile-extension"],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}
