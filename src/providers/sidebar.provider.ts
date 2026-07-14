@@ -16,6 +16,7 @@
 
 import * as vscode from 'vscode';
 import { RepositoryStateEngine } from '../engine/state-engine.js';
+import type { GithubIntegrationEngine } from '../engine/github-integration.js';
 import { DisposableBase } from '../utils/disposable.js';
 import type {
   RepositoryGraph,
@@ -55,7 +56,10 @@ export class SidebarProvider
 
   private graph: RepositoryGraph | null = null;
 
-  constructor(private readonly stateEngine: RepositoryStateEngine) {
+  constructor(
+    private readonly stateEngine: RepositoryStateEngine,
+    private readonly githubIntegration?: GithubIntegrationEngine
+  ) {
     super();
     this.register(this._onDidChangeTreeData);
 
@@ -66,6 +70,14 @@ export class SidebarProvider
         this._onDidChangeTreeData.fire(undefined);
       })
     );
+
+    if (this.githubIntegration) {
+      this.register(
+        this.githubIntegration.onDidChangeContext(() => {
+          this._onDidChangeTreeData.fire(undefined);
+        })
+      );
+    }
   }
 
   refresh(): void {
@@ -104,6 +116,10 @@ export class SidebarProvider
         return this.getTagItems();
       case 'section-remotes':
         return this.getRemoteItems();
+      case 'section-prs':
+        return this.getPullRequestItems();
+      case 'section-issues':
+        return this.getIssueItems();
       default:
         return [];
     }
@@ -112,83 +128,39 @@ export class SidebarProvider
   // ── Root Items ──────────────────────────────────────────────
 
   private getRootItems(): SidebarTreeItem[] {
-    const items: SidebarTreeItem[] = [];
+    const items = [
+      new SidebarTreeItem('Current State', vscode.TreeItemCollapsibleState.Expanded, 'section-state'),
+      new SidebarTreeItem('Branches', vscode.TreeItemCollapsibleState.Expanded, 'section-branches'),
+    ];
 
-    // Current State
-    const stateItem = new SidebarTreeItem(
-      'Current State',
-      vscode.TreeItemCollapsibleState.Expanded,
-      'section-state'
+    if (this.githubIntegration) {
+      const ctx = this.githubIntegration.context;
+      if (Object.keys(ctx.pullRequests).length > 0) {
+        items.push(new SidebarTreeItem(`Pull Requests (${Object.keys(ctx.pullRequests).length})`, vscode.TreeItemCollapsibleState.Expanded, 'section-prs'));
+      }
+      if (ctx.issues.length > 0) {
+        items.push(new SidebarTreeItem(`Issues (${ctx.issues.length})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-issues'));
+      }
+    }
+
+    items.push(
+      new SidebarTreeItem('Recent Commits', vscode.TreeItemCollapsibleState.Expanded, 'section-commits'),
+      new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Expanded, 'section-working-directory')
     );
-    stateItem.iconPath = new vscode.ThemeIcon('info');
-    items.push(stateItem);
 
-    // Branches
-    const branchCount = this.countNodesByKind('branch') + this.countNodesByKind('remote-branch');
-    const branchItem = new SidebarTreeItem(
-      `Branches (${branchCount})`,
-      vscode.TreeItemCollapsibleState.Collapsed,
-      'section-branches'
-    );
-    branchItem.iconPath = new vscode.ThemeIcon('git-branch');
-    items.push(branchItem);
-
-    // Recent Commits
-    const commitItem = new SidebarTreeItem(
-      'Recent Commits',
-      vscode.TreeItemCollapsibleState.Collapsed,
-      'section-commits'
-    );
-    commitItem.iconPath = new vscode.ThemeIcon('git-commit');
-    items.push(commitItem);
-
-    // Working Directory
-    const wd = this.getWorkingDirectoryNode();
-    const wdCount = wd
-      ? wd.modified.length + wd.staged.length + wd.untracked.length
-      : 0;
-    const wdItem = new SidebarTreeItem(
-      `Working Directory${wdCount > 0 ? ` (${wdCount})` : ''}`,
-      vscode.TreeItemCollapsibleState.Collapsed,
-      'section-working-directory'
-    );
-    wdItem.iconPath = new vscode.ThemeIcon('folder');
-    items.push(wdItem);
-
-    // Stashes
     const stashCount = this.countNodesByKind('stash');
     if (stashCount > 0) {
-      const stashItem = new SidebarTreeItem(
-        `Stashes (${stashCount})`,
-        vscode.TreeItemCollapsibleState.Collapsed,
-        'section-stashes'
-      );
-      stashItem.iconPath = new vscode.ThemeIcon('archive');
-      items.push(stashItem);
+      items.push(new SidebarTreeItem(`Stashes (${stashCount})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-stashes'));
     }
 
-    // Tags
     const tagCount = this.countNodesByKind('tag');
     if (tagCount > 0) {
-      const tagItem = new SidebarTreeItem(
-        `Tags (${tagCount})`,
-        vscode.TreeItemCollapsibleState.Collapsed,
-        'section-tags'
-      );
-      tagItem.iconPath = new vscode.ThemeIcon('tag');
-      items.push(tagItem);
+      items.push(new SidebarTreeItem(`Tags (${tagCount})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-tags'));
     }
 
-    // Remotes
     const remoteNodes = this.getRemoteNames();
     if (remoteNodes.length > 0) {
-      const remoteItem = new SidebarTreeItem(
-        `Remotes (${remoteNodes.length})`,
-        vscode.TreeItemCollapsibleState.Collapsed,
-        'section-remotes'
-      );
-      remoteItem.iconPath = new vscode.ThemeIcon('cloud');
-      items.push(remoteItem);
+      items.push(new SidebarTreeItem(`Remotes (${remoteNodes.length})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-remotes'));
     }
 
     return items;
@@ -222,6 +194,52 @@ export class SidebarProvider
     items.push(stateItem);
 
     return items;
+  }
+
+  // ── GitHub ──────────────────────────────────────────────────
+
+  private getPullRequestItems(): SidebarTreeItem[] {
+    if (!this.githubIntegration) return [];
+    
+    const prs = Object.values(this.githubIntegration.context.pullRequests);
+    return prs.map((pr) => {
+      const item = new SidebarTreeItem(
+        `#${pr.number} ${pr.title}`,
+        vscode.TreeItemCollapsibleState.None,
+        'pr'
+      );
+      item.description = `[${pr.headBranch}]`;
+      item.iconPath = new vscode.ThemeIcon('git-pull-request');
+      
+      item.command = {
+        title: 'Open Pull Request',
+        command: 'vscode.open',
+        arguments: [vscode.Uri.parse(pr.url)],
+      };
+      
+      return item;
+    });
+  }
+
+  private getIssueItems(): SidebarTreeItem[] {
+    if (!this.githubIntegration) return [];
+    
+    return this.githubIntegration.context.issues.map((issue) => {
+      const item = new SidebarTreeItem(
+        `#${issue.number} ${issue.title}`,
+        vscode.TreeItemCollapsibleState.None,
+        'issue'
+      );
+      item.iconPath = new vscode.ThemeIcon('issues');
+      
+      item.command = {
+        title: 'Open Issue',
+        command: 'vscode.open',
+        arguments: [vscode.Uri.parse(issue.url)],
+      };
+      
+      return item;
+    });
   }
 
   // ── Branches ────────────────────────────────────────────────

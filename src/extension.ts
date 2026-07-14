@@ -17,6 +17,8 @@ import { RepositoryStateEngine } from './engine/state-engine.js';
 import { SidebarProvider } from './providers/sidebar.provider.js';
 import { GraphPanelProvider } from './providers/graph-panel.provider.js';
 import { ActionExecutor } from './engine/action-executor.js';
+import { GithubService } from './services/github.service.js';
+import { GithubIntegrationEngine } from './engine/github-integration.js';
 import { debounce } from './utils/disposable.js';
 
 /** How often to poll for changes (ms). */
@@ -65,8 +67,13 @@ export async function activate(
   // Create action executor
   const actionExecutor = new ActionExecutor(gitService, stateEngine, outputChannel);
 
+  // Create GitHub integration
+  const githubService = new GithubService(gitService, outputChannel);
+  const githubIntegration = new GithubIntegrationEngine(githubService, stateEngine);
+  context.subscriptions.push(githubIntegration);
+
   // Create sidebar provider
-  const sidebarProvider = new SidebarProvider(stateEngine);
+  const sidebarProvider = new SidebarProvider(stateEngine, githubIntegration);
   context.subscriptions.push(sidebarProvider);
 
   const treeView = vscode.window.createTreeView('gitTreeExplorer.sidebar', {
@@ -80,7 +87,8 @@ export async function activate(
     context.extensionUri,
     stateEngine,
     gitService,
-    actionExecutor
+    actionExecutor,
+    githubIntegration
   );
   context.subscriptions.push(graphPanel);
 

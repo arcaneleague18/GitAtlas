@@ -184,6 +184,34 @@ export interface ValidAction {
   readonly isDangerous: boolean;
 }
 
+// ── GitHub Integration ────────────────────────────────────────
+
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  url: string;
+  state: 'open' | 'closed';
+}
+
+export interface GitHubPullRequest extends GitHubIssue {
+  headBranch: string;
+  baseBranch: string;
+}
+
+export interface GitHubCommitStatus {
+  state: 'success' | 'failure' | 'pending';
+  url: string;
+  description: string;
+}
+
+export interface GitHubContext {
+  pullRequests: Record<string, GitHubPullRequest>; // keyed by branch name
+  issues: GitHubIssue[];
+  commitStatuses: Record<string, GitHubCommitStatus>; // keyed by commit hash
+}
+
+// ── Previews ──────────────────────────────────────────────────
+
 export interface PreviewData {
   readonly action: EdgeKind;
   readonly nodeId: string;
@@ -199,7 +227,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'node-details'; nodeId: string; details: NodeDetails }
   | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] }
   | { type: 'preview-action'; preview: PreviewData }
-  | { type: 'clear-preview' };
+  | { type: 'clear-preview' }
+  | { type: 'github-context'; context: GitHubContext };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }

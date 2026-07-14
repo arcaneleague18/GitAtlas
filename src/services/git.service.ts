@@ -149,6 +149,7 @@ export class GitService {
     }
   }
 
+
   /**
    * Get commit log as parsed objects.
    *

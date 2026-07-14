@@ -16,7 +16,7 @@ import { useGraphStore } from '../store/graph.store';
 import { postMessage } from '../vscode';
 import { DiffStatBar } from './DiffStatBar';
 import { ActionButton } from './ActionButton';
-import type { EdgeKind } from '../types';
+import type { EdgeKind, GitHubPullRequest, CommitNodeData } from '../types';
 
 export function NodeInspector() {
   const {
@@ -24,6 +24,7 @@ export function NodeInspector() {
     selectedNodeDetails,
     validActions,
     closeInspector,
+    githubContext,
   } = useGraphStore();
 
   // Close on Escape key
@@ -180,6 +181,68 @@ export function NodeInspector() {
                     <div className="inspector-message">{details.message}</div>
                   </motion.div>
                 )}
+
+                {/* GitHub Context */}
+                {githubContext && details.hash && (() => {
+                  const ciStatus = githubContext.commitStatuses[details.hash];
+                  const prs: GitHubPullRequest[] = [];
+                  
+                  const graphNode = useGraphStore.getState().graphNodes.get(details.nodeId);
+                  
+                  if (graphNode && graphNode.kind === 'commit') {
+                    const commitData = graphNode.data as unknown as CommitNodeData;
+                    for (const branch of commitData.branches) {
+                      const branchName = branch.replace('origin/', '');
+                      const pr = githubContext.pullRequests[branchName];
+                      if (pr && !prs.some(p => p.number === pr.number)) prs.push(pr);
+                    }
+                  }
+
+                  if (!ciStatus && prs.length === 0) return null;
+
+                  return (
+                    <motion.div
+                      className="inspector-section"
+                      variants={sectionVariants}
+                    >
+                      <div className="inspector-section-title">GitHub</div>
+                      
+                      {ciStatus && (
+                        <div className="inspector-field">
+                          <span className="inspector-field-label">Status</span>
+                          <span className="inspector-field-value">
+                            <span className={`github-badge ci-status ${ciStatus.state}`}>
+                              {ciStatus.state === 'success' ? '✔️' : ciStatus.state === 'failure' ? '❌' : '⏳'}
+                            </span>
+                            {' '}
+                            {ciStatus.description && <span className="text-muted">{ciStatus.description}</span>}
+                          </span>
+                        </div>
+                      )}
+
+                      {prs.length > 0 && (
+                        <div className="inspector-field" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                          <span className="inspector-field-label">Pull Requests</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            {prs.map(pr => (
+                              <a 
+                                key={pr.number} 
+                                href={pr.url} 
+                                target="_blank" 
+                                rel="noreferrer"
+                                className="github-pr-link"
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', textDecoration: 'none' }}
+                              >
+                                <span className="github-badge pr">#{pr.number}</span>
+                                <span>{pr.title}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })()}
 
                 {/* Diff stats */}
                 {details.diffStats && details.diffStats.length > 0 && (

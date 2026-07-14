@@ -271,11 +271,37 @@ export interface NodeDetails {
 // ============================================================
 
 /** Messages from Extension Host → Webview */
+// ── GitHub Integration ────────────────────────────────────────
+
+export interface GitHubIssue {
+  number: number;
+  title: string;
+  url: string;
+  state: 'open' | 'closed';
+}
+
+export interface GitHubPullRequest extends GitHubIssue {
+  headBranch: string;
+  baseBranch: string;
+}
+
+export interface GitHubCommitStatus {
+  state: 'success' | 'failure' | 'pending';
+  url: string;
+  description: string;
+}
+
 // ── Previews ──────────────────────────────────────────────────
 
 export interface PreviewData {
   readonly action: EdgeKind;
   readonly nodeId: string;
+}
+
+export interface GitHubContext {
+  pullRequests: Record<string, GitHubPullRequest>; // keyed by branch name
+  issues: GitHubIssue[];
+  commitStatuses: Record<string, GitHubCommitStatus>; // keyed by commit hash
 }
 
 export type ExtensionToWebviewMessage =
@@ -286,7 +312,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'node-details'; nodeId: string; details: NodeDetails }
   | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] }
   | { type: 'preview-action'; preview: PreviewData }
-  | { type: 'clear-preview' };
+  | { type: 'clear-preview' }
+  | { type: 'github-context'; context: GitHubContext };
 
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =

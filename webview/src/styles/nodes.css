@@ -117,6 +117,49 @@
   font-weight: 600;
 }
 
+/* ── GitHub Badges ─────────────────────────────────────────── */
+.github-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.github-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.github-badge.ci-status {
+  padding: 1px 4px;
+}
+
+.github-badge.ci-status.success {
+  background: rgba(46, 160, 67, 0.15);
+  border-color: rgba(46, 160, 67, 0.4);
+}
+
+.github-badge.ci-status.failure {
+  background: rgba(248, 81, 73, 0.15);
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.github-badge.pr {
+  color: var(--branch-purple);
+  background: rgba(188, 140, 255, 0.1);
+  border-color: rgba(188, 140, 255, 0.3);
+}
+
 /* ── Branch Labels ─────────────────────────────────────────── */
 .branch-labels {
   display: flex;

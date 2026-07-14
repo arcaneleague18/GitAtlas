@@ -16,6 +16,7 @@ import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { motion } from 'framer-motion';
 import { useGraphStore } from '../store/graph.store';
+import type { GitHubPullRequest } from '../types';
 
 interface CommitNodeDataType {
   kind: 'commit';
@@ -43,6 +44,18 @@ function CommitNodeComponent({ id, data }: NodeProps) {
   const validActionsCount = useGraphStore((state) => 
     state.selectedNodeId === id ? state.validActions.length : 0
   );
+
+  const githubContext = useGraphStore((state) => state.githubContext);
+  const ciStatus = githubContext?.commitStatuses[nodeData.hash];
+  
+  const prs: GitHubPullRequest[] = [];
+  if (githubContext?.pullRequests) {
+    for (const branch of nodeData.branches) {
+      const branchName = branch.replace('origin/', '');
+      const pr = githubContext.pullRequests[branchName];
+      if (pr && !prs.some(p => p.number === pr.number)) prs.push(pr);
+    }
+  }
 
   const handleMouseEnter = useCallback(() => setShowTooltip(true), []);
   const handleMouseLeave = useCallback(() => setShowTooltip(false), []);
@@ -91,6 +104,22 @@ function CommitNodeComponent({ id, data }: NodeProps) {
             </span>
           )}
         </div>
+
+        {/* GitHub Badges */}
+        {(ciStatus || prs.length > 0) && (
+          <div className="github-badges">
+            {ciStatus && (
+              <span className={`github-badge ci-status ${ciStatus.state}`} title={ciStatus.description}>
+                {ciStatus.state === 'success' ? '✔️' : ciStatus.state === 'failure' ? '❌' : '⏳'}
+              </span>
+            )}
+            {prs.map(pr => (
+              <span key={pr.number} className="github-badge pr" title={pr.title}>
+                #{pr.number}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Branch and tag badges */}
         {(nodeData.branches.length > 0 || nodeData.tags.length > 0) && (
