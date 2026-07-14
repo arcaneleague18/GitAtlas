@@ -148,17 +148,56 @@ export interface SerializedGraph {
   readonly timestamp: number;
 }
 
+// ── Node Details — Inspector Panel Data ───────────────────────
+
+export interface DiffFileStat {
+  readonly path: string;
+  readonly insertions: number;
+  readonly deletions: number;
+  readonly isBinary: boolean;
+}
+
+export interface NodeDetails {
+  readonly nodeId: string;
+  readonly kind: NodeKind;
+  readonly label: string;
+  readonly hash?: string;
+  readonly author?: string;
+  readonly authorEmail?: string;
+  readonly timestamp?: number;
+  readonly message?: string;
+  readonly parentHashes?: readonly string[];
+  readonly branches?: readonly string[];
+  readonly tags?: readonly string[];
+  readonly diffStats?: readonly DiffFileStat[];
+  readonly totalInsertions?: number;
+  readonly totalDeletions?: number;
+  readonly totalFilesChanged?: number;
+}
+
+export interface ValidAction {
+  readonly kind: EdgeKind;
+  readonly label: string;
+  readonly description: string;
+  readonly enabled: boolean;
+  readonly disabledReason?: string;
+  readonly isDangerous: boolean;
+}
+
 // ── Messages ──────────────────────────────────────────────────
 
 export type ExtensionToWebviewMessage =
   | { type: 'graph-update'; graph: SerializedGraph }
   | { type: 'theme-change'; theme: 'dark' | 'light' | 'high-contrast' }
   | { type: 'node-focus'; nodeId: string }
-  | { type: 'loading'; loading: boolean };
+  | { type: 'loading'; loading: boolean }
+  | { type: 'node-details'; nodeId: string; details: NodeDetails }
+  | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'node-selected'; nodeId: string }
+  | { type: 'request-details'; nodeId: string }
   | { type: 'action-requested'; action: EdgeKind; nodeId: string }
   | { type: 'open-file'; path: string }
   | { type: 'refresh' };

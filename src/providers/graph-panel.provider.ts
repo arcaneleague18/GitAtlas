@@ -14,10 +14,14 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { RepositoryStateEngine } from '../engine/state-engine.js';
+import { getValidActions } from '../engine/action-engine.js';
 import { DisposableBase } from '../utils/disposable.js';
+import type { GitService } from '../services/git.service.js';
 import type {
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
+  NodeDetails,
+  CommitNodeData,
 } from '../engine/types.js';
 
 export class GraphPanelProvider extends DisposableBase {
@@ -28,6 +32,7 @@ export class GraphPanelProvider extends DisposableBase {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly stateEngine: RepositoryStateEngine,
+    private readonly gitService: GitService,
   ) {
     super();
 
@@ -167,6 +172,12 @@ export class GraphPanelProvider extends DisposableBase {
           'gitTreeExplorer.nodeSelected',
           message.nodeId
         );
+        // Fetch and send details + valid actions for the inspector
+        void this.handleNodeSelected(message.nodeId);
+        break;
+
+      case 'request-details':
+        void this.handleNodeSelected(message.nodeId);
         break;
 
       case 'refresh':
@@ -187,6 +198,72 @@ export class GraphPanelProvider extends DisposableBase {
         );
         break;
     }
+  }
+
+  /**
+   * Handle a node selection from the webview.
+   * Fetches full details (diff stats) and computes valid actions,
+   * then sends them back to the webview for the Inspector panel.
+   */
+  private async handleNodeSelected(nodeId: string): Promise<void> {
+    const graph = this.stateEngine.graph;
+    if (!graph) return;
+
+    const node = graph.nodes.get(nodeId);
+    if (!node) return;
+
+    // Build NodeDetails
+    const details: NodeDetails = {
+      nodeId: node.id,
+      kind: node.kind,
+      label: node.label,
+    };
+
+    // For commit nodes, fetch diff stats and include commit data
+    if (node.data.kind === 'commit') {
+      const commitData = node.data as CommitNodeData;
+
+      // Fetch diff stats asynchronously
+      const diffStats = await this.gitService.getDiffStats(commitData.hash);
+      const totalInsertions = diffStats.reduce((sum, f) => sum + f.insertions, 0);
+      const totalDeletions = diffStats.reduce((sum, f) => sum + f.deletions, 0);
+
+      const commitDetails: NodeDetails = {
+        ...details,
+        hash: commitData.hash,
+        author: commitData.author,
+        authorEmail: commitData.authorEmail,
+        timestamp: commitData.timestamp,
+        message: commitData.message,
+        parentHashes: [...commitData.parentHashes],
+        branches: [...commitData.branches],
+        tags: [...commitData.tags],
+        diffStats,
+        totalInsertions,
+        totalDeletions,
+        totalFilesChanged: diffStats.length,
+      };
+
+      this.postMessage({
+        type: 'node-details',
+        nodeId,
+        details: commitDetails,
+      });
+    } else {
+      this.postMessage({
+        type: 'node-details',
+        nodeId,
+        details,
+      });
+    }
+
+    // Compute and send valid actions
+    const actions = getValidActions(nodeId, graph);
+    this.postMessage({
+      type: 'valid-actions',
+      nodeId,
+      actions,
+    });
   }
 
   /**

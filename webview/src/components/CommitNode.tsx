@@ -15,6 +15,7 @@ import React, { useState, useCallback } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { motion } from 'framer-motion';
+import { useGraphStore } from '../store/graph.store';
 
 interface CommitNodeDataType {
   kind: 'commit';
@@ -34,9 +35,14 @@ interface CommitNodeDataType {
   isSelected: boolean;
 }
 
-function CommitNodeComponent({ data }: NodeProps) {
+function CommitNodeComponent({ id, data }: NodeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const nodeData = data as unknown as CommitNodeDataType;
+  
+  // Only get the action count if this node is selected
+  const validActionsCount = useGraphStore((state) => 
+    state.selectedNodeId === id ? state.validActions.length : 0
+  );
 
   const handleMouseEnter = useCallback(() => setShowTooltip(true), []);
   const handleMouseLeave = useCallback(() => setShowTooltip(false), []);
@@ -79,6 +85,11 @@ function CommitNodeComponent({ data }: NodeProps) {
         <div className="commit-meta">
           <span className="commit-hash">{nodeData.shortHash}</span>
           <span className="commit-time">{timeAgo}</span>
+          {validActionsCount > 0 && (
+            <span className="commit-action-badge">
+              {validActionsCount} action{validActionsCount !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
         {/* Branch and tag badges */}

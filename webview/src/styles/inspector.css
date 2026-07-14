@@ -1,0 +1,414 @@
+/**
+ * Inspector panel styles — slide-out panel, diff stats, action buttons.
+ * Glassmorphic design consistent with the toolbar.
+ */
+
+/* ── Inspector Panel ──────────────────────────────────────────── */
+.node-inspector {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 340px;
+  height: 100%;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-left: 1px solid var(--border-muted);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-muted);
+  min-height: 48px;
+}
+
+.inspector-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inspector-kind-icon {
+  font-size: 1.1rem;
+}
+
+.inspector-kind-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--text-primary);
+  letter-spacing: 0.025em;
+}
+
+.inspector-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-base);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.inspector-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Body ─────────────────────────────────────────────────────── */
+.inspector-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-muted) transparent;
+}
+
+.inspector-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.inspector-body::-webkit-scrollbar-thumb {
+  background: var(--border-muted);
+  border-radius: 2px;
+}
+
+.inspector-sections {
+  padding: var(--space-2) 0;
+}
+
+/* ── Loading ──────────────────────────────────────────────────── */
+.inspector-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.inspector-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-muted);
+  border-top-color: var(--text-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Sections ─────────────────────────────────────────────────── */
+.inspector-section {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inspector-section:last-child {
+  border-bottom: none;
+}
+
+.inspector-section-title {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inspector-section-badge {
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ── Fields ───────────────────────────────────────────────────── */
+.inspector-field {
+  margin-bottom: var(--space-2);
+}
+
+.inspector-field-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.inspector-field-value {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.inspector-field-value.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.inspector-time-ago {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* ── Author ───────────────────────────────────────────────────── */
+.inspector-author {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inspector-avatar {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #58a6ff, #bc8cff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: #fff;
+}
+
+.inspector-author-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-author-name {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.inspector-author-email {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── Message ──────────────────────────────────────────────────── */
+.inspector-message {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-elevated);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ── Diff Stats ───────────────────────────────────────────────── */
+.inspector-diff-summary {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.diff-summary-add {
+  color: var(--text-success);
+}
+
+.diff-summary-del {
+  color: var(--text-danger);
+}
+
+.inspector-diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── DiffStatBar ──────────────────────────────────────────────── */
+.diff-stat-row {
+  display: grid;
+  grid-template-columns: 1fr auto 60px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 3px 0;
+  font-size: var(--text-xs);
+}
+
+.diff-stat-file {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.diff-stat-icon {
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.diff-stat-name {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.diff-stat-dir {
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: none; /* Show only on hover via parent */
+}
+
+.diff-stat-numbers {
+  display: flex;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.diff-stat-add {
+  color: var(--text-success);
+}
+
+.diff-stat-del {
+  color: var(--text-danger);
+}
+
+.diff-stat-binary {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.diff-stat-bar-container {
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.diff-stat-bar {
+  height: 100%;
+  display: flex;
+  border-radius: 3px;
+  overflow: hidden;
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.diff-stat-bar-insert {
+  height: 100%;
+  background: var(--text-success);
+  opacity: 0.8;
+}
+
+.diff-stat-bar-delete {
+  height: 100%;
+  background: var(--text-danger);
+  opacity: 0.8;
+}
+
+/* ── Action Buttons ───────────────────────────────────────────── */
+.inspector-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
+.action-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-accent);
+  box-shadow: 0 2px 8px rgba(88, 166, 255, 0.15);
+}
+
+.action-button.danger {
+  border-color: rgba(255, 123, 114, 0.3);
+  color: var(--text-danger);
+}
+
+.action-button.danger:hover {
+  background: rgba(255, 123, 114, 0.1);
+  border-color: rgba(255, 123, 114, 0.5);
+  box-shadow: 0 2px 8px rgba(255, 123, 114, 0.15);
+}
+
+.action-button.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.action-button-icon {
+  font-size: var(--text-sm);
+  line-height: 1;
+}
+
+.action-button-label {
+  font-size: 11px;
+}
+
+/* ── Graph container adjustment when inspector is open ─────────── */
+.graph-with-inspector .graph-container {
+  width: calc(100% - 340px);
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .node-inspector {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border-muted);
+  }
+
+  .graph-with-inspector .graph-container {
+    width: 100%;
+    height: 50%;
+  }
+}

@@ -234,6 +234,39 @@ export interface ValidAction {
 }
 
 // ============================================================
+// Node Details — Inspector Panel Data
+// ============================================================
+
+/** Per-file diff statistics. */
+export interface DiffFileStat {
+  readonly path: string;
+  readonly insertions: number;
+  readonly deletions: number;
+  readonly isBinary: boolean;
+}
+
+/** Full details for a node, fetched on demand for the inspector panel. */
+export interface NodeDetails {
+  readonly nodeId: string;
+  readonly kind: NodeKind;
+  readonly label: string;
+  /** Commit-specific fields (null for non-commit nodes). */
+  readonly hash?: string;
+  readonly author?: string;
+  readonly authorEmail?: string;
+  readonly timestamp?: number;
+  readonly message?: string;
+  readonly parentHashes?: readonly string[];
+  readonly branches?: readonly string[];
+  readonly tags?: readonly string[];
+  /** Diff stats (fetched on demand). */
+  readonly diffStats?: readonly DiffFileStat[];
+  readonly totalInsertions?: number;
+  readonly totalDeletions?: number;
+  readonly totalFilesChanged?: number;
+}
+
+// ============================================================
 // Messages — Extension ↔ Webview Communication
 // ============================================================
 
@@ -242,12 +275,15 @@ export type ExtensionToWebviewMessage =
   | { type: 'graph-update'; graph: SerializedGraph }
   | { type: 'theme-change'; theme: 'dark' | 'light' | 'high-contrast' }
   | { type: 'node-focus'; nodeId: string }
-  | { type: 'loading'; loading: boolean };
+  | { type: 'loading'; loading: boolean }
+  | { type: 'node-details'; nodeId: string; details: NodeDetails }
+  | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] };
 
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'node-selected'; nodeId: string }
+  | { type: 'request-details'; nodeId: string }
   | { type: 'action-requested'; action: EdgeKind; nodeId: string }
   | { type: 'open-file'; path: string }
   | { type: 'refresh' };

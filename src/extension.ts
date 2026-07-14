@@ -70,7 +70,8 @@ export async function activate(
   // Create graph panel provider
   const graphPanel = new GraphPanelProvider(
     context.extensionUri,
-    stateEngine
+    stateEngine,
+    gitService
   );
   context.subscriptions.push(graphPanel);
 

@@ -12,6 +12,7 @@ import { App } from './App';
 import './styles/index.css';
 import './styles/graph.css';
 import './styles/nodes.css';
+import './styles/inspector.css';
 
 const root = document.getElementById('root');
 if (!root) {

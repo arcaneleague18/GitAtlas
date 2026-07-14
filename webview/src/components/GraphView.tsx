@@ -11,6 +11,8 @@
  * - Animated edges for merges
  * - Node selection → extension communication
  * - Auto fit-to-view on first render
+ * - NodeInspector slide-out panel on node selection
+ * - Valid action edge highlighting
  */
 
 import { useCallback, useMemo, useRef, useEffect } from 'react';
@@ -30,6 +32,7 @@ import { postMessage } from '../vscode';
 import { CommitNode } from './CommitNode';
 import { BranchLabel } from './BranchLabel';
 import { Toolbar } from './Toolbar';
+import { NodeInspector } from './NodeInspector';
 
 /** Custom node types registered with React Flow. */
 const nodeTypes = {
@@ -45,6 +48,8 @@ export function GraphView() {
     selectNode,
     commitCount,
     theme,
+    isInspectorOpen,
+    validActions,
   } = useGraphStore();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
@@ -52,12 +57,32 @@ export function GraphView() {
   const initialFitDone = useRef(false);
   const reactFlowRef = useRef<HTMLDivElement>(null);
 
-  // Sync store nodes/edges to local state
+  // Sync store nodes/edges to local state, with edge glow for valid actions
   useEffect(() => {
     setNodes(storeNodes);
-    setEdges(storeEdges);
+
+    // Apply edge highlighting based on valid actions
+    const validActionKinds = new Set(validActions.map((a) => a.kind));
+    const highlightedEdges = storeEdges.map((edge) => {
+      // Check if this edge's type matches a valid action
+      const isHighlighted = validActionKinds.size > 0 && validActionKinds.has(edge.className?.replace('merge-edge', '').trim() as never);
+      if (isHighlighted) {
+        return {
+          ...edge,
+          animated: true,
+          style: {
+            ...edge.style,
+            strokeWidth: 3,
+            opacity: 1,
+            filter: 'drop-shadow(0 0 6px currentColor)',
+          },
+        };
+      }
+      return edge;
+    });
+    setEdges(highlightedEdges);
     initialFitDone.current = false;
-  }, [storeNodes, storeEdges, setNodes, setEdges]);
+  }, [storeNodes, storeEdges, setNodes, setEdges, validActions]);
 
   // Handle node click → select and notify extension
   const onNodeClick = useCallback(
@@ -115,58 +140,63 @@ export function GraphView() {
   }
 
   return (
-    <div className="graph-container" ref={reactFlowRef}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick}
-        onPaneClick={onPaneClick}
-        nodeTypes={nodeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        fitView
-        fitViewOptions={{ padding: 0.15, maxZoom: 1.5 }}
-        minZoom={0.05}
-        maxZoom={3}
-        // Performance
-        onlyRenderVisibleElements
-        // Disable editing
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={true}
-        // Interaction
-        panOnDrag
-        zoomOnScroll
-        zoomOnDoubleClick
-        // Style
-        proOptions={{ hideAttribution: true }}
-        className={`theme-${theme}`}
-      >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="var(--border-muted)"
-        />
-        <MiniMap
-          nodeColor={minimapNodeColor}
-          maskColor="var(--minimap-mask)"
-          style={{
-            width: 160,
-            height: 100,
-          }}
-          pannable
-          zoomable
-        />
-        <Controls
-          showInteractive={false}
-          showZoom={false}
-          showFitView={false}
-          position="bottom-right"
-        />
-        <Toolbar />
-      </ReactFlow>
+    <div
+      className={`graph-wrapper ${isInspectorOpen ? 'graph-with-inspector' : ''}`}
+    >
+      <div className="graph-container" ref={reactFlowRef}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          fitView
+          fitViewOptions={{ padding: 0.15, maxZoom: 1.5 }}
+          minZoom={0.05}
+          maxZoom={3}
+          // Performance
+          onlyRenderVisibleElements
+          // Disable editing
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={true}
+          // Interaction
+          panOnDrag
+          zoomOnScroll
+          zoomOnDoubleClick
+          // Style
+          proOptions={{ hideAttribution: true }}
+          className={`theme-${theme}`}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1}
+            color="var(--border-muted)"
+          />
+          <MiniMap
+            nodeColor={minimapNodeColor}
+            maskColor="var(--minimap-mask)"
+            style={{
+              width: 160,
+              height: 100,
+            }}
+            pannable
+            zoomable
+          />
+          <Controls
+            showInteractive={false}
+            showZoom={false}
+            showFitView={false}
+            position="bottom-right"
+          />
+          <Toolbar />
+        </ReactFlow>
+      </div>
+      <NodeInspector />
     </div>
   );
 }

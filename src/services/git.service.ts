@@ -24,6 +24,7 @@ import type {
   FileChange,
   FileChangeStatus,
   RepositoryState,
+  DiffFileStat,
 } from '../engine/types.js';
 
 const execFileAsync = promisify(execFile);
@@ -498,6 +499,52 @@ export class GitService {
       return 'dirty';
     } catch {
       return 'clean';
+    }
+  }
+
+  /**
+   * Get per-file diff statistics for a commit.
+   * Uses `git diff --numstat` against the commit's parent.
+   *
+   * @param commitHash - The commit hash to get diff stats for.
+   * @returns Array of DiffFileStat objects.
+   */
+  async getDiffStats(commitHash: string): Promise<DiffFileStat[]> {
+    try {
+      // Use commitHash^..commitHash to diff against parent
+      // For root commits, use --root flag via `git diff-tree`
+      const { stdout } = await this.exec([
+        'diff-tree',
+        '--numstat',
+        '--root',
+        '-r',
+        commitHash,
+      ]);
+
+      const lines = stdout.trim().split('\n').filter(Boolean);
+      const stats: DiffFileStat[] = [];
+
+      for (const line of lines) {
+        // Skip the first line which is just the commit hash
+        if (line.length === 40 && /^[0-9a-f]+$/.test(line)) continue;
+
+        const parts = line.split('\t');
+        if (parts.length < 3) continue;
+
+        const [insertions, deletions, filePath] = parts;
+        const isBinary = insertions === '-' && deletions === '-';
+
+        stats.push({
+          path: filePath!,
+          insertions: isBinary ? 0 : parseInt(insertions!, 10) || 0,
+          deletions: isBinary ? 0 : parseInt(deletions!, 10) || 0,
+          isBinary,
+        });
+      }
+
+      return stats;
+    } catch {
+      return [];
     }
   }
 }

@@ -3,7 +3,7 @@
  *
  * Responsibilities:
  * - Listen for messages from the extension host
- * - Route graph updates and theme changes to the Zustand store
+ * - Route graph updates, theme changes, node details, and valid actions to the store
  * - Apply theme class to the document body
  * - Signal "ready" to the extension on mount
  * - Render the GraphView
@@ -18,7 +18,15 @@ import { GraphView } from './components/GraphView';
 import type { ExtensionToWebviewMessage } from './types';
 
 export function App() {
-  const { setGraph, setTheme, setLoading, selectNode, theme } = useGraphStore();
+  const {
+    setGraph,
+    setTheme,
+    setLoading,
+    selectNode,
+    setNodeDetails,
+    setValidActions,
+    theme,
+  } = useGraphStore();
 
   // Handle messages from the extension host
   const handleMessage = useCallback(
@@ -36,9 +44,15 @@ export function App() {
         case 'loading':
           setLoading(message.loading);
           break;
+        case 'node-details':
+          setNodeDetails(message.details);
+          break;
+        case 'valid-actions':
+          setValidActions(message.actions);
+          break;
       }
     },
-    [setGraph, setTheme, setLoading, selectNode]
+    [setGraph, setTheme, setLoading, selectNode, setNodeDetails, setValidActions]
   );
 
   useVSCodeMessage(handleMessage);

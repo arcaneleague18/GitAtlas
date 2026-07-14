@@ -17,6 +17,8 @@ import type {
   GraphNode,
   CommitNodeData,
   RepositoryState,
+  NodeDetails,
+  ValidAction,
 } from '../types';
 
 /** Branch color palette — matches the extension host colors. */
@@ -49,12 +51,21 @@ export interface GraphStoreState {
   // Raw graph data for lookups
   graphNodes: Map<string, GraphNode>;
 
+  // Inspector panel state
+  selectedNodeDetails: NodeDetails | null;
+  validActions: ValidAction[];
+  isInspectorOpen: boolean;
+
   // Actions
   setGraph: (graph: SerializedGraph) => void;
   selectNode: (nodeId: string | null) => void;
   setTheme: (theme: 'dark' | 'light' | 'high-contrast') => void;
   setLoading: (loading: boolean) => void;
   focusNode: (nodeId: string) => void;
+  setNodeDetails: (details: NodeDetails) => void;
+  setValidActions: (actions: ValidAction[]) => void;
+  toggleInspector: () => void;
+  closeInspector: () => void;
 }
 
 /** Map to track which color is assigned to which branch. */
@@ -83,6 +94,9 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   commitCount: 0,
   branchCount: 0,
   graphNodes: new Map(),
+  selectedNodeDetails: null,
+  validActions: [],
+  isInspectorOpen: false,
 
   setGraph: (graph: SerializedGraph) => {
     const graphNodeMap = new Map(graph.nodes);
@@ -227,6 +241,10 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   selectNode: (nodeId: string | null) => {
     set((state) => ({
       selectedNodeId: nodeId,
+      isInspectorOpen: nodeId !== null,
+      // Clear previous details when selecting a new node
+      selectedNodeDetails: nodeId === null ? null : state.selectedNodeDetails,
+      validActions: nodeId === null ? [] : state.validActions,
       nodes: state.nodes.map((node) => ({
         ...node,
         data: {
@@ -244,5 +262,32 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   focusNode: (_nodeId: string) => {
     // The actual focus/zoom-to-node is handled in GraphView component
     // This just triggers a re-render signal
+  },
+
+  setNodeDetails: (details: NodeDetails) => {
+    set((state) => {
+      // Only update if the details are for the currently selected node
+      if (state.selectedNodeId === details.nodeId) {
+        return { selectedNodeDetails: details };
+      }
+      return {};
+    });
+  },
+
+  setValidActions: (actions: ValidAction[]) => {
+    set({ validActions: actions });
+  },
+
+  toggleInspector: () => {
+    set((state) => ({ isInspectorOpen: !state.isInspectorOpen }));
+  },
+
+  closeInspector: () => {
+    set({
+      isInspectorOpen: false,
+      selectedNodeId: null,
+      selectedNodeDetails: null,
+      validActions: [],
+    });
   },
 }));
