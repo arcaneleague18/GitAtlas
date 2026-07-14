@@ -271,13 +271,22 @@ export interface NodeDetails {
 // ============================================================
 
 /** Messages from Extension Host → Webview */
+// ── Previews ──────────────────────────────────────────────────
+
+export interface PreviewData {
+  readonly action: EdgeKind;
+  readonly nodeId: string;
+}
+
 export type ExtensionToWebviewMessage =
   | { type: 'graph-update'; graph: SerializedGraph }
   | { type: 'theme-change'; theme: 'dark' | 'light' | 'high-contrast' }
   | { type: 'node-focus'; nodeId: string }
   | { type: 'loading'; loading: boolean }
   | { type: 'node-details'; nodeId: string; details: NodeDetails }
-  | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] };
+  | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] }
+  | { type: 'preview-action'; preview: PreviewData }
+  | { type: 'clear-preview' };
 
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =

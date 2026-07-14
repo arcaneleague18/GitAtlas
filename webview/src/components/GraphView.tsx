@@ -50,6 +50,7 @@ export function GraphView() {
     theme,
     isInspectorOpen,
     validActions,
+    previewState,
   } = useGraphStore();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
@@ -80,9 +81,36 @@ export function GraphView() {
       }
       return edge;
     });
+    // Apply preview overlays if active
+    let finalNodes = storeNodes;
+    if (previewState) {
+      finalNodes = storeNodes.map((node) => {
+        if (node.id === previewState.nodeId) {
+          return {
+            ...node,
+            style: {
+              ...node.style,
+              filter: 'drop-shadow(0 0 12px var(--action-danger))',
+              transform: 'scale(1.05)',
+              transition: 'all 0.3s ease',
+            },
+          };
+        }
+        return {
+          ...node,
+          style: {
+            ...node.style,
+            opacity: 0.3,
+            transition: 'all 0.3s ease',
+          },
+        };
+      });
+    }
+
+    setNodes(finalNodes);
     setEdges(highlightedEdges);
     initialFitDone.current = false;
-  }, [storeNodes, storeEdges, setNodes, setEdges, validActions]);
+  }, [storeNodes, storeEdges, setNodes, setEdges, validActions, previewState]);
 
   // Handle node click → select and notify extension
   const onNodeClick = useCallback(

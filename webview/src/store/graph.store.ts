@@ -19,6 +19,7 @@ import type {
   RepositoryState,
   NodeDetails,
   ValidAction,
+  PreviewData,
 } from '../types';
 
 /** Branch color palette — matches the extension host colors. */
@@ -56,6 +57,9 @@ export interface GraphStoreState {
   validActions: ValidAction[];
   isInspectorOpen: boolean;
 
+  // Preview state
+  previewState: PreviewData | null;
+
   // Actions
   setGraph: (graph: SerializedGraph) => void;
   selectNode: (nodeId: string | null) => void;
@@ -66,6 +70,7 @@ export interface GraphStoreState {
   setValidActions: (actions: ValidAction[]) => void;
   toggleInspector: () => void;
   closeInspector: () => void;
+  setPreviewState: (preview: PreviewData | null) => void;
 }
 
 /** Map to track which color is assigned to which branch. */
@@ -97,6 +102,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   selectedNodeDetails: null,
   validActions: [],
   isInspectorOpen: false,
+  previewState: null,
 
   setGraph: (graph: SerializedGraph) => {
     const graphNodeMap = new Map(graph.nodes);
@@ -288,6 +294,11 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       selectedNodeId: null,
       selectedNodeDetails: null,
       validActions: [],
+      previewState: null,
     });
+  },
+
+  setPreviewState: (preview: PreviewData | null) => {
+    set({ previewState: preview });
   },
 }));

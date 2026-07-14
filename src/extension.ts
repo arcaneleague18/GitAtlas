@@ -16,6 +16,7 @@ import { GitService } from './services/git.service.js';
 import { RepositoryStateEngine } from './engine/state-engine.js';
 import { SidebarProvider } from './providers/sidebar.provider.js';
 import { GraphPanelProvider } from './providers/graph-panel.provider.js';
+import { ActionExecutor } from './engine/action-executor.js';
 import { debounce } from './utils/disposable.js';
 
 /** How often to poll for changes (ms). */
@@ -34,8 +35,12 @@ export async function activate(
     return;
   }
 
+  // Create output channel for Git operations
+  const outputChannel = vscode.window.createOutputChannel('Git Tree Explorer');
+  context.subscriptions.push(outputChannel);
+
   // Initialize Git service
-  const gitService = new GitService(workspaceRoot);
+  const gitService = new GitService(workspaceRoot, outputChannel);
   try {
     await gitService.initialize();
   } catch (err) {
@@ -57,6 +62,9 @@ export async function activate(
   const stateEngine = new RepositoryStateEngine(gitService);
   context.subscriptions.push(stateEngine);
 
+  // Create action executor
+  const actionExecutor = new ActionExecutor(gitService, stateEngine, outputChannel);
+
   // Create sidebar provider
   const sidebarProvider = new SidebarProvider(stateEngine);
   context.subscriptions.push(sidebarProvider);
@@ -71,7 +79,8 @@ export async function activate(
   const graphPanel = new GraphPanelProvider(
     context.extensionUri,
     stateEngine,
-    gitService
+    gitService,
+    actionExecutor
   );
   context.subscriptions.push(graphPanel);
 

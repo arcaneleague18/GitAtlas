@@ -26,6 +26,7 @@ export function App() {
     setNodeDetails,
     setValidActions,
     theme,
+    setPreviewState,
   } = useGraphStore();
 
   // Handle messages from the extension host
@@ -50,9 +51,15 @@ export function App() {
         case 'valid-actions':
           setValidActions(message.actions);
           break;
+        case 'preview-action':
+          setPreviewState(message.preview);
+          break;
+        case 'clear-preview':
+          setPreviewState(null);
+          break;
       }
     },
-    [setGraph, setTheme, setLoading, selectNode, setNodeDetails, setValidActions]
+    [setGraph, setTheme, setLoading, selectNode, setNodeDetails, setValidActions, setPreviewState]
   );
 
   useVSCodeMessage(handleMessage);

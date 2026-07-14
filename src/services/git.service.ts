@@ -40,9 +40,11 @@ const MAX_BUFFER = 50 * 1024 * 1024;
 export class GitService {
   private gitPath: string = 'git';
   private readonly workspaceRoot: string;
+  private readonly outputChannel: vscode.OutputChannel;
 
-  constructor(workspaceRoot: string) {
+  constructor(workspaceRoot: string, outputChannel: vscode.OutputChannel) {
     this.workspaceRoot = workspaceRoot;
+    this.outputChannel = outputChannel;
   }
 
   /**
@@ -83,12 +85,25 @@ export class GitService {
     args: string[],
     cwd?: string
   ): Promise<string> {
-    const { stdout } = await execFileAsync(this.gitPath, args, {
-      cwd: cwd ?? this.workspaceRoot,
-      maxBuffer: MAX_BUFFER,
-      windowsHide: true,
-    });
-    return stdout;
+    const cmd = `git ${args.join(' ')}`;
+    this.outputChannel.appendLine(`[GitService] > ${cmd}`);
+    
+    try {
+      const { stdout } = await execFileAsync(this.gitPath, args, {
+        cwd: cwd ?? this.workspaceRoot,
+        maxBuffer: MAX_BUFFER,
+        windowsHide: true,
+      });
+      if (stdout.trim().length > 0) {
+        this.outputChannel.appendLine(stdout.trim());
+      }
+      return stdout;
+    } catch (err: any) {
+      if (err.stderr) {
+        this.outputChannel.appendLine(`[GitService] ERROR: ${err.stderr.trim()}`);
+      }
+      throw err;
+    }
   }
 
   /**
@@ -503,49 +518,78 @@ export class GitService {
   }
 
   /**
-   * Get per-file diff statistics for a commit.
-   * Uses `git diff --numstat` against the commit's parent.
-   *
-   * @param commitHash - The commit hash to get diff stats for.
-   * @returns Array of DiffFileStat objects.
+   * Get the diff statistics for a specific commit compared to its parent.
    */
   async getDiffStats(commitHash: string): Promise<DiffFileStat[]> {
     try {
-      // Use commitHash^..commitHash to diff against parent
-      // For root commits, use --root flag via `git diff-tree`
-      const { stdout } = await this.exec([
+      // --numstat outputs: insertions deletions path
+      const output = await this.exec([
         'diff-tree',
+        '--no-commit-id',
         '--numstat',
         '--root',
         '-r',
         commitHash,
       ]);
 
-      const lines = stdout.trim().split('\n').filter(Boolean);
+      const lines = output.split('\n').filter((l) => l.trim().length > 0);
       const stats: DiffFileStat[] = [];
 
       for (const line of lines) {
-        // Skip the first line which is just the commit hash
-        if (line.length === 40 && /^[0-9a-f]+$/.test(line)) continue;
-
         const parts = line.split('\t');
-        if (parts.length < 3) continue;
+        if (parts.length >= 3) {
+          const insStr = parts[0]!.trim();
+          const delStr = parts[1]!.trim();
+          const path = parts.slice(2).join('\t').trim();
 
-        const [insertions, deletions, filePath] = parts;
-        const isBinary = insertions === '-' && deletions === '-';
-
-        stats.push({
-          path: filePath!,
-          insertions: isBinary ? 0 : parseInt(insertions!, 10) || 0,
-          deletions: isBinary ? 0 : parseInt(deletions!, 10) || 0,
-          isBinary,
-        });
+          const isBinary = insStr === '-' || delStr === '-';
+          stats.push({
+            path,
+            insertions: isBinary ? 0 : parseInt(insStr, 10) || 0,
+            deletions: isBinary ? 0 : parseInt(delStr, 10) || 0,
+            isBinary,
+          });
+        }
       }
 
       return stats;
     } catch {
       return [];
     }
+  }
+
+  // ── Execution Methods ───────────────────────────────────────────
+
+  async checkout(ref: string): Promise<void> {
+    await this.exec(['checkout', ref]);
+  }
+
+  async createBranch(name: string, ref?: string): Promise<void> {
+    const args = ['branch', name];
+    if (ref) {
+      args.push(ref);
+    }
+    await this.exec(args);
+  }
+
+  async deleteBranch(name: string, force = false): Promise<void> {
+    await this.exec(['branch', force ? '-D' : '-d', name]);
+  }
+
+  async merge(ref: string): Promise<void> {
+    await this.exec(['merge', ref]);
+  }
+
+  async rebase(ref: string): Promise<void> {
+    await this.exec(['rebase', ref]);
+  }
+
+  async cherryPick(hash: string): Promise<void> {
+    await this.exec(['cherry-pick', hash]);
+  }
+
+  async reset(hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
+    await this.exec(['reset', `--${mode}`, hash]);
   }
 }
 

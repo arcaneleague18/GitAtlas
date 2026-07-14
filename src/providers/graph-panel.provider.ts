@@ -17,6 +17,7 @@ import { RepositoryStateEngine } from '../engine/state-engine.js';
 import { getValidActions } from '../engine/action-engine.js';
 import { DisposableBase } from '../utils/disposable.js';
 import type { GitService } from '../services/git.service.js';
+import type { ActionExecutor } from '../engine/action-executor.js';
 import type {
   ExtensionToWebviewMessage,
   WebviewToExtensionMessage,
@@ -33,6 +34,7 @@ export class GraphPanelProvider extends DisposableBase {
     private readonly extensionUri: vscode.Uri,
     private readonly stateEngine: RepositoryStateEngine,
     private readonly gitService: GitService,
+    private readonly actionExecutor: ActionExecutor,
   ) {
     super();
 
@@ -192,9 +194,10 @@ export class GraphPanelProvider extends DisposableBase {
         break;
 
       case 'action-requested':
-        // Phase 3: Execute git actions
-        void vscode.window.showInformationMessage(
-          `Action "${message.action}" on node "${message.nodeId}" — coming in Phase 4`
+        void this.actionExecutor.handleActionRequest(
+          message.action, 
+          message.nodeId, 
+          (msg) => this.postMessage(msg)
         );
         break;
     }

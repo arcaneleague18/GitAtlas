@@ -184,6 +184,11 @@ export interface ValidAction {
   readonly isDangerous: boolean;
 }
 
+export interface PreviewData {
+  readonly action: EdgeKind;
+  readonly nodeId: string;
+}
+
 // ── Messages ──────────────────────────────────────────────────
 
 export type ExtensionToWebviewMessage =
@@ -192,7 +197,9 @@ export type ExtensionToWebviewMessage =
   | { type: 'node-focus'; nodeId: string }
   | { type: 'loading'; loading: boolean }
   | { type: 'node-details'; nodeId: string; details: NodeDetails }
-  | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] };
+  | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] }
+  | { type: 'preview-action'; preview: PreviewData }
+  | { type: 'clear-preview' };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
