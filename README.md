@@ -21,6 +21,7 @@ The UI makes Git feel like navigating a flowchart instead of using a terminal.
 - **Robust Error Handling:** Intercepts common Git errors (Merge Conflicts, Dirty Working Tree) and converts them into user-friendly explanations with suggested next steps.
 - **Repository Sidebar:** An organized tree view showing your current state, branches, recent commits, working directory, stashes, tags, and remotes.
 - **GitHub Integration:** Automatically detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
+- **AI Assistant:** An intelligent Git co-pilot in the sidebar. Ask questions about your repository state, get explanations of Git concepts, and receive suggested fixes for errors. Supports VS Code Language Models (GitHub Copilot) and custom OpenAI API keys.
 - **Auto-Refresh:** Automatically updates the graph and sidebar when you perform Git actions externally (watches `.git` folder).
 - **Premium Design:** Glassmorphic elements, smooth animations, dynamic edge highlighting for valid actions, and full VS Code theme integration (Dark, Light, High Contrast).
 
@@ -58,7 +59,7 @@ The extension consists of two main parts:
 - **Phase 2 (Completed):** Node Inspector, Details Panel, and dynamic valid action highlighting.
 - **Phase 3 (Completed):** Action Execution (Merge, Rebase, Checkout, Reset) with Visual Previews and robust error handling.
 - **Phase 4 (Completed):** GitHub integration (PRs, Issues, Actions).
-- **Phase 5:** AI assistant sidebar.
+- **Phase 5 (Completed):** AI assistant sidebar with vscode.lm and OpenAI support.
 - **Phase 6:** Advanced animations, polishing, time-travel visualization, and performance optimizations.
 ## Contributing
 
