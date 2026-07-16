@@ -19,6 +19,7 @@ import { GraphPanelProvider } from './providers/graph-panel.provider.js';
 import { ActionExecutor } from './engine/action-executor.js';
 import { GithubService } from './services/github.service.js';
 import { GithubIntegrationEngine } from './engine/github-integration.js';
+import { AiAssistantProvider } from './providers/ai-assistant.provider.js';
 import { debounce } from './utils/disposable.js';
 
 /** How often to poll for changes (ms). */
@@ -91,6 +92,21 @@ export async function activate(
     githubIntegration
   );
   context.subscriptions.push(graphPanel);
+
+  // Create AI assistant provider
+  const aiAssistant = new AiAssistantProvider(
+    context.extensionUri,
+    stateEngine,
+    githubIntegration
+  );
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      AiAssistantProvider.viewType,
+      aiAssistant,
+      { webviewOptions: { retainContextWhenHidden: true } }
+    )
+  );
+  context.subscriptions.push(aiAssistant);
 
   // Register commands
   context.subscriptions.push(

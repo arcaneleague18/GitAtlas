@@ -6,7 +6,7 @@
   "publisher": "git-tree-explorer",
   "license": "MIT",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.90.0"
   },
   "categories": [
     "SCM Providers",
@@ -40,6 +40,11 @@
         {
           "id": "gitTreeExplorer.sidebar",
           "name": "Repository"
+        },
+        {
+          "id": "gitTreeExplorer.aiAssistant",
+          "name": "AI Assistant",
+          "type": "webview"
         }
       ]
     },
@@ -70,6 +75,32 @@
           "group": "navigation@2"
         }
       ]
+    },
+    "configuration": {
+      "title": "Git Tree Explorer",
+      "properties": {
+        "gitTreeExplorer.ai.provider": {
+          "type": "string",
+          "enum": ["vscode-lm", "openai"],
+          "default": "vscode-lm",
+          "description": "AI provider to use. 'vscode-lm' uses your installed VS Code language model (e.g., GitHub Copilot). 'openai' uses a custom OpenAI-compatible API key."
+        },
+        "gitTreeExplorer.ai.openaiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your OpenAI API key (only used when provider is set to 'openai')."
+        },
+        "gitTreeExplorer.ai.openaiModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "OpenAI model to use (only used when provider is set to 'openai')."
+        },
+        "gitTreeExplorer.ai.openaiBaseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "Base URL for OpenAI-compatible API (only used when provider is set to 'openai')."
+        }
+      }
     }
   },
   "scripts": {
