@@ -64,6 +64,10 @@ export function AiAssistantApp() {
       switch (message.type) {
         case 'chat-response-chunk': {
           if (message.done) {
+            // Capture content before clearing — React 18 batching
+            // defers the updater, so the ref would be empty by then.
+            const finalContent = streamBufferRef.current;
+            streamBufferRef.current = '';
             // Finalize the streaming message
             setMessages((prev) => {
               const updated = [...prev];
@@ -71,13 +75,12 @@ export function AiAssistantApp() {
               if (last && last.role === 'assistant') {
                 updated[updated.length - 1] = {
                   ...last,
-                  content: streamBufferRef.current,
+                  content: finalContent,
                   isStreaming: false,
                 };
               }
               return updated;
             });
-            streamBufferRef.current = '';
             setIsLoading(false);
           } else {
             streamBufferRef.current += message.chunk;
