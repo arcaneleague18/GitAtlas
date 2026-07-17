@@ -34,6 +34,7 @@ interface CommitNodeDataType {
   isHead: boolean;
   isCurrentBranch: boolean;
   isSelected: boolean;
+  isOrphaned: boolean;
 }
 
 function CommitNodeComponent({ id, data }: NodeProps) {
@@ -64,7 +65,7 @@ function CommitNodeComponent({ id, data }: NodeProps) {
 
   return (
     <motion.div
-      className={`commit-node ${nodeData.isSelected ? 'selected' : ''}`}
+      className={`commit-node ${nodeData.isSelected ? 'selected' : ''} ${nodeData.isOrphaned ? 'orphaned' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       initial={{ opacity: 0, scale: 0.8 }}

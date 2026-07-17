@@ -154,8 +154,10 @@ export class GitService {
    * Get commit log as parsed objects.
    *
    * @param maxCount Maximum number of commits to retrieve (default: 500).
+   * @param includeReflog When true, also fetches commits only reachable via
+   *   the reflog (orphaned commits) and merges them into the result.
    */
-  async getLog(maxCount: number = 500): Promise<RawCommit[]> {
+  async getLog(maxCount: number = 500, includeReflog: boolean = false): Promise<RawCommit[]> {
     const format = [
       '%H',   // hash
       '%h',   // short hash
@@ -178,6 +180,74 @@ export class GitService {
       ]);
     } catch {
       // No commits yet
+      return [];
+    }
+
+    const records = stdout
+      .split(RECORD_SEP)
+      .map((r) => r.trim())
+      .filter(Boolean);
+
+    const commits = records.map((record) => {
+      const fields = record.split(FIELD_SEP);
+      return {
+        hash: fields[0] ?? '',
+        shortHash: fields[1] ?? '',
+        parentHashes: (fields[2] ?? '').split(' ').filter(Boolean),
+        author: fields[3] ?? '',
+        authorEmail: fields[4] ?? '',
+        timestamp: parseInt(fields[5] ?? '0', 10),
+        message: fields[6] ?? '',
+        refs: fields[7] ?? '',
+      };
+    });
+
+    // If reflog is requested, find orphaned commits and merge them in
+    if (includeReflog) {
+      const knownHashes = new Set(commits.map((c) => c.hash));
+      const reflogCommits = await this.getReflogCommits(maxCount, format);
+      for (const rc of reflogCommits) {
+        if (!knownHashes.has(rc.hash)) {
+          commits.push(rc);
+          knownHashes.add(rc.hash);
+        }
+      }
+    }
+
+    return commits;
+  }
+
+  /**
+   * Fetch commits reachable only via the reflog.
+   * Uses `git reflog` to get hashes, then `git log` to get full data
+   * for any that aren't already in the normal `--all` output.
+   */
+  private async getReflogCommits(maxCount: number, format: string): Promise<RawCommit[]> {
+    let reflogOutput: string;
+    try {
+      reflogOutput = await this.exec([
+        'reflog',
+        '--format=%H',
+        `--max-count=${maxCount}`,
+      ]);
+    } catch {
+      return [];
+    }
+
+    const reflogHashes = reflogOutput.trim().split('\n').filter(Boolean);
+    if (reflogHashes.length === 0) return [];
+
+    // Get full commit data for reflog-only hashes
+    let stdout: string;
+    try {
+      stdout = await this.exec([
+        'log',
+        `--max-count=${maxCount}`,
+        `--format=${RECORD_SEP}${format}`,
+        '--no-walk',
+        ...reflogHashes,
+      ]);
+    } catch {
       return [];
     }
 

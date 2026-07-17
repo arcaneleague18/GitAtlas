@@ -99,6 +99,18 @@
           "type": "string",
           "default": "https://api.openai.com/v1",
           "description": "Base URL for OpenAI-compatible API (only used when provider is set to 'openai')."
+        },
+        "gitTreeExplorer.showLostCommits": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show orphaned commits from the reflog (commits no longer referenced by any branch). Enables time-travel recovery."
+        },
+        "gitTreeExplorer.maxCommits": {
+          "type": "number",
+          "default": 500,
+          "minimum": 50,
+          "maximum": 10000,
+          "description": "Maximum number of commits to load in the graph. Increase for larger repositories."
         }
       }
     }

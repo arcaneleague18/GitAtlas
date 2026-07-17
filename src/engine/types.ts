@@ -68,6 +68,7 @@ export interface CommitNodeData {
   readonly branches: readonly string[];
   readonly tags: readonly string[];
   readonly filesChanged: number;
+  readonly isOrphaned: boolean;
 }
 
 export interface BranchNodeData {
@@ -322,7 +323,9 @@ export type WebviewToExtensionMessage =
   | { type: 'request-details'; nodeId: string }
   | { type: 'action-requested'; action: EdgeKind; nodeId: string }
   | { type: 'open-file'; path: string }
-  | { type: 'refresh' };
+  | { type: 'refresh' }
+  | { type: 'toggle-lost-commits'; enabled: boolean }
+  | { type: 'load-more' };
 
 /**
  * Serialized version of RepositoryGraph for postMessage transfer.
@@ -336,6 +339,7 @@ export interface SerializedGraph {
   readonly currentBranch: string | null;
   readonly state: RepositoryState;
   readonly timestamp: number;
+  readonly hasMore?: boolean;
 }
 
 // ============================================================

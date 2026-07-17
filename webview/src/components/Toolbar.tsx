@@ -12,8 +12,15 @@ import { useGraphStore } from '../store/graph.store';
 
 function ToolbarComponent() {
   const reactFlow = useReactFlow();
-  const { repositoryState, commitCount, branchCount, currentBranch } =
-    useGraphStore();
+  const {
+    repositoryState,
+    commitCount,
+    branchCount,
+    currentBranch,
+    hasMore,
+    showLostCommits,
+    setShowLostCommits,
+  } = useGraphStore();
 
   const handleFitView = useCallback(() => {
     reactFlow.fitView({ padding: 0.2, duration: 500 });
@@ -29,6 +36,16 @@ function ToolbarComponent() {
 
   const handleRefresh = useCallback(() => {
     postMessage({ type: 'refresh' });
+  }, []);
+
+  const handleToggleLostCommits = useCallback(() => {
+    const newValue = !showLostCommits;
+    setShowLostCommits(newValue);
+    postMessage({ type: 'toggle-lost-commits', enabled: newValue });
+  }, [showLostCommits, setShowLostCommits]);
+
+  const handleLoadMore = useCallback(() => {
+    postMessage({ type: 'load-more' });
   }, []);
 
   return (
@@ -86,6 +103,23 @@ function ToolbarComponent() {
         <div className="status-item">
           <span>{branchCount} branches</span>
         </div>
+        <div className="status-item toggle-item">
+          <label className="toggle-label" title="Show orphaned commits (reflog) for time-travel recovery">
+            <input
+              type="checkbox"
+              checked={showLostCommits}
+              onChange={handleToggleLostCommits}
+            />
+            <span>Show Lost Commits</span>
+          </label>
+        </div>
+        {hasMore && (
+          <div className="status-item">
+            <button className="load-more-btn" onClick={handleLoadMore}>
+              Load More
+            </button>
+          </div>
+        )}
       </div>
     </>
   );

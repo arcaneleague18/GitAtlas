@@ -200,6 +200,16 @@ export class GraphPanelProvider extends DisposableBase {
           (msg) => this.postMessage(msg)
         );
         break;
+
+      case 'toggle-lost-commits':
+        this.stateEngine.setShowLostCommits(message.enabled);
+        void this.stateEngine.buildGraph();
+        break;
+
+      case 'load-more':
+        this.stateEngine.loadMore();
+        void this.stateEngine.buildGraph();
+        break;
     }
   }
 

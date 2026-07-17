@@ -53,15 +53,31 @@ export class RepositoryStateEngine extends DisposableBase {
   private _graph: RepositoryGraph | null = null;
   private _branchColorMap = new Map<string, string>();
   private _colorIndex = 0;
+  private _showLostCommits = false;
+  private _currentMaxCount: number;
+  private _totalCommitsAvailable = 0;
 
   constructor(private readonly gitService: GitService) {
     super();
     this.register(this._onDidChangeGraph);
+    const config = vscode.workspace.getConfiguration('gitTreeExplorer');
+    this._currentMaxCount = config.get<number>('maxCommits', 500);
+    this._showLostCommits = config.get<boolean>('showLostCommits', false);
   }
 
   /** Get the current graph snapshot, or null if not yet built. */
   get graph(): RepositoryGraph | null {
     return this._graph;
+  }
+
+  /** Toggle lost commits visibility and rebuild. */
+  setShowLostCommits(enabled: boolean): void {
+    this._showLostCommits = enabled;
+  }
+
+  /** Increase the max commit count for "load more" and rebuild. */
+  loadMore(): void {
+    this._currentMaxCount += this._currentMaxCount; // double it
   }
 
   /**
@@ -73,7 +89,7 @@ export class RepositoryStateEngine extends DisposableBase {
     const [head, commits, branches, tags, stashes, remotes, status, repoState] =
       await Promise.all([
         this.gitService.getHead(),
-        this.gitService.getLog(),
+        this.gitService.getLog(this._currentMaxCount, this._showLostCommits),
         this.gitService.getBranches(),
         this.gitService.getTags(),
         this.gitService.getStashes(),
@@ -81,6 +97,9 @@ export class RepositoryStateEngine extends DisposableBase {
         this.gitService.getStatus(),
         this.gitService.getRepositoryState(),
       ]);
+
+    // Track how many commits we got to determine hasMore
+    this._totalCommitsAvailable = commits.length;
 
     const nodes = new Map<string, GraphNode>();
     const edges: GraphEdge[] = [];
@@ -101,10 +120,49 @@ export class RepositoryStateEngine extends DisposableBase {
       commitTags.set(tag.targetHash, existing);
     }
 
+    // ── Reachability analysis ──────────────────────────────
+    // Build a set of all commits reachable from any branch, tag, or HEAD.
+    const reachableHashes = new Set<string>();
+
+    if (this._showLostCommits) {
+      // Collect all "root" hashes: branch tips, tag targets, HEAD
+      const rootHashes = new Set<string>();
+      rootHashes.add(head.hash);
+      for (const branch of branches) {
+        // Find full hash for branch tip
+        const fullHash = findFullHash(commits, branch.tipHash);
+        if (fullHash) rootHashes.add(fullHash);
+      }
+      for (const tag of tags) {
+        const fullHash = findFullHash(commits, tag.targetHash);
+        if (fullHash) rootHashes.add(fullHash);
+      }
+
+      // BFS from roots through parent links
+      const commitMap = new Map(commits.map((c) => [c.hash, c]));
+      const queue = [...rootHashes];
+      while (queue.length > 0) {
+        const hash = queue.pop()!;
+        if (reachableHashes.has(hash)) continue;
+        reachableHashes.add(hash);
+        const commit = commitMap.get(hash);
+        if (commit) {
+          for (const parentHash of commit.parentHashes) {
+            if (!reachableHashes.has(parentHash)) {
+              queue.push(parentHash);
+            }
+          }
+        }
+      }
+    }
+
     // Build commit nodes
     for (const commit of commits) {
       const branchesOnCommit = commitBranches.get(commit.shortHash) ?? commitBranches.get(commit.hash) ?? [];
       const tagsOnCommit = commitTags.get(commit.shortHash) ?? commitTags.get(commit.hash) ?? [];
+
+      // Determine if orphaned (only relevant when showLostCommits is active)
+      const isOrphaned = this._showLostCommits && !reachableHashes.has(commit.hash);
 
       const commitNode: GraphNode = {
         id: commit.hash,
@@ -124,6 +182,7 @@ export class RepositoryStateEngine extends DisposableBase {
           branches: branchesOnCommit,
           tags: tagsOnCommit,
           filesChanged: 0, // Lazy-loaded for performance
+          isOrphaned,
         } satisfies CommitNodeData,
       };
 
@@ -272,6 +331,7 @@ export class RepositoryStateEngine extends DisposableBase {
       currentBranch: graph.currentBranch,
       state: graph.state,
       timestamp: graph.timestamp,
+      hasMore: this._totalCommitsAvailable >= this._currentMaxCount,
     };
   }
 
@@ -313,3 +373,4 @@ function findFullHash(
   );
   return prefix?.hash;
 }
+

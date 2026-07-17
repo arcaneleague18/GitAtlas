@@ -60,7 +60,7 @@ The extension consists of two main parts:
 - **Phase 3 (Completed):** Action Execution (Merge, Rebase, Checkout, Reset) with Visual Previews and robust error handling.
 - **Phase 4 (Completed):** GitHub integration (PRs, Issues, Actions).
 - **Phase 5 (Completed):** AI assistant sidebar with vscode.lm and OpenAI support.
-- **Phase 6:** Advanced animations, polishing, time-travel visualization, and performance optimizations.
+- **Phase 6 (Completed):** Advanced animations, polishing, time-travel visualization (reflog), and performance optimizations.
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request.

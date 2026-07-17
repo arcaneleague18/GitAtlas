@@ -32,6 +32,22 @@
   box-shadow: var(--node-shadow), 0 0 0 2px var(--head-glow);
 }
 
+.commit-node.orphaned {
+  opacity: 0.6;
+  border-style: dashed;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bg-primary),
+    var(--bg-primary) 10px,
+    var(--node-bg) 10px,
+    var(--node-bg) 20px
+  );
+}
+
+.commit-node.orphaned:hover {
+  opacity: 0.9;
+}
+
 /* ── Commit Circle ─────────────────────────────────────────── */
 .commit-circle {
   width: 28px;

@@ -49,6 +49,8 @@ export interface GraphStoreState {
   isLoading: boolean;
   commitCount: number;
   branchCount: number;
+  hasMore: boolean;
+  showLostCommits: boolean;
 
   // Raw graph data for lookups
   graphNodes: Map<string, GraphNode>;
@@ -76,6 +78,7 @@ export interface GraphStoreState {
   closeInspector: () => void;
   setPreviewState: (preview: PreviewData | null) => void;
   setGithubContext: (context: GitHubContext) => void;
+  setShowLostCommits: (show: boolean) => void;
 }
 
 /** Map to track which color is assigned to which branch. */
@@ -103,6 +106,8 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   isLoading: true,
   commitCount: 0,
   branchCount: 0,
+  hasMore: false,
+  showLostCommits: false,
   graphNodes: new Map(),
   selectedNodeDetails: null,
   validActions: [],
@@ -246,6 +251,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       isLoading: false,
       commitCount: commitNodes.length,
       branchCount: branchNodes.length,
+      hasMore: graph.hasMore ?? false,
       graphNodes: graphNodeMap,
     });
   },
@@ -310,5 +316,10 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
 
   setGithubContext: (context: GitHubContext) => {
     set({ githubContext: context });
+  },
+
+  setShowLostCommits: (show: boolean) => {
+    set({ showLostCommits: show });
+    // Note: The actual graph update is triggered by Toolbar via postMessage
   },
 }));
