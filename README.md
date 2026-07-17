@@ -1,7 +1,9 @@
 <div align="center">
-  <img src="resources/git-atlas-logo.png" alt="Git Atlas Logo" width="300" />
-  
-  <p><strong>Transform Git into an interactive visual graph and explore your repository like a map.</strong></p>
+  <img src="resources/git-atlas-logo.png" alt="Git Atlas Logo" width="500" />
+
+  <p><strong>Tired of git commands? Don't know which command to use? Scared what a command might do?</strong></p>
+
+  <p><strong>Instead, transform Git into an interactive visual graph and explore your repository</strong></p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
   [![VS Code](https://img.shields.io/badge/VS%20Code-1.90.0+-blueviolet.svg)](https://code.visualstudio.com/)
