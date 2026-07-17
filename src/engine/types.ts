@@ -1,5 +1,5 @@
 /**
- * Core type definitions for Git Tree Explorer.
+ * Core type definitions for Git Atlas.
  *
  * Models Git as a state machine where:
  * - Nodes represent repository states (commits, branches, working directory, etc.)

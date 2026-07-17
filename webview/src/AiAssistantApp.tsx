@@ -193,7 +193,7 @@ export function AiAssistantApp() {
         {messages.length === 0 ? (
           <div className="ai-welcome">
             <div className="ai-welcome-icon">🌳</div>
-            <div className="ai-welcome-title">Git Tree Explorer AI</div>
+            <div className="ai-welcome-title">Git Atlas AI</div>
             <div className="ai-welcome-subtitle">
               Ask me anything about your repository
             </div>

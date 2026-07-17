@@ -1,5 +1,5 @@
 /**
- * Main entry point for the Git Tree Explorer webview.
+ * Main entry point for the Git Atlas webview.
  *
  * Mounts the React app and imports the design system styles.
  * Checks window.__GITVIS_VIEW__ to determine which app to render:

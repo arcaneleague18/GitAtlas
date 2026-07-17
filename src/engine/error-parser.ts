@@ -57,7 +57,7 @@ export function parseGitError(stderr: string, action: string): GitError {
       rawStderr: stderr,
     };
   }
-  
+
   // 5. Branch Already Exists
   if (lowerErr.includes('already exists')) {
     return {
@@ -72,7 +72,7 @@ export function parseGitError(stderr: string, action: string): GitError {
   return {
     message: `Git ${action} failed.`,
     reason: 'An unexpected error occurred during the Git operation.',
-    nextSteps: 'Check the Git Tree Explorer output channel for more details.',
+    nextSteps: 'Check the Git Atlas output channel for more details.',
     rawStderr: stderr,
   };
 }

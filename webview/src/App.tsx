@@ -1,5 +1,5 @@
 /**
- * App — Root React component for the Git Tree Explorer webview.
+ * App — Root React component for the Git Atlas webview.
  *
  * Responsibilities:
  * - Listen for messages from the extension host

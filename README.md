@@ -1,8 +1,8 @@
-# Git Tree Explorer
+# Git Atlas
 
-Git Tree Explorer is a VS Code extension that transforms Git into an interactive visual graph. It helps you understand Git through visualization rather than memorizing commands, treating Git as a visual state machine.
+Git Atlas is a VS Code extension that transforms Git into an interactive visual graph. It helps you understand Git through visualization rather than memorizing commands, treating Git as a visual state machine.
 
-![Git Tree Explorer Concept](https://raw.githubusercontent.com/microsoft/vscode-extension-samples/main/webview-view-sample/media/icon.png) *Replace with actual screenshot later*
+![Git Atlas Concept](https://raw.githubusercontent.com/microsoft/vscode-extension-samples/main/webview-view-sample/media/icon.png) *Replace with actual screenshot later*
 
 ## Philosophy
 

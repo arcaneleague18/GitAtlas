@@ -1,6 +1,6 @@
 {
   "name": "git-tree-explorer",
-  "displayName": "Git Tree Explorer",
+  "displayName": "Git Atlas",
   "description": "Transform Git into an interactive visual state machine graph. Understand Git through visualization, not commands.",
   "version": "0.1.0",
   "publisher": "git-tree-explorer",
@@ -30,7 +30,7 @@
       "activitybar": [
         {
           "id": "gitTreeExplorer",
-          "title": "Git Tree Explorer",
+          "title": "Git Atlas",
           "icon": "resources/icon.svg"
         }
       ]
@@ -52,13 +52,13 @@
       {
         "command": "gitTreeExplorer.openGraph",
         "title": "Open Commit Graph",
-        "category": "Git Tree Explorer",
+        "category": "Git Atlas",
         "icon": "$(graph)"
       },
       {
         "command": "gitTreeExplorer.refresh",
         "title": "Refresh",
-        "category": "Git Tree Explorer",
+        "category": "Git Atlas",
         "icon": "$(refresh)"
       }
     ],
@@ -77,11 +77,14 @@
       ]
     },
     "configuration": {
-      "title": "Git Tree Explorer",
+      "title": "Git Atlas",
       "properties": {
         "gitTreeExplorer.ai.provider": {
           "type": "string",
-          "enum": ["vscode-lm", "openai"],
+          "enum": [
+            "vscode-lm",
+            "openai"
+          ],
           "default": "vscode-lm",
           "description": "AI provider to use. 'vscode-lm' uses your installed VS Code language model (e.g., GitHub Copilot). 'openai' uses a custom OpenAI-compatible API key."
         },

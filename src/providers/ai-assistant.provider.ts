@@ -23,8 +23,7 @@ interface ChatMessage {
 
 export class AiAssistantProvider
   extends DisposableBase
-  implements vscode.WebviewViewProvider
-{
+  implements vscode.WebviewViewProvider {
   public static readonly viewType = 'gitTreeExplorer.aiAssistant';
 
   private view: vscode.WebviewView | null = null;
@@ -197,7 +196,7 @@ export class AiAssistantProvider
       this.postToWebview({
         type: 'chat-error',
         error:
-          'No API key configured. Set your key in Settings → Git Tree Explorer → AI → OpenAI API Key.',
+          'No API key configured. Set your key in Settings → Git Atlas → AI → OpenAI API Key.',
       });
       return;
     }
@@ -360,7 +359,7 @@ export class AiAssistantProvider
    * System prompt that defines the AI assistant's personality and capabilities.
    */
   private getSystemPrompt(): string {
-    return `You are the Git Tree Explorer AI Assistant, an expert Git advisor embedded inside a VS Code extension.
+    return `You are the Git Atlas AI Assistant, an expert Git advisor embedded inside a VS Code extension.
 
 Your role:
 - Help users understand their Git repository state visually

@@ -195,8 +195,8 @@ export class GraphPanelProvider extends DisposableBase {
 
       case 'action-requested':
         void this.actionExecutor.handleActionRequest(
-          message.action, 
-          message.nodeId, 
+          message.action,
+          message.nodeId,
           (msg) => this.postMessage(msg)
         );
         break;
@@ -346,7 +346,7 @@ export class GraphPanelProvider extends DisposableBase {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Git Tree Explorer</title>
+  <title>Git Atlas</title>
   <style>
     body {
       display: flex;
@@ -381,7 +381,7 @@ export class GraphPanelProvider extends DisposableBase {
 </head>
 <body>
   <div class="container">
-    <div class="title">Git Tree Explorer</div>
+    <div class="title">Git Atlas</div>
     <div class="message">
       Webview not built yet.<br>
       Run <code>cd webview && npm install && npm run build</code><br>

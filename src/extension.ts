@@ -39,7 +39,7 @@ export async function activate(
   }
 
   // Create output channel for Git operations
-  const outputChannel = vscode.window.createOutputChannel('Git Tree Explorer');
+  const outputChannel = vscode.window.createOutputChannel('Git Atlas');
   context.subscriptions.push(outputChannel);
 
   // Initialize Git service
@@ -48,7 +48,7 @@ export async function activate(
     await gitService.initialize();
   } catch (err) {
     vscode.window.showErrorMessage(
-      `Git Tree Explorer: ${err instanceof Error ? err.message : 'Failed to initialize Git'}`
+      `Git Atlas: ${err instanceof Error ? err.message : 'Failed to initialize Git'}`
     );
     registerPlaceholderSidebar(context);
     return;
@@ -118,7 +118,7 @@ export async function activate(
   context.subscriptions.push(
     vscode.commands.registerCommand('gitTreeExplorer.refresh', async () => {
       await stateEngine.buildGraph();
-      vscode.window.showInformationMessage('Git Tree Explorer: Refreshed');
+      vscode.window.showInformationMessage('Git Atlas: Refreshed');
     })
   );
 
@@ -145,7 +145,7 @@ export async function activate(
   try {
     await stateEngine.buildGraph();
   } catch (err) {
-    console.error('Git Tree Explorer: Failed to build initial graph', err);
+    console.error('Git Atlas: Failed to build initial graph', err);
   }
 
   // Set up file system watcher for auto-refresh
@@ -153,7 +153,7 @@ export async function activate(
     try {
       await stateEngine.buildGraph();
     } catch (err) {
-      console.error('Git Tree Explorer: Auto-refresh failed', err);
+      console.error('Git Atlas: Auto-refresh failed', err);
     }
   }, FS_DEBOUNCE);
   context.subscriptions.push(debouncedRefresh);
@@ -186,7 +186,7 @@ export async function activate(
   }, REFRESH_INTERVAL);
   context.subscriptions.push({ dispose: () => clearInterval(interval) });
 
-  console.log('Git Tree Explorer activated');
+  console.log('Git Atlas activated');
 }
 
 export function deactivate(): void {
