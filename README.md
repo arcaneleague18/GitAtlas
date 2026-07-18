@@ -1,5 +1,13 @@
 <div align="center">
-  <img src="resources/git-atlas-logo.png" alt="Git Atlas Logo" width="500" />
+
+   <p align="center">
+   <img src="./resources/icon(1).svg" width="20%" />&nbsp;&nbsp;&nbsp;&nbsp;
+   <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./resources/name-banner.svg">
+      <source media="(prefers-color-scheme: light)" srcset="./resources/name-banner.svg">
+      <img alt="About Me" src="./resources/name-banner.svg" width="65%">
+   </picture>
+   </p>
 
   <p><strong>Tired of git commands? Don't know which command to use? Scared what a command might do?</strong></p>
 
@@ -24,18 +32,28 @@ The UI makes Git feel like navigating a flowchart instead of wrestling with a te
 ## ✨ Features
 
 - 🗺️ **Interactive Graph Webview:** A React Flow-based visual Directed Acyclic Graph (DAG) of your commit history.
+
 - 🔍 **Node Inspector & Action Previews:** Click any commit to see a premium slide-out panel with full details, diff statistics, and context-aware valid Git actions.
+
 - 🛡️ **Visual Previews:** Before executing any dangerous action, the graph visually previews what will happen (e.g., highlighting commits that will be dropped during a hard reset).
+
 - ⚡ **Git Action Execution:** Execute operations (Checkout, Branch, Merge, Rebase, Cherry-Pick, Reset) directly from the graph with native VS Code confirmation dialogs.
+
 - 🚑 **Robust Error Handling:** Intercepts common Git errors (Merge Conflicts, Dirty Working Tree) and converts them into user-friendly explanations with suggested next steps.
+
 - 🗂️ **Repository Sidebar:** An organized tree view showing your current state, branches, recent commits, working directory, stashes, tags, and remotes.
+
 - 🐙 **GitHub Integration:** Automatically detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
+
 - 🤖 **AI Assistant:** An intelligent Git co-pilot in the sidebar. Ask questions about your repository state, get explanations of Git concepts, and receive suggested fixes for errors. Supports VS Code Language Models (GitHub Copilot) and custom OpenAI API keys.
+
 - ⏳ **Time-Travel (Reflog):** Visually recover lost commits using the built-in `--reflog` visualization. Orphaned commits are dynamically styled to indicate their "lost" status.
+
 - 🔄 **Auto-Refresh:** Automatically updates the graph and sidebar when you perform Git actions externally by actively watching the `.git` folder.
+
 - 🎨 **Premium Design:** Glassmorphic elements, smooth animations, dynamic edge highlighting for valid actions, and full VS Code theme integration (Dark, Light, High Contrast).
 
-## 🚀 Installation
+## ⬇️ Installation
 
 This extension is currently in development. To run it locally:
 
@@ -66,7 +84,3 @@ The extension consists of two robustly decoupled parts:
 ## 🤝 Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request if you'd like to help make Git Atlas even better.
-
-## 📄 License
-
-MIT License
