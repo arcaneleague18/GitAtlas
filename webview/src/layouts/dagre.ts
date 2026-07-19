@@ -11,13 +11,13 @@ import dagre from 'dagre';
 import type { Node, Edge } from '@xyflow/react';
 
 /** Node dimensions for layout calculation. */
-const NODE_WIDTH = 260;
-const NODE_HEIGHT = 56;
+const NODE_WIDTH = 320;
+const NODE_HEIGHT = 100;
 
 /** Spacing between nodes. */
-const NODE_SEP = 30;
-const RANK_SEP = 50;
-const EDGE_SEP = 15;
+const NODE_SEP = 40;
+const RANK_SEP = 80;
+const EDGE_SEP = 20;
 
 /**
  * Compute layout positions for nodes using dagre.
