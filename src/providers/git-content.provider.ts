@@ -24,20 +24,13 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider, v
 
   async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
     try {
-      const { ref, repoPath } = JSON.parse(uri.query);
-      if (!ref || !repoPath) {
+      const { ref, filePath } = JSON.parse(uri.query);
+      if (!ref || !filePath) {
         return '';
       }
 
-      // Convert absolute path to repo-relative if needed, or assume it's already a relative path if it matches the format
-      let relativePath = repoPath;
-      if (path.isAbsolute(repoPath)) {
-        relativePath = path.relative(this.gitService.repoRoot, repoPath);
-        // Normalize backslashes to forward slashes for git
-        relativePath = relativePath.replace(/\\/g, '/');
-      }
-
-      const content = await this.gitService.show(ref, relativePath);
+      // We expect filePath to already be relative to the repository root
+      const content = await this.gitService.show(ref, filePath);
       return content;
     } catch (e) {
       // If the file doesn't exist at this ref (e.g. newly added file), return empty string.

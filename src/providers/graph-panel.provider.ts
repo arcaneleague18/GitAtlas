@@ -206,12 +206,12 @@ export class GraphPanelProvider extends DisposableBase {
             const leftUri = vscode.Uri.from({
               scheme: 'gitvis',
               path: `/${message.filePath}`, // Path must have a leading slash
-              query: JSON.stringify({ repoPath, ref: parentRef }),
+              query: JSON.stringify({ filePath: message.filePath, ref: parentRef }),
             });
             const rightUri = vscode.Uri.from({
               scheme: 'gitvis',
               path: `/${message.filePath}`,
-              query: JSON.stringify({ repoPath, ref: message.commitHash }),
+              query: JSON.stringify({ filePath: message.filePath, ref: message.commitHash }),
             });
 
             const title = `${fileName} (${shortHash})`;
