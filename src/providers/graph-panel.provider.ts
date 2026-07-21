@@ -200,18 +200,18 @@ export class GraphPanelProvider extends DisposableBase {
             const parentRef = `${message.commitHash}~1`;
             const shortHash = message.commitHash.substring(0, 7);
             const fileName = message.filePath.split('/').pop() ?? message.filePath;
+            const repoPath = vscode.Uri.joinPath(workspaceFolder.uri, message.filePath).fsPath;
 
-            // Use the VS Code Git extension's internal URI scheme
-            // The built-in git extension registers a 'git' scheme content provider
+            // Use our custom gitvis scheme that reads using git show directly
             const leftUri = vscode.Uri.from({
-              scheme: 'git',
-              path: vscode.Uri.joinPath(workspaceFolder.uri, message.filePath).fsPath,
-              query: JSON.stringify({ ref: parentRef, path: message.filePath }),
+              scheme: 'gitvis',
+              path: `/${message.filePath}`, // Path must have a leading slash
+              query: JSON.stringify({ repoPath, ref: parentRef }),
             });
             const rightUri = vscode.Uri.from({
-              scheme: 'git',
-              path: vscode.Uri.joinPath(workspaceFolder.uri, message.filePath).fsPath,
-              query: JSON.stringify({ ref: message.commitHash, path: message.filePath }),
+              scheme: 'gitvis',
+              path: `/${message.filePath}`,
+              query: JSON.stringify({ repoPath, ref: message.commitHash }),
             });
 
             const title = `${fileName} (${shortHash})`;

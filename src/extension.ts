@@ -20,6 +20,7 @@ import { ActionExecutor } from './engine/action-executor.js';
 import { GithubService } from './services/github.service.js';
 import { GithubIntegrationEngine } from './engine/github-integration.js';
 import { AiAssistantProvider } from './providers/ai-assistant.provider.js';
+import { GitContentProvider } from './providers/git-content.provider.js';
 import { debounce } from './utils/disposable.js';
 
 /** How often to poll for changes (ms). */
@@ -53,6 +54,10 @@ export async function activate(
     registerPlaceholderSidebar(context);
     return;
   }
+
+  // Register the GitContentProvider for gitvis diffs
+  const gitContentProvider = new GitContentProvider(gitService);
+  context.subscriptions.push(gitContentProvider);
 
   // Check if this is a git repository
   const isRepo = await gitService.isGitRepository();
