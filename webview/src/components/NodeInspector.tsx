@@ -273,6 +273,7 @@ export function NodeInspector() {
                           key={stat.path}
                           stat={stat}
                           maxChanges={maxChanges}
+                          commitHash={details.hash}
                         />
                       ))}
                     </div>

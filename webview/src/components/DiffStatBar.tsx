@@ -6,17 +6,20 @@
  * - File path with extension-based icon
  * - Shows +/- counts
  * - Compact rendering for the inspector panel
+ * - Clickable to open diff view
  */
 
 import React from 'react';
+import { postMessage } from '../vscode';
 import type { DiffFileStat } from '../types';
 
 interface DiffStatBarProps {
   stat: DiffFileStat;
   maxChanges: number;
+  commitHash?: string;
 }
 
-function DiffStatBarComponent({ stat, maxChanges }: DiffStatBarProps) {
+function DiffStatBarComponent({ stat, maxChanges, commitHash }: DiffStatBarProps) {
   const total = stat.insertions + stat.deletions;
   const barWidth = maxChanges > 0 ? Math.min((total / maxChanges) * 100, 100) : 0;
   const insertPct = total > 0 ? (stat.insertions / total) * 100 : 0;
@@ -28,8 +31,22 @@ function DiffStatBarComponent({ stat, maxChanges }: DiffStatBarProps) {
   const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
   const fileIcon = getFileIcon(ext ?? '');
 
+  const handleClick = () => {
+    if (commitHash) {
+      postMessage({
+        type: 'show-diff',
+        commitHash,
+        filePath: stat.path,
+      });
+    }
+  };
+
   return (
-    <div className="diff-stat-row">
+    <div
+      className={`diff-stat-row ${commitHash ? 'clickable' : ''}`}
+      onClick={handleClick}
+      title={commitHash ? `Click to view diff for ${stat.path}` : stat.path}
+    >
       <div className="diff-stat-file">
         <span className="diff-stat-icon">{fileIcon}</span>
         <span className="diff-stat-name" title={stat.path}>
@@ -97,3 +114,4 @@ function getFileIcon(ext: string): string {
 }
 
 export const DiffStatBar = React.memo(DiffStatBarComponent);
+

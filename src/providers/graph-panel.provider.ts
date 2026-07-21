@@ -193,6 +193,34 @@ export class GraphPanelProvider extends DisposableBase {
         );
         break;
 
+      case 'show-diff': {
+        if (message.commitHash && message.filePath) {
+          const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+          if (workspaceFolder) {
+            const parentRef = `${message.commitHash}~1`;
+            const shortHash = message.commitHash.substring(0, 7);
+            const fileName = message.filePath.split('/').pop() ?? message.filePath;
+
+            // Use the VS Code Git extension's internal URI scheme
+            // The built-in git extension registers a 'git' scheme content provider
+            const leftUri = vscode.Uri.from({
+              scheme: 'git',
+              path: vscode.Uri.joinPath(workspaceFolder.uri, message.filePath).fsPath,
+              query: JSON.stringify({ ref: parentRef, path: message.filePath }),
+            });
+            const rightUri = vscode.Uri.from({
+              scheme: 'git',
+              path: vscode.Uri.joinPath(workspaceFolder.uri, message.filePath).fsPath,
+              query: JSON.stringify({ ref: message.commitHash, path: message.filePath }),
+            });
+
+            const title = `${fileName} (${shortHash})`;
+            void vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title);
+          }
+        }
+        break;
+      }
+
       case 'action-requested':
         void this.actionExecutor.handleActionRequest(
           message.action,

@@ -327,6 +327,7 @@ export type WebviewToExtensionMessage =
   | { type: 'request-details'; nodeId: string }
   | { type: 'action-requested'; action: EdgeKind; nodeId: string }
   | { type: 'open-file'; path: string }
+  | { type: 'show-diff'; commitHash: string; filePath: string }
   | { type: 'refresh' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
   | { type: 'load-more' };
