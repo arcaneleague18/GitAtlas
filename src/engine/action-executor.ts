@@ -115,6 +115,31 @@ export class ActionExecutor {
       return true;
     }
 
+    if (action === 'create-tag') {
+      const name = await vscode.window.showInputBox({
+        prompt: 'Enter tag name',
+        placeHolder: 'v1.0.0',
+      });
+      if (!name) return false;
+      const message = await vscode.window.showInputBox({
+        prompt: 'Enter tag message (leave empty for lightweight tag)',
+        placeHolder: 'Release version 1.0.0',
+      });
+      node._tempTagName = name;
+      node._tempTagMessage = message || undefined;
+      return true;
+    }
+
+    if (action === 'reset-soft' || action === 'reset-mixed') {
+      const modeLabel = action === 'reset-soft' ? 'Soft' : 'Mixed';
+      const choice = await vscode.window.showWarningMessage(
+        `Reset (${modeLabel}) to ${node.label}? ${action === 'reset-soft' ? 'Changes will be staged.' : 'Changes will be unstaged.'}`,
+        { modal: true },
+        `Reset (${modeLabel})`
+      );
+      return choice === `Reset (${modeLabel})`;
+    }
+
     return true;
   }
 
@@ -135,7 +160,11 @@ export class ActionExecutor {
         await this.gitService.createBranch(node._tempBranchName, hash);
         break;
       case 'delete-branch':
-        await this.gitService.deleteBranch(branchName, true); // Force delete for now
+        if (node.kind === 'tag') {
+          await this.gitService.deleteTag(branchName);
+        } else {
+          await this.gitService.deleteBranch(branchName, true);
+        }
         break;
       case 'merge':
         await this.gitService.merge(node.kind === 'branch' ? branchName : hash);
@@ -146,8 +175,26 @@ export class ActionExecutor {
       case 'cherry-pick':
         await this.gitService.cherryPick(hash);
         break;
+      case 'revert':
+        await this.gitService.revert(hash);
+        break;
       case 'reset':
         await this.gitService.reset(hash, 'hard');
+        break;
+      case 'reset-soft':
+        await this.gitService.reset(hash, 'soft');
+        break;
+      case 'reset-mixed':
+        await this.gitService.reset(hash, 'mixed');
+        break;
+      case 'create-tag':
+        await this.gitService.createTag(node._tempTagName, hash, node._tempTagMessage);
+        break;
+      case 'push':
+        await this.gitService.push(node.kind === 'branch' ? branchName : undefined);
+        break;
+      case 'fetch':
+        await this.gitService.fetch();
         break;
       default:
         throw new Error(`Action ${action} is not yet implemented.`);
@@ -162,7 +209,13 @@ export class ActionExecutor {
       merge: 'Merging',
       rebase: 'Rebasing',
       'cherry-pick': 'Cherry-picking',
-      reset: 'Resetting',
+      revert: 'Reverting',
+      reset: 'Resetting (hard)',
+      'reset-soft': 'Resetting (soft)',
+      'reset-mixed': 'Resetting (mixed)',
+      'create-tag': 'Creating tag',
+      push: 'Pushing',
+      fetch: 'Fetching',
     };
     return verbs[action] || 'Executing';
   }

@@ -662,6 +662,43 @@ export class GitService {
   async reset(hash: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
     await this.exec(['reset', `--${mode}`, hash]);
   }
+
+  async revert(hash: string): Promise<void> {
+    await this.exec(['revert', hash]);
+  }
+
+  async createTag(name: string, ref?: string, message?: string): Promise<void> {
+    const args = ['tag'];
+    if (message) {
+      args.push('-a', name, '-m', message);
+    } else {
+      args.push(name);
+    }
+    if (ref) {
+      args.push(ref);
+    }
+    await this.exec(args);
+  }
+
+  async deleteTag(name: string): Promise<void> {
+    await this.exec(['tag', '-d', name]);
+  }
+
+  async push(branch?: string): Promise<void> {
+    const args = ['push'];
+    if (branch) {
+      args.push('origin', branch);
+    }
+    await this.exec(args);
+  }
+
+  async fetch(remote?: string): Promise<void> {
+    const args = ['fetch'];
+    if (remote) {
+      args.push(remote);
+    }
+    await this.exec(args);
+  }
 }
 
 /**
