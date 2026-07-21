@@ -22,22 +22,24 @@ export class GitContentProvider implements vscode.TextDocumentContentProvider, v
     );
   }
 
-  async provideTextDocumentContent(uri: vscode.Uri): Promise<string> {
+  provideTextDocumentContent = async (uri: vscode.Uri): Promise<string> => {
     try {
-      const { ref, filePath } = JSON.parse(uri.query);
+      const query = decodeURIComponent(uri.query);
+      const { ref, filePath } = JSON.parse(query);
       if (!ref || !filePath) {
-        return '';
+        return ' ';
       }
 
       // We expect filePath to already be relative to the repository root
       const content = await this.gitService.show(ref, filePath);
-      return content;
+      return content || ' ';
     } catch (e) {
+      console.error('GitContentProvider error for URI:', uri.toString(), e);
       // If the file doesn't exist at this ref (e.g. newly added file), return empty string.
       // This allows vscode.diff to show it as an added file.
-      return '';
+      return ' ';
     }
-  }
+  };
 
   dispose() {
     this._onDidChange.dispose();

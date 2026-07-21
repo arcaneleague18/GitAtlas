@@ -701,7 +701,7 @@ export class GitService {
   }
 
   async show(ref: string, relativePath: string): Promise<string> {
-    const { stdout } = await this.exec(['show', `${ref}:${relativePath}`]);
+    const stdout = await this.exec(['show', `${ref}:${relativePath}`]);
     return stdout;
   }
 }
