@@ -129,14 +129,14 @@ export class SidebarProvider
 
   private getRootItems(): SidebarTreeItem[] {
     const items = [
-      new SidebarTreeItem('Current State', vscode.TreeItemCollapsibleState.Expanded, 'section-state'),
-      new SidebarTreeItem('Branches', vscode.TreeItemCollapsibleState.Expanded, 'section-branches'),
+      new SidebarTreeItem('Current State', vscode.TreeItemCollapsibleState.Collapsed, 'section-state'),
+      new SidebarTreeItem('Branches', vscode.TreeItemCollapsibleState.Collapsed, 'section-branches'),
     ];
 
     if (this.githubIntegration) {
       const ctx = this.githubIntegration.context;
       if (Object.keys(ctx.pullRequests).length > 0) {
-        items.push(new SidebarTreeItem(`Pull Requests (${Object.keys(ctx.pullRequests).length})`, vscode.TreeItemCollapsibleState.Expanded, 'section-prs'));
+        items.push(new SidebarTreeItem(`Pull Requests (${Object.keys(ctx.pullRequests).length})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-prs'));
       }
       if (ctx.issues.length > 0) {
         items.push(new SidebarTreeItem(`Issues (${ctx.issues.length})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-issues'));
@@ -144,8 +144,8 @@ export class SidebarProvider
     }
 
     items.push(
-      new SidebarTreeItem('Recent Commits', vscode.TreeItemCollapsibleState.Expanded, 'section-commits'),
-      new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Expanded, 'section-working-directory')
+      new SidebarTreeItem('Recent Commits', vscode.TreeItemCollapsibleState.Collapsed, 'section-commits'),
+      new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Collapsed, 'section-working-directory')
     );
 
     const stashCount = this.countNodesByKind('stash');
