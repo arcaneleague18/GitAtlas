@@ -81,27 +81,36 @@
       "properties": {
         "gitTreeExplorer.ai.provider": {
           "type": "string",
+          "order": 1,
           "enum": [
             "vscode-lm",
-            "openai"
+            "openai",
+            "openrouter",
+            "groq",
+            "nvidia",
+            "ollama",
+            "custom"
           ],
           "default": "vscode-lm",
-          "description": "AI provider to use. 'vscode-lm' uses your installed VS Code language model (e.g., GitHub Copilot). 'openai' uses a custom OpenAI-compatible API key."
+          "description": "AI provider to use. 'vscode-lm' uses your installed VS Code language model (e.g., GitHub Copilot). Other options use compatible API keys."
         },
-        "gitTreeExplorer.ai.openaiApiKey": {
+        "gitTreeExplorer.ai.model": {
           "type": "string",
-          "default": "",
-          "description": "Your OpenAI API key (only used when provider is set to 'openai')."
-        },
-        "gitTreeExplorer.ai.openaiModel": {
-          "type": "string",
+          "order": 2,
           "default": "gpt-4o-mini",
-          "description": "OpenAI model to use (only used when provider is set to 'openai')."
+          "description": "Model ID to use (e.g., gpt-4o-mini, llama3-8b-8192, etc.)."
         },
-        "gitTreeExplorer.ai.openaiBaseUrl": {
+        "gitTreeExplorer.ai.apiKey": {
           "type": "string",
+          "order": 3,
+          "default": "",
+          "description": "Your API key for the selected AI provider (not needed for vscode-lm or ollama)."
+        },
+        "gitTreeExplorer.ai.baseUrl": {
+          "type": "string",
+          "order": 4,
           "default": "https://api.openai.com/v1",
-          "description": "Base URL for OpenAI-compatible API (only used when provider is set to 'openai')."
+          "description": "Base URL for OpenAI-compatible API. This auto-updates when you change the AI provider, but you can override it."
         },
         "gitTreeExplorer.showLostCommits": {
           "type": "boolean",

@@ -35,6 +35,39 @@ export class AiAssistantProvider
     private readonly githubIntegration: GithubIntegrationEngine
   ) {
     super();
+
+    // Listen for provider configuration changes to automatically fill the base URL
+    this.register(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('gitTreeExplorer.ai.provider')) {
+          const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
+          const provider = config.get<string>('provider');
+          let newBaseUrl = '';
+
+          switch (provider) {
+            case 'openrouter':
+              newBaseUrl = 'https://openrouter.ai/api/v1';
+              break;
+            case 'groq':
+              newBaseUrl = 'https://api.groq.com/openai/v1';
+              break;
+            case 'nvidia':
+              newBaseUrl = 'https://integrate.api.nvidia.com/v1';
+              break;
+            case 'ollama':
+              newBaseUrl = 'http://localhost:11434/v1';
+              break;
+            case 'openai':
+              newBaseUrl = 'https://api.openai.com/v1';
+              break;
+          }
+
+          if (newBaseUrl) {
+            void config.update('baseUrl', newBaseUrl, vscode.ConfigurationTarget.Global);
+          }
+        }
+      })
+    );
   }
 
   resolveWebviewView(
@@ -90,8 +123,8 @@ export class AiAssistantProvider
     const provider = config.get<string>('provider', 'vscode-lm');
 
     try {
-      if (provider === 'openai') {
-        await this.handleOpenAiRequest(context, userMessage);
+      if (provider !== 'vscode-lm') {
+        await this.handleCompatibleRequest(provider, context, userMessage);
       } else {
         await this.handleVsCodeLmRequest(context, userMessage);
       }
@@ -178,25 +211,24 @@ export class AiAssistantProvider
   }
 
   /**
-   * Handle a request using a custom OpenAI-compatible API.
+   * Handle a request using an OpenAI-compatible API (OpenRouter, Groq, Nvidia, Ollama, Custom).
    */
-  private async handleOpenAiRequest(
+  private async handleCompatibleRequest(
+    provider: string,
     context: string,
     _userMessage: string
   ): Promise<void> {
     const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
-    const apiKey = config.get<string>('openaiApiKey', '');
-    const model = config.get<string>('openaiModel', 'gpt-4o-mini');
-    const baseUrl = config.get<string>(
-      'openaiBaseUrl',
-      'https://api.openai.com/v1'
-    );
+    // Fallbacks to old keys just in case user hasn't updated settings yet, but prefer new keys
+    const apiKey = config.get<string>('apiKey') || config.get<string>('openaiApiKey') || '';
+    const model = config.get<string>('model') || config.get<string>('openaiModel') || 'gpt-4o-mini';
+    const baseUrl = config.get<string>('baseUrl') || config.get<string>('customBaseUrl') || config.get<string>('openaiBaseUrl') || 'https://api.openai.com/v1';
 
-    if (!apiKey) {
+    if (!apiKey && provider !== 'ollama') {
       this.postToWebview({
         type: 'chat-error',
         error:
-          'No API key configured. Set your key in Settings → Git Atlas → AI → OpenAI API Key.',
+          `No API key configured for ${provider}. Set your key in Settings → Git Atlas → AI → API Key.`,
       });
       return;
     }
