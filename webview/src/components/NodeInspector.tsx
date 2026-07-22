@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGraphStore } from '../store/graph.store';
 import { postMessage } from '../vscode';
@@ -328,19 +329,23 @@ export function NodeInspector() {
                   </motion.div>
                 )}
 
-                {/* Action Preview Panel */}
-                <AnimatePresence>
-                  {pendingAction && details && (
-                    <ActionPreviewPanel
-                      action={pendingAction}
-                      nodeDetails={details}
-                      headHash={headHash}
-                      currentBranch={currentBranch}
-                      onProceed={handleProceed}
-                      onCancel={handleCancel}
-                    />
+                {/* Action Preview Panel rendered into a Portal */}
+                {typeof document !== 'undefined' &&
+                  createPortal(
+                    <AnimatePresence>
+                      {pendingAction && details && (
+                        <ActionPreviewPanel
+                          action={pendingAction}
+                          nodeDetails={details}
+                          headHash={headHash}
+                          currentBranch={currentBranch}
+                          onProceed={handleProceed}
+                          onCancel={handleCancel}
+                        />
+                      )}
+                    </AnimatePresence>,
+                    document.body
                   )}
-                </AnimatePresence>
               </motion.div>
             )}
           </div>

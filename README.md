@@ -21,7 +21,7 @@
 
 Git Atlas is a VS Code extension that replaces the mental overhead of Git with a beautiful, interactive visual graph. Understand Git through visualization rather than memorizing commands, treating Git as a visual state machine.
 
-## 🧭 Philosophy
+## Philosophy
 
 - **Where am I?** Instantly see your `HEAD`, current branch, and repository state.
 - **What can I do from here?** View valid Git actions based on your current node context.
@@ -29,31 +29,33 @@ Git Atlas is a VS Code extension that replaces the mental overhead of Git with a
 
 The UI makes Git feel like navigating a flowchart instead of wrestling with a terminal.
 
-## ✨ Features
+## Features
 
-- 🗺️ **Interactive Graph Webview:** A React Flow-based visual Directed Acyclic Graph (DAG) of your commit history.
+- **Interactive Graph Webview:** A React Flow-based visual Directed Acyclic Graph (DAG) of your commit history.
 
-- 🔍 **Node Inspector & Action Previews:** Click any commit to see a premium slide-out panel with full details, diff statistics, and context-aware valid Git actions.
+- **Working Directory Node:** Uncommitted changes (staged, modified, untracked) appear directly in the graph above HEAD, so you never lose track of your work in progress. Click it to view exact diffs.
 
-- 🛡️ **Visual Previews:** Before executing any dangerous action, the graph visually previews what will happen (e.g., highlighting commits that will be dropped during a hard reset).
+- **Node Inspector:** Click any commit to see a premium slide-out panel with full details, diff statistics, and context-aware valid Git actions.
 
-- ⚡ **Git Action Execution:** Execute operations (Checkout, Branch, Merge, Rebase, Cherry-Pick, Reset) directly from the graph with native VS Code confirmation dialogs.
+- **Action Previews:** Before executing any action, a centered modal previews what will happen. It provides plain-English explanations of how the graph will change and clear danger warnings for destructive actions.
 
-- 🚑 **Robust Error Handling:** Intercepts common Git errors (Merge Conflicts, Dirty Working Tree) and converts them into user-friendly explanations with suggested next steps.
+- **Git Action Execution:** Execute operations (Checkout, Branch, Merge, Rebase, Cherry-Pick, Reset) directly from the graph with confidence.
 
-- 🗂️ **Repository Sidebar:** An organized tree view showing your current state, branches, recent commits, working directory, stashes, tags, and remotes.
+- **Robust Error Handling:** Intercepts common Git errors (Merge Conflicts, Dirty Working Tree) and converts them into user-friendly explanations with suggested next steps.
 
-- 🐙 **GitHub Integration:** Automatically detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
+- **Repository Sidebar:** An organized tree view showing your current state, branches, recent commits, working directory, stashes, tags, and remotes.
 
-- 🤖 **AI Assistant:** An intelligent Git co-pilot in the sidebar. Ask questions about your repository state, get explanations of Git concepts, and receive suggested fixes for errors. Supports VS Code Language Models (GitHub Copilot) and custom OpenAI API keys.
+- **GitHub Integration:** Automatically detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
 
-- ⏳ **Time-Travel (Reflog):** Visually recover lost commits using the built-in `--reflog` visualization. Orphaned commits are dynamically styled to indicate their "lost" status.
+- **AI Assistant:** An intelligent Git co-pilot in the sidebar. Ask questions about your repository state, get explanations of Git concepts, and receive suggested fixes for errors. Supports VS Code Language Models (GitHub Copilot) and custom OpenAI API keys.
 
-- 🔄 **Auto-Refresh:** Automatically updates the graph and sidebar when you perform Git actions externally by actively watching the `.git` folder.
+- **Time-Travel (Reflog):** Visually recover lost commits using the built-in `--reflog` visualization. Orphaned commits are dynamically styled to indicate their "lost" status.
 
-- 🎨 **Premium Design:** Glassmorphic elements, smooth animations, dynamic edge highlighting for valid actions, and full VS Code theme integration (Dark, Light, High Contrast).
+- **Auto-Refresh:** Automatically updates the graph and sidebar when you perform Git actions externally by actively watching the `.git` folder.
 
-## ⬇️ Installation
+- **Premium Design:** Glassmorphic elements, smooth animations, dynamic edge highlighting for valid actions, and full VS Code theme integration (Dark, Light, High Contrast).
+
+## Installation
 
 This extension is currently in development. To run it locally:
 
@@ -64,7 +66,7 @@ This extension is currently in development. To run it locally:
 5. Press `F5` to launch the Extension Development Host.
 6. Open a Git repository in the newly opened VS Code window to see the extension in action!
 
-## 🏗️ Development Architecture
+## Development Architecture
 
 The extension consists of two robustly decoupled parts:
 
