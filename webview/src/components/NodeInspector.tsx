@@ -10,13 +10,14 @@
  * - Close on Escape key
  */
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGraphStore } from '../store/graph.store';
 import { postMessage } from '../vscode';
 import { DiffStatBar } from './DiffStatBar';
 import { ActionButton } from './ActionButton';
-import type { EdgeKind, GitHubPullRequest, CommitNodeData } from '../types';
+import { ActionPreviewPanel } from './ActionPreviewPanel';
+import type { EdgeKind, ValidAction, GitHubPullRequest, CommitNodeData } from '../types';
 
 export function NodeInspector() {
   const {
@@ -25,31 +26,59 @@ export function NodeInspector() {
     validActions,
     closeInspector,
     githubContext,
+    headHash,
+    currentBranch,
   } = useGraphStore();
+
+  // Pending action for preview panel
+  const [pendingAction, setPendingAction] = useState<ValidAction | null>(null);
+
+  // Clear pending action when node changes
+  useEffect(() => {
+    setPendingAction(null);
+  }, [selectedNodeDetails?.nodeId]);
 
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isInspectorOpen) {
-        closeInspector();
+      if (e.key === 'Escape') {
+        if (pendingAction) {
+          setPendingAction(null);
+        } else if (isInspectorOpen) {
+          closeInspector();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isInspectorOpen, closeInspector]);
+  }, [isInspectorOpen, closeInspector, pendingAction]);
 
+  // Show preview panel instead of immediately executing
   const handleAction = useCallback(
     (kind: EdgeKind) => {
-      if (selectedNodeDetails) {
-        postMessage({
-          type: 'action-requested',
-          action: kind,
-          nodeId: selectedNodeDetails.nodeId,
-        });
+      const action = validActions.find((a) => a.kind === kind);
+      if (action) {
+        setPendingAction(action);
       }
     },
-    [selectedNodeDetails]
+    [validActions]
   );
+
+  // Execute the pending action
+  const handleProceed = useCallback(() => {
+    if (pendingAction && selectedNodeDetails) {
+      postMessage({
+        type: 'action-requested',
+        action: pendingAction.kind,
+        nodeId: selectedNodeDetails.nodeId,
+      });
+      setPendingAction(null);
+    }
+  }, [pendingAction, selectedNodeDetails]);
+
+  const handleCancel = useCallback(() => {
+    setPendingAction(null);
+  }, []);
 
   const details = selectedNodeDetails;
   const maxChanges = details?.diffStats
@@ -298,6 +327,20 @@ export function NodeInspector() {
                     </div>
                   </motion.div>
                 )}
+
+                {/* Action Preview Panel */}
+                <AnimatePresence>
+                  {pendingAction && details && (
+                    <ActionPreviewPanel
+                      action={pendingAction}
+                      nodeDetails={details}
+                      headHash={headHash}
+                      currentBranch={currentBranch}
+                      onProceed={handleProceed}
+                      onCancel={handleCancel}
+                    />
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
           </div>

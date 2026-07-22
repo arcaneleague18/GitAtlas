@@ -16,6 +16,7 @@ import type {
   SerializedGraph,
   GraphNode,
   CommitNodeData,
+  WorkingDirectoryNodeData,
   RepositoryState,
   NodeDetails,
   ValidAction,
@@ -206,6 +207,31 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       };
     });
 
+    // Add Working Directory node if there are uncommitted changes
+    const wdGraphNode = graph.nodes.find(
+      ([, node]) => node.kind === 'working-directory'
+    );
+    if (wdGraphNode && graph.headHash) {
+      const [wdId, wdNode] = wdGraphNode;
+      const wdData = wdNode.data as WorkingDirectoryNodeData;
+      const totalChanges =
+        (wdData.modified?.length ?? 0) +
+        (wdData.staged?.length ?? 0) +
+        (wdData.untracked?.length ?? 0);
+
+      if (totalChanges > 0) {
+        flowNodes.push({
+          id: wdId,
+          type: 'working-directory',
+          position: { x: 0, y: 0 },
+          data: {
+            ...wdData,
+            isSelected: wdId === get().selectedNodeId,
+          },
+        });
+      }
+    }
+
     // Build React Flow edges
     const flowEdges: Edge[] = parentEdges
       .filter((e) => {
@@ -238,6 +264,29 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
           },
         };
       });
+
+    // Add WD → HEAD edge if the WD node was added
+    if (
+      wdGraphNode &&
+      flowNodes.some((n) => n.id === 'working-directory') &&
+      graph.headHash
+    ) {
+      const headColor = commitColorMap.get(graph.headHash) ?? BRANCH_COLORS[0]!;
+      flowEdges.push({
+        id: 'wd->head',
+        source: 'working-directory',
+        target: graph.headHash,
+        type: 'smoothstep',
+        animated: true,
+        className: 'wd-edge',
+        style: {
+          stroke: headColor,
+          strokeWidth: 2,
+          strokeDasharray: '6 4',
+          opacity: 0.6,
+        },
+      });
+    }
 
     // Compute layout positions
     const layoutedNodes = computeLayout(flowNodes, flowEdges);

@@ -290,6 +290,29 @@ export class GraphPanelProvider extends DisposableBase {
         nodeId,
         details: commitDetails,
       });
+    } else if (node.data.kind === 'working-directory') {
+      // Build diff stats from the working directory status
+      const wdData = node.data;
+      const allFiles = [
+        ...wdData.staged.map(f => ({ path: f.path, insertions: 0, deletions: 0, isBinary: false })),
+        ...wdData.modified.map(f => ({ path: f.path, insertions: 0, deletions: 0, isBinary: false })),
+        ...wdData.untracked.map(p => ({ path: p, insertions: 0, deletions: 0, isBinary: false })),
+      ];
+
+      const wdDetails: NodeDetails = {
+        ...details,
+        message: `${wdData.staged.length} staged, ${wdData.modified.length} modified, ${wdData.untracked.length} untracked`,
+        diffStats: allFiles,
+        totalFilesChanged: allFiles.length,
+        totalInsertions: 0,
+        totalDeletions: 0,
+      };
+
+      this.postMessage({
+        type: 'node-details',
+        nodeId,
+        details: wdDetails,
+      });
     } else {
       this.postMessage({
         type: 'node-details',

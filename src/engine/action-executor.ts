@@ -91,9 +91,14 @@ export class ActionExecutor {
   }
 
   /**
-   * Prompts the user for confirmation if the action is dangerous.
+   * Prompts the user for confirmation if the action is dangerous,
+   * or for input if the action requires it (branch name, tag name).
+   *
+   * Non-destructive actions are confirmed in the webview's ActionPreviewPanel,
+   * so they pass through here without an extra dialog.
    */
   private async confirmAction(action: EdgeKind, node: any): Promise<boolean> {
+    // Destructive actions get a native VS Code warning as a second safety net
     if (action === 'reset' || action === 'delete-branch') {
       const confirmText = action === 'reset' ? 'Reset (Hard)' : 'Delete Branch';
       const choice = await vscode.window.showWarningMessage(
@@ -104,13 +109,13 @@ export class ActionExecutor {
       return choice === confirmText;
     }
 
+    // Actions that require text input
     if (action === 'branch') {
       const name = await vscode.window.showInputBox({
         prompt: 'Enter new branch name',
         placeHolder: 'feature/my-new-branch',
       });
       if (!name) return false;
-      // Store the name temporarily on the node object for the executor
       node._tempBranchName = name;
       return true;
     }
@@ -130,16 +135,7 @@ export class ActionExecutor {
       return true;
     }
 
-    if (action === 'reset-soft' || action === 'reset-mixed') {
-      const modeLabel = action === 'reset-soft' ? 'Soft' : 'Mixed';
-      const choice = await vscode.window.showWarningMessage(
-        `Reset (${modeLabel}) to ${node.label}? ${action === 'reset-soft' ? 'Changes will be staged.' : 'Changes will be unstaged.'}`,
-        { modal: true },
-        `Reset (${modeLabel})`
-      );
-      return choice === `Reset (${modeLabel})`;
-    }
-
+    // All other actions are already confirmed by the webview preview panel
     return true;
   }
 

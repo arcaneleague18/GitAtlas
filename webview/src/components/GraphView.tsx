@@ -31,6 +31,7 @@ import { useGraphStore } from '../store/graph.store';
 import { postMessage } from '../vscode';
 import { CommitNode } from './CommitNode';
 import { BranchLabel } from './BranchLabel';
+import { WorkingDirectoryNode } from './WorkingDirectoryNode';
 import { Toolbar } from './Toolbar';
 import { NodeInspector } from './NodeInspector';
 
@@ -38,6 +39,7 @@ import { NodeInspector } from './NodeInspector';
 const nodeTypes = {
   commit: CommitNode,
   'branch-label': BranchLabel,
+  'working-directory': WorkingDirectoryNode,
 };
 
 export function GraphView() {

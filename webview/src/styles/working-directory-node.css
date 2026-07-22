@@ -1,0 +1,131 @@
+/**
+ * Working Directory node styles — dashed border, change badges, distinct from commits.
+ */
+
+/* ── Working Directory Node ─────────────────────────────────── */
+.wd-node {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--border-accent);
+  background: var(--glass-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  min-width: 260px;
+  max-width: 360px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.wd-node:hover {
+  border-color: var(--text-warning);
+  box-shadow: 0 0 20px rgba(210, 153, 34, 0.15);
+  transform: translateY(-1px);
+}
+
+.wd-node.selected {
+  border-color: var(--text-warning);
+  box-shadow:
+    0 0 0 2px rgba(210, 153, 34, 0.3),
+    0 0 24px rgba(210, 153, 34, 0.15);
+}
+
+/* ── Circle Icon ─────────────────────────────────────────────── */
+.wd-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d29922, #e3b341);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 0 12px rgba(210, 153, 34, 0.3);
+  animation: wd-pulse 2.5s ease-in-out infinite;
+}
+
+.wd-circle-icon {
+  font-size: 1.2rem;
+  color: #000;
+  font-weight: 700;
+}
+
+@keyframes wd-pulse {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(210, 153, 34, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(210, 153, 34, 0.5);
+  }
+}
+
+/* ── Content ─────────────────────────────────────────────────── */
+.wd-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.wd-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.wd-meta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Badges ──────────────────────────────────────────────────── */
+.wd-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.wd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.wd-badge-icon {
+  font-weight: 800;
+  font-size: 11px;
+}
+
+.wd-badge-staged {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.wd-badge-modified {
+  background: rgba(210, 153, 34, 0.15);
+  color: #d29922;
+  border: 1px solid rgba(210, 153, 34, 0.3);
+}
+
+.wd-badge-untracked {
+  background: rgba(110, 118, 129, 0.15);
+  color: #8b949e;
+  border: 1px solid rgba(110, 118, 129, 0.3);
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────── */
+.wd-tooltip {
+  max-width: 320px;
+}

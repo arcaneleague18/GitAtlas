@@ -17,6 +17,8 @@ import './styles/index.css';
 import './styles/graph.css';
 import './styles/nodes.css';
 import './styles/inspector.css';
+import './styles/working-directory-node.css';
+import './styles/action-preview.css';
 import './styles/ai-assistant.css';
 
 declare global {

@@ -1,0 +1,160 @@
+/**
+ * Action Preview Panel styles — glassmorphic confirmation overlay.
+ */
+
+/* ── Overlay ─────────────────────────────────────────────────── */
+.action-preview-overlay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: rgba(20, 22, 28, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-accent);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.action-preview-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.action-preview-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.action-preview-title {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+/* ── Sections ────────────────────────────────────────────────── */
+.action-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.action-preview-section-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.action-preview-description {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Graph Impact ────────────────────────────────────────────── */
+.action-preview-impact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.action-preview-impact-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.action-preview-impact-icon {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* ── Warning ─────────────────────────────────────────────────── */
+.action-preview-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(255, 123, 114, 0.1);
+  border: 1px solid rgba(255, 123, 114, 0.25);
+  font-size: var(--text-sm);
+  color: #ff7b72;
+  line-height: 1.4;
+}
+
+.action-preview-warning-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.action-preview-buttons {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.action-preview-btn {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.action-preview-btn-cancel {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-muted);
+  color: var(--text-secondary);
+}
+
+.action-preview-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.action-preview-btn-proceed {
+  background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+  color: #fff;
+  border-color: rgba(35, 134, 54, 0.5);
+}
+
+.action-preview-btn-proceed:hover {
+  background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+  box-shadow: 0 0 16px rgba(46, 160, 67, 0.3);
+  transform: translateY(-1px);
+}
+
+.action-preview-btn-proceed.danger {
+  background: linear-gradient(135deg, #b62324 0%, #da3633 100%);
+  border-color: rgba(218, 54, 51, 0.5);
+}
+
+.action-preview-btn-proceed.danger:hover {
+  background: linear-gradient(135deg, #da3633 0%, #f85149 100%);
+  box-shadow: 0 0 16px rgba(248, 81, 73, 0.3);
+}
