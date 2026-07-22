@@ -121,6 +121,8 @@ export class GraphPanelProvider extends DisposableBase {
   focusNode(nodeId: string): void {
     this.createOrShow();
     this.postMessage({ type: 'node-focus', nodeId });
+    // Fetch and send details so the inspector doesn't hang on loading
+    void this.handleNodeSelected(nodeId);
   }
 
   /**
@@ -183,7 +185,24 @@ export class GraphPanelProvider extends DisposableBase {
         break;
 
       case 'refresh':
-        void this.stateEngine.buildGraph();
+        void vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.SourceControl,
+            title: 'Git Atlas: Fetching...',
+          },
+          async () => {
+            try {
+              this.postMessage({ type: 'loading', loading: true });
+              await this.gitService.fetch();
+              await this.stateEngine.buildGraph();
+            } catch (err) {
+              console.error('Git Atlas: Fetch failed', err);
+              vscode.window.showErrorMessage('Git Atlas: Failed to fetch from remote.');
+            } finally {
+              this.postMessage({ type: 'loading', loading: false });
+            }
+          }
+        );
         break;
 
       case 'open-file':

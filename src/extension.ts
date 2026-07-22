@@ -122,8 +122,22 @@ export async function activate(
 
   context.subscriptions.push(
     vscode.commands.registerCommand('gitTreeExplorer.refresh', async () => {
-      await stateEngine.buildGraph();
-      vscode.window.showInformationMessage('Git Atlas: Refreshed');
+      await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.SourceControl,
+          title: 'Git Atlas: Fetching...',
+        },
+        async () => {
+          try {
+            await gitService.fetch();
+            await stateEngine.buildGraph();
+            vscode.window.showInformationMessage('Git Atlas: Refreshed');
+          } catch (err) {
+            console.error('Git Atlas: Fetch failed', err);
+            vscode.window.showErrorMessage('Git Atlas: Failed to fetch from remote.');
+          }
+        }
+      );
     })
   );
 
