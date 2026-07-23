@@ -33,13 +33,17 @@ The UI makes Git feel like navigating a flowchart instead of wrestling with a te
 
 - **Interactive Graph Webview:** A React Flow-based visual Directed Acyclic Graph (DAG) of your commit history.
 
-- **Working Directory Node:** Uncommitted changes (staged, modified, untracked) appear directly in the graph above HEAD, so you never lose track of your work in progress. Click it to view exact diffs.
+- **Working Directory Node:** Uncommitted changes (staged, modified, untracked) appear directly in the graph above HEAD. Commit (`git add -A && git commit -m`) or stash (`git stash push`) your work with interactive message prompts directly from the node.
 
-- **Node Inspector:** Click any commit to see a premium slide-out panel with full details, diff statistics, and context-aware valid Git actions.
+- **Node Inspector & Commit Rewording:** Click any commit to view full details, diff statistics, and context-aware Git actions. Easily edit any commit message directly with the edit button (✏️) — automatically handling `git commit --amend` for HEAD and interactive rebase for older commits.
+
+- **Interactive Branch Color Legend:** Click the branch counter in the status bar (`N branches ▼`) to reveal a popover showing all branches and their unique assigned colors. Colors use a Golden Ratio HSL algorithm to guarantee that no two distinct branches share the same color.
 
 - **Action Previews:** Before executing any action, a centered modal previews what will happen. It provides plain-English explanations of how the graph will change and clear danger warnings for destructive actions.
 
-- **Git Action Execution:** Execute operations (Checkout, Branch, Merge, Rebase, Cherry-Pick, Reset) directly from the graph with confidence.
+- **Git Action Execution:** Execute operations (Checkout, Branch, Commit, Stash, Merge, Rebase, Cherry-Pick, Reset, Reword) directly from the graph with confidence.
+
+- **Git Fetch Sync:** Refreshing the graph automatically triggers a background `git fetch` with UI progress indicators to ensure your local view is synchronized with remote changes.
 
 - **Robust Error Handling:** Intercepts common Git errors (Merge Conflicts, Dirty Working Tree) and converts them into user-friendly explanations with suggested next steps.
 
