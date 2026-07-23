@@ -5,8 +5,9 @@
  * Provides quick access to view manipulation and refresh.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useReactFlow } from '@xyflow/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { postMessage } from '../vscode';
 import { useGraphStore } from '../store/graph.store';
 
@@ -20,7 +21,35 @@ function ToolbarComponent() {
     hasMore,
     showLostCommits,
     setShowLostCommits,
+    branchColors,
   } = useGraphStore();
+
+  const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const legendRef = useRef<HTMLDivElement>(null);
+
+  // Close legend popup when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!isLegendOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (legendRef.current && !legendRef.current.contains(e.target as Node)) {
+        setIsLegendOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLegendOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isLegendOpen]);
 
   const handleFitView = useCallback(() => {
     reactFlow.fitView({ padding: 0.2, duration: 500 });
@@ -100,11 +129,67 @@ function ToolbarComponent() {
         <div className="status-item">
           <span>{commitCount} commits</span>
         </div>
-        <div className="status-item">
-          <span>{branchCount} branches</span>
+
+        {/* Clickable Branches Status Item with Legend Popover */}
+        <div className="status-item clickable-branches-item" ref={legendRef}>
+          <button
+            className={`status-branches-btn ${isLegendOpen ? 'active' : ''}`}
+            onClick={() => setIsLegendOpen((prev) => !prev)}
+            title="Click to toggle branch color legend"
+          >
+            <span>{branchCount} branches</span>
+            <span className="branches-chevron">{isLegendOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {/* Branch Color Legend Popover */}
+          <AnimatePresence>
+            {isLegendOpen && (
+              <motion.div
+                className="branch-legend-popover glass"
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+              >
+                <div className="popover-header">
+                  <span className="popover-title">Branch Colors</span>
+                  <span className="popover-count">{branchColors?.length ?? 0}</span>
+                </div>
+                <div className="popover-branch-list">
+                  {branchColors && branchColors.length > 0 ? (
+                    branchColors.map((b) => (
+                      <div
+                        key={b.name}
+                        className={`popover-branch-item ${b.isCurrent ? 'current' : ''}`}
+                      >
+                        <span
+                          className="popover-branch-dot"
+                          style={{
+                            backgroundColor: b.color,
+                            boxShadow: `0 0 6px ${b.color}aa`,
+                          }}
+                        />
+                        <span className="popover-branch-name" title={b.name}>
+                          {b.name}
+                        </span>
+                        {b.isCurrent && <span className="popover-tag head">HEAD</span>}
+                        {b.isRemote && <span className="popover-tag remote">Remote</span>}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="popover-empty">No branches found</div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
         <div className="status-item toggle-item">
-          <label className="toggle-label" title="Show orphaned commits (reflog) for time-travel recovery">
+          <label
+            className="toggle-label"
+            title="Show orphaned commits (reflog) for time-travel recovery"
+          >
             <input
               type="checkbox"
               checked={showLostCommits}

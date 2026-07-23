@@ -38,6 +38,13 @@ const BRANCH_COLORS = [
   '#ffa657', // amber
 ];
 
+export interface BranchLegendItem {
+  name: string;
+  color: string;
+  isCurrent: boolean;
+  isRemote: boolean;
+}
+
 export interface GraphStoreState {
   // Data
   nodes: Node[];
@@ -52,6 +59,7 @@ export interface GraphStoreState {
   branchCount: number;
   hasMore: boolean;
   showLostCommits: boolean;
+  branchColors: BranchLegendItem[];
 
   // Raw graph data for lookups
   graphNodes: Map<string, GraphNode>;
@@ -109,6 +117,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   branchCount: 0,
   hasMore: false,
   showLostCommits: false,
+  branchColors: [],
   graphNodes: new Map(),
   selectedNodeDetails: null,
   validActions: [],
@@ -117,6 +126,9 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   githubContext: null,
 
   setGraph: (graph: SerializedGraph) => {
+    colorIndex = 0;
+    branchColorMap.clear();
+
     const graphNodeMap = new Map(graph.nodes);
 
     // Filter to only commit nodes for the graph view
@@ -141,6 +153,61 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
           // Use the first branch's color
           const primaryBranch = commitData.branches[0]!;
           commitColorMap.set(id, getBranchColor(primaryBranch));
+        }
+      }
+    }
+
+    // Build branch legend items
+    const branchColorsList: BranchLegendItem[] = [];
+    const seenBranchNames = new Set<string>();
+
+    // 1. Local branch nodes first
+    for (const [, node] of graph.nodes) {
+      if (node.kind === 'branch') {
+        const name = node.label;
+        if (!seenBranchNames.has(name)) {
+          seenBranchNames.add(name);
+          branchColorsList.push({
+            name,
+            color: getBranchColor(name),
+            isCurrent: node.isCurrentBranch || name === graph.currentBranch,
+            isRemote: false,
+          });
+        }
+      }
+    }
+
+    // 2. Commit node branch labels
+    for (const [, node] of commitNodes) {
+      if (node.data.kind === 'commit') {
+        const commitData = node.data as CommitNodeData;
+        for (const b of commitData.branches) {
+          if (!b.includes('/') && !seenBranchNames.has(b)) {
+            seenBranchNames.add(b);
+            branchColorsList.push({
+              name: b,
+              color: getBranchColor(b),
+              isCurrent: b === graph.currentBranch,
+              isRemote: false,
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Remote branch nodes if not already covered
+    for (const [, node] of graph.nodes) {
+      if (node.kind === 'remote-branch') {
+        const fullRemoteName = node.label;
+        const shortName = fullRemoteName.replace(/^[^/]+\//, '');
+        if (!seenBranchNames.has(shortName) && !seenBranchNames.has(fullRemoteName)) {
+          seenBranchNames.add(fullRemoteName);
+          branchColorsList.push({
+            name: fullRemoteName,
+            color: getBranchColor(fullRemoteName),
+            isCurrent: false,
+            isRemote: true,
+          });
         }
       }
     }
@@ -300,6 +367,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       isLoading: false,
       commitCount: commitNodes.length,
       branchCount: branchNodes.length,
+      branchColors: branchColorsList,
       hasMore: graph.hasMore ?? false,
       graphNodes: graphNodeMap,
     });

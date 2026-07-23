@@ -135,6 +135,26 @@ export class ActionExecutor {
       return true;
     }
 
+    if (action === 'commit') {
+      const message = await vscode.window.showInputBox({
+        prompt: 'Enter commit message',
+        placeHolder: 'feat: add awesome feature',
+        validateInput: (value) => (value.trim() ? null : 'Commit message cannot be empty'),
+      });
+      if (!message || !message.trim()) return false;
+      node._tempCommitMessage = message.trim();
+      return true;
+    }
+
+    if (action === 'stash') {
+      const message = await vscode.window.showInputBox({
+        prompt: 'Enter stash message (optional)',
+        placeHolder: 'Work in progress',
+      });
+      node._tempStashMessage = message || undefined;
+      return true;
+    }
+
     // All other actions are already confirmed by the webview preview panel
     return true;
   }
@@ -185,6 +205,12 @@ export class ActionExecutor {
         break;
       case 'create-tag':
         await this.gitService.createTag(node._tempTagName, hash, node._tempTagMessage);
+        break;
+      case 'commit':
+        await this.gitService.createCommit(node._tempCommitMessage);
+        break;
+      case 'stash':
+        await this.gitService.createStash(node._tempStashMessage);
         break;
       case 'push':
         await this.gitService.push(node.kind === 'branch' ? branchName : undefined);

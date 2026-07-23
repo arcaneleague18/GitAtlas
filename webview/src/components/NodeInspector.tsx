@@ -34,9 +34,17 @@ export function NodeInspector() {
   // Pending action for preview panel
   const [pendingAction, setPendingAction] = useState<ValidAction | null>(null);
 
-  // Clear pending action when node changes
+  // Commit message editing state
+  const [isEditingMessage, setIsEditingMessage] = useState(false);
+  const [editedMessage, setEditedMessage] = useState('');
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
+
+  // Clear pending action and editing state when node changes
   useEffect(() => {
     setPendingAction(null);
+    setIsEditingMessage(false);
+    setEditedMessage('');
+    setShowEditConfirm(false);
   }, [selectedNodeDetails?.nodeId]);
 
   // Close on Escape key
@@ -207,8 +215,117 @@ export function NodeInspector() {
                     className="inspector-section"
                     variants={sectionVariants}
                   >
-                    <div className="inspector-section-title">Message</div>
-                    <div className="inspector-message">{details.message}</div>
+                    <div className="inspector-section-title">
+                      Message
+                      {details.hash && !isEditingMessage && (
+                        <button
+                          className="inspector-edit-btn"
+                          title="Edit commit message"
+                          onClick={() => {
+                            if (showEditConfirm) {
+                              // Already showing confirm, just open editor
+                              setShowEditConfirm(false);
+                              setEditedMessage(details.message ?? '');
+                              setIsEditingMessage(true);
+                            } else {
+                              setEditedMessage(details.message ?? '');
+                              setShowEditConfirm(true);
+                            }
+                          }}
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </div>
+
+                    <AnimatePresence mode="wait">
+                      {showEditConfirm && !isEditingMessage ? (
+                        <motion.div
+                          key="confirm"
+                          className="inspector-edit-confirm"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <div className="inspector-edit-warning">
+                            <span className="inspector-edit-warning-icon">⚠️</span>
+                            <span>
+                              Editing a commit message <strong>rewrites Git history</strong>.
+                              {headHash !== details.hash && ' This will trigger an interactive rebase.'}
+                              {' '}Are you sure?
+                            </span>
+                          </div>
+                          <div className="inspector-edit-confirm-actions">
+                            <button
+                              className="inspector-edit-confirm-btn proceed"
+                              onClick={() => {
+                                setShowEditConfirm(false);
+                                setIsEditingMessage(true);
+                              }}
+                            >
+                              Yes, Edit
+                            </button>
+                            <button
+                              className="inspector-edit-confirm-btn cancel"
+                              onClick={() => setShowEditConfirm(false)}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </motion.div>
+                      ) : isEditingMessage ? (
+                        <motion.div
+                          key="editor"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <textarea
+                            className="inspector-message-editor"
+                            value={editedMessage}
+                            onChange={(e) => setEditedMessage(e.target.value)}
+                            autoFocus
+                            rows={4}
+                          />
+                          <div className="inspector-edit-confirm-actions">
+                            <button
+                              className="inspector-edit-confirm-btn proceed"
+                              disabled={!editedMessage.trim() || editedMessage === details.message}
+                              onClick={() => {
+                                postMessage({
+                                  type: 'reword-commit',
+                                  hash: details.hash!,
+                                  newMessage: editedMessage.trim(),
+                                });
+                                setIsEditingMessage(false);
+                                setEditedMessage('');
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              className="inspector-edit-confirm-btn cancel"
+                              onClick={() => {
+                                setIsEditingMessage(false);
+                                setEditedMessage('');
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="display"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                        >
+                          <div className="inspector-message">{details.message}</div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )}
 

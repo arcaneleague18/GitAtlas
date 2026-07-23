@@ -245,4 +245,5 @@ export type WebviewToExtensionMessage =
   | { type: 'show-diff'; commitHash: string; filePath: string }
   | { type: 'refresh' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
-  | { type: 'load-more' };
+  | { type: 'load-more' }
+  | { type: 'reword-commit'; hash: string; newMessage: string };

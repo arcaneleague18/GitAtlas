@@ -257,6 +257,10 @@ export class GraphPanelProvider extends DisposableBase {
         this.stateEngine.loadMore();
         void this.stateEngine.buildGraph();
         break;
+
+      case 'reword-commit':
+        void this.handleRewordCommit(message.hash, message.newMessage);
+        break;
     }
   }
 
@@ -482,6 +486,42 @@ export class GraphPanelProvider extends DisposableBase {
   override dispose(): void {
     this.panel?.dispose();
     super.dispose();
+  }
+
+  /**
+   * Handle a commit message reword request from the webview.
+   */
+  private async handleRewordCommit(hash: string, newMessage: string): Promise<void> {
+    const graph = this.stateEngine.graph;
+    if (!graph) return;
+
+    const isHead = graph.headHash === hash;
+
+    try {
+      this.postMessage({ type: 'loading', loading: true });
+      await this.gitService.rewordCommitMessage(hash, newMessage, isHead);
+      await this.stateEngine.buildGraph();
+
+      this.postMessage({
+        type: 'reword-result',
+        success: true,
+        hash,
+      } as any);
+
+      vscode.window.showInformationMessage('Git Atlas: Commit message updated.');
+    } catch (err: any) {
+      const errorMessage = err.stderr?.trim() || err.message || 'Unknown error';
+      this.postMessage({
+        type: 'reword-result',
+        success: false,
+        hash,
+        error: errorMessage,
+      } as any);
+
+      vscode.window.showErrorMessage(`Git Atlas: Failed to reword commit — ${errorMessage}`);
+    } finally {
+      this.postMessage({ type: 'loading', loading: false });
+    }
   }
 }
 

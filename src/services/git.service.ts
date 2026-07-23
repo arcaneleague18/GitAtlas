@@ -298,6 +298,7 @@ export class GitService {
     for (const line of lines) {
       const fields = line.split(FIELD_SEP);
       const name = fields[0]?.trim() ?? '';
+      if (!name || name.startsWith('(')) continue;
       const isCurrent = fields[1]?.trim() === '*';
       const upstream = fields[2]?.trim() || null;
       const tipHash = fields[3]?.trim() ?? '';
@@ -703,6 +704,70 @@ export class GitService {
   async show(ref: string, relativePath: string): Promise<string> {
     const stdout = await this.exec(['show', `${ref}:${relativePath}`]);
     return stdout;
+  }
+
+  async createCommit(message: string): Promise<void> {
+    // Stage all changes (both tracked and untracked) then commit
+    await this.exec(['add', '-A']);
+    await this.exec(['commit', '-m', message]);
+  }
+
+  async createStash(message?: string): Promise<void> {
+    const args = ['stash', 'push', '--include-untracked'];
+    if (message) {
+      args.push('-m', message);
+    }
+    await this.exec(args);
+  }
+
+  /**
+   * Reword a commit message.
+   * - For HEAD: uses `git commit --amend -m "new message"`
+   * - For older commits: uses `git rebase` with a sequence editor
+   *   that replaces the `pick` with `reword`, then applies the new message.
+   */
+  async rewordCommitMessage(hash: string, newMessage: string, isHead: boolean): Promise<void> {
+    if (isHead) {
+      await this.exec(['commit', '--amend', '-m', newMessage]);
+    } else {
+      // For non-HEAD commits, use interactive rebase with GIT_SEQUENCE_EDITOR
+      // to change 'pick <hash>' to 'reword <hash>', then set EDITOR to write
+      // the new message.
+      const shortHash = hash.substring(0, 7);
+      const isWindows = process.platform === 'win32';
+
+      let seqEditor: string;
+      let commitEditor: string;
+
+      if (isWindows) {
+        seqEditor = `powershell -Command "(Get-Content $args[0]) -replace '^pick ${shortHash}', 'reword ${shortHash}' | Set-Content $args[0]"`;
+        commitEditor = `powershell -Command "Set-Content $args[0] '${newMessage.replace(/'/g, "''").replace(/\n/g, "`n")}'"`;
+      } else {
+        seqEditor = `sed -i 's/^pick ${shortHash}/reword ${shortHash}/'`;
+        const escapedMessage = newMessage.replace(/\\/g, '\\\\').replace(/'/g, "'\\''").replace(/\n/g, '\\n');
+        commitEditor = `sh -c 'printf "${escapedMessage}" > "$1"' --`;
+      }
+
+      this.outputChannel.appendLine(`[GitService] > git rebase -i ${hash}^ (reword)`);
+
+      try {
+        await execFileAsync(this.gitPath, ['rebase', '-i', `${hash}^`], {
+          cwd: this.workspaceRoot,
+          maxBuffer: MAX_BUFFER,
+          windowsHide: true,
+          env: {
+            ...process.env,
+            GIT_SEQUENCE_EDITOR: seqEditor,
+            GIT_EDITOR: commitEditor,
+          },
+        });
+      } catch (err: any) {
+        if (err.stderr) {
+          this.outputChannel.appendLine(`[GitService] ERROR: ${err.stderr.trim()}`);
+        }
+        throw err;
+      }
+    }
   }
 }
 
