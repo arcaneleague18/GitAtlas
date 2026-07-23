@@ -36,6 +36,12 @@ const BRANCH_COLORS = [
   '#7ee787', // light green
   '#e3b341', // gold
   '#ffa657', // amber
+  '#f47067', // salmon red
+  '#d2a8ff', // violet
+  '#56d4dd', // cyan / turquoise
+  '#ff9bce', // pink
+  '#89b4fa', // lavender blue
+  '#a6e3a1', // mint green
 ];
 
 export interface BranchLegendItem {
@@ -92,13 +98,41 @@ export interface GraphStoreState {
 
 /** Map to track which color is assigned to which branch. */
 const branchColorMap = new Map<string, string>();
-let colorIndex = 0;
+
+/** Strip remote prefix to match local and remote tracking counterparts (e.g. origin/main -> main). */
+function getCanonicalBranchName(name: string): string {
+  if (name.includes('/') && !name.endsWith('/')) {
+    return name.replace(/^[^/]+\//, '');
+  }
+  return name;
+}
+
+/** Dynamic HSL color generator using golden ratio to guarantee unique hues beyond predefined palette. */
+function generateUniqueColor(index: number): string {
+  if (index < BRANCH_COLORS.length) {
+    return BRANCH_COLORS[index]!;
+  }
+  const goldenRatioConjugate = 0.618033988749895;
+  const hue = Math.floor(((index * goldenRatioConjugate) % 1) * 360);
+  return `hsl(${hue}, 85%, 65%)`;
+}
 
 function getBranchColor(branchName: string): string {
-  const existing = branchColorMap.get(branchName);
+  const canonical = getCanonicalBranchName(branchName);
+  const existing = branchColorMap.get(canonical) || branchColorMap.get(branchName);
   if (existing) return existing;
-  const color = BRANCH_COLORS[colorIndex % BRANCH_COLORS.length]!;
-  colorIndex++;
+
+  const assignedColors = new Set(branchColorMap.values());
+  let colorIdx = assignedColors.size;
+  let color = generateUniqueColor(colorIdx);
+
+  // Guarantee no two distinct branches get the same color
+  while (assignedColors.has(color)) {
+    colorIdx++;
+    color = generateUniqueColor(colorIdx);
+  }
+
+  branchColorMap.set(canonical, color);
   branchColorMap.set(branchName, color);
   return color;
 }
@@ -126,7 +160,6 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   githubContext: null,
 
   setGraph: (graph: SerializedGraph) => {
-    colorIndex = 0;
     branchColorMap.clear();
 
     const graphNodeMap = new Map(graph.nodes);

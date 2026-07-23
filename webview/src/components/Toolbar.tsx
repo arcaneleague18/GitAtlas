@@ -145,7 +145,7 @@ function ToolbarComponent() {
           <AnimatePresence>
             {isLegendOpen && (
               <motion.div
-                className="branch-legend-popover glass"
+                className="branch-legend-popover"
                 initial={{ opacity: 0, y: 8, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.95 }}
