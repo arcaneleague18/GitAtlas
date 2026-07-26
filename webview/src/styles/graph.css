@@ -29,6 +29,17 @@
   background: var(--bg-primary) !important;
 }
 
+.react-flow__node {
+  overflow: visible !important;
+}
+
+/* Elevate hovered, focused, or selected node above all other nodes & edges */
+.react-flow__node:hover,
+.react-flow__node:focus-within,
+.react-flow__node.selected {
+  z-index: 9999 !important;
+}
+
 .react-flow__background {
   background: var(--bg-primary);
 }

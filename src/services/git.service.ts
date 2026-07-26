@@ -707,9 +707,68 @@ export class GitService {
   }
 
   async createCommit(message: string): Promise<void> {
-    // Stage all changes (both tracked and untracked) then commit
-    await this.exec(['add', '-A']);
+    const status = await this.getStatus();
+    // If nothing is staged yet, stage everything before committing
+    if (status.staged.length === 0) {
+      await this.exec(['add', '-A']);
+    }
     await this.exec(['commit', '-m', message]);
+  }
+
+  async stageFile(relativePath: string): Promise<void> {
+    await this.exec(['add', relativePath]);
+  }
+
+  async unstageFile(relativePath: string): Promise<void> {
+    try {
+      await this.exec(['restore', '--staged', relativePath]);
+    } catch {
+      await this.exec(['reset', 'HEAD', '--', relativePath]);
+    }
+  }
+
+  async stageAll(): Promise<void> {
+    await this.exec(['add', '-A']);
+  }
+
+  async unstageAll(): Promise<void> {
+    try {
+      await this.exec(['restore', '--staged', '.']);
+    } catch {
+      await this.exec(['reset', 'HEAD']);
+    }
+  }
+
+  async discardFile(relativePath: string): Promise<void> {
+    try {
+      await this.exec(['checkout', '--', relativePath]);
+    } catch {
+      await this.exec(['clean', '-f', relativePath]);
+    }
+  }
+
+  async generateCommitMessage(): Promise<string> {
+    const status = await this.getStatus();
+    const files = [
+      ...status.staged.map((f) => f.path),
+      ...status.modified.map((f) => f.path),
+      ...status.untracked,
+    ];
+
+    if (files.length === 0) {
+      return 'chore: commit changes';
+    }
+
+    const mainFile = files[0]!;
+    const basename = mainFile.split(/[/\\]/).pop() || mainFile;
+
+    let prefix = 'feat';
+    if (mainFile.includes('css') || mainFile.includes('style')) prefix = 'style';
+    else if (mainFile.includes('test') || mainFile.includes('spec')) prefix = 'test';
+    else if (mainFile.includes('doc') || mainFile.endsWith('.md')) prefix = 'docs';
+    else if (mainFile.includes('config') || mainFile.endsWith('.json')) prefix = 'chore';
+
+    return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length - 1} other file${files.length > 2 ? 's' : ''}` : ''}`;
   }
 
   async createStash(message?: string): Promise<void> {

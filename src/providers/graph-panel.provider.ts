@@ -142,7 +142,7 @@ export class GraphPanelProvider extends DisposableBase {
   /**
    * Handle messages from the webview.
    */
-  private handleWebviewMessage(message: WebviewToExtensionMessage): void {
+  private async handleWebviewMessage(message: WebviewToExtensionMessage): Promise<void> {
     switch (message.type) {
       case 'ready':
         this.webviewReady = true;
@@ -261,6 +261,58 @@ export class GraphPanelProvider extends DisposableBase {
       case 'reword-commit':
         void this.handleRewordCommit(message.hash, message.newMessage);
         break;
+
+      case 'stage-file':
+        await this.gitService.stageFile(message.path);
+        await this.stateEngine.buildGraph();
+        if (this.stateEngine.graph?.nodes.has('working-directory')) {
+          await this.handleNodeSelected('working-directory');
+        }
+        break;
+
+      case 'unstage-file':
+        await this.gitService.unstageFile(message.path);
+        await this.stateEngine.buildGraph();
+        if (this.stateEngine.graph?.nodes.has('working-directory')) {
+          await this.handleNodeSelected('working-directory');
+        }
+        break;
+
+      case 'stage-all':
+        await this.gitService.stageAll();
+        await this.stateEngine.buildGraph();
+        if (this.stateEngine.graph?.nodes.has('working-directory')) {
+          await this.handleNodeSelected('working-directory');
+        }
+        break;
+
+      case 'unstage-all':
+        await this.gitService.unstageAll();
+        await this.stateEngine.buildGraph();
+        if (this.stateEngine.graph?.nodes.has('working-directory')) {
+          await this.handleNodeSelected('working-directory');
+        }
+        break;
+
+      case 'discard-file':
+        await this.gitService.discardFile(message.path);
+        await this.stateEngine.buildGraph();
+        if (this.stateEngine.graph?.nodes.has('working-directory')) {
+          await this.handleNodeSelected('working-directory');
+        }
+        break;
+
+      case 'generate-commit-message': {
+        const msg = await this.gitService.generateCommitMessage();
+        this.postMessage({ type: 'commit-message-generated', message: msg });
+        break;
+      }
+
+      case 'commit-staged':
+        await this.gitService.createCommit(message.message);
+        await this.stateEngine.buildGraph();
+        vscode.window.showInformationMessage('Git Atlas: Changes committed successfully.');
+        break;
     }
   }
 
@@ -329,6 +381,11 @@ export class GraphPanelProvider extends DisposableBase {
         totalFilesChanged: allFiles.length,
         totalInsertions: 0,
         totalDeletions: 0,
+        workingDirectoryStatus: {
+          staged: wdData.staged,
+          modified: wdData.modified,
+          untracked: wdData.untracked.map((p) => ({ path: p, status: 'untracked' })),
+        },
       };
 
       this.postMessage({

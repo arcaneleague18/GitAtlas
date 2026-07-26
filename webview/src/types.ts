@@ -179,7 +179,14 @@ export interface NodeDetails {
   readonly totalInsertions?: number;
   readonly totalDeletions?: number;
   readonly totalFilesChanged?: number;
+  readonly workingDirectoryStatus?: {
+    readonly staged: readonly { readonly path: string; readonly status: string }[];
+    readonly modified: readonly { readonly path: string; readonly status: string }[];
+    readonly untracked: readonly string[];
+  };
 }
+
+// ── Valid Actions ──────────────────────────────────────────────
 
 export interface ValidAction {
   readonly kind: EdgeKind;
@@ -234,7 +241,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] }
   | { type: 'preview-action'; preview: PreviewData }
   | { type: 'clear-preview' }
-  | { type: 'github-context'; context: GitHubContext };
+  | { type: 'github-context'; context: GitHubContext }
+  | { type: 'commit-message-generated'; message: string };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
@@ -246,4 +254,11 @@ export type WebviewToExtensionMessage =
   | { type: 'refresh' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
   | { type: 'load-more' }
-  | { type: 'reword-commit'; hash: string; newMessage: string };
+  | { type: 'reword-commit'; hash: string; newMessage: string }
+  | { type: 'stage-file'; path: string }
+  | { type: 'unstage-file'; path: string }
+  | { type: 'stage-all' }
+  | { type: 'unstage-all' }
+  | { type: 'discard-file'; path: string }
+  | { type: 'generate-commit-message' }
+  | { type: 'commit-staged'; message: string };

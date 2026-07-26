@@ -507,6 +507,288 @@
   font-size: 11px;
 }
 
+/* ── Source Control Commit Panel (VS Code Style) ─────────────── */
+.commit-panel-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+}
+
+.commit-input-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.commit-textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  padding-right: 90px; /* Space for Generate 🪄 button */
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  line-height: 1.4;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.commit-textarea:focus {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.generate-ai-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #0969da;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.generate-ai-btn:hover:not(:disabled) {
+  background: #0860ca;
+}
+
+.generate-ai-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.primary-commit-btn {
+  width: 100%;
+  padding: 8px var(--space-4);
+  background: #0969da;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.primary-commit-btn:hover:not(:disabled) {
+  background: #0860ca;
+  box-shadow: 0 2px 8px rgba(9, 105, 218, 0.4);
+}
+
+.primary-commit-btn:disabled {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border-color: var(--border-subtle);
+  cursor: not-allowed;
+}
+
+/* ── Changes Section ─────────────────────────────────────────── */
+.changes-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.changes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.changes-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.changes-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.changes-count-badge {
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.changes-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.icon-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.icon-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── File Change Row ─────────────────────────────────────────── */
+.changes-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-muted) transparent;
+}
+
+.file-change-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out);
+  position: relative;
+}
+
+.file-change-row:hover {
+  background: var(--bg-hover);
+}
+
+.file-change-row.is-staged {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.file-checkbox {
+  accent-color: #0969da;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.file-icon {
+  font-size: 12px;
+  opacity: 0.8;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+.file-path {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.file-basename {
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.file-dir {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-status-tag {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 0 4px;
+  border-radius: 3px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.file-status-tag.modified { color: #d29922; }
+.file-status-tag.added { color: #3fb950; }
+.file-status-tag.deleted { color: #f85149; }
+.file-status-tag.untracked { color: #8b949e; }
+
+.file-row-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+
+.file-change-row:hover .file-row-actions {
+  display: flex;
+}
+
+.row-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.row-action-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.row-action-btn.discard:hover {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.15);
+}
+
 /* ── Graph container adjustment when inspector is open ─────────── */
 .graph-with-inspector .graph-container {
   width: calc(100% - 340px);

@@ -39,6 +39,23 @@ export function NodeInspector() {
   const [editedMessage, setEditedMessage] = useState('');
   const [showEditConfirm, setShowEditConfirm] = useState(false);
 
+  // Commit message & AI generation state for working directory
+  const [commitInputMessage, setCommitInputMessage] = useState('');
+  const [isGeneratingMessage, setIsGeneratingMessage] = useState(false);
+
+  // Listen for generated commit message from extension host
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      const msg = e.data;
+      if (msg?.type === 'commit-message-generated') {
+        setCommitInputMessage(msg.message);
+        setIsGeneratingMessage(false);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   // Clear pending action and editing state when node changes
   useEffect(() => {
     setPendingAction(null);
@@ -391,8 +408,188 @@ export function NodeInspector() {
                   );
                 })()}
 
-                {/* Diff stats */}
-                {details.diffStats && details.diffStats.length > 0 && (
+                {/* Working Directory Commit & Staging Panel */}
+                {details.kind === 'working-directory' && (() => {
+                  const wdStatus = details.workingDirectoryStatus;
+                  const stagedFiles = wdStatus?.staged ?? [];
+                  const modifiedFiles = wdStatus?.modified ?? [];
+                  const untrackedFiles = wdStatus?.untracked ?? [];
+
+                  const allFiles: { path: string; status: string; isStaged: boolean; statusLetter: string }[] = [
+                    ...stagedFiles.map((f) => ({
+                      path: f.path,
+                      status: f.status,
+                      isStaged: true,
+                      statusLetter: getStatusLetter(f.status),
+                    })),
+                    ...modifiedFiles
+                      .filter((m) => !stagedFiles.some((s) => s.path === m.path))
+                      .map((f) => ({
+                        path: f.path,
+                        status: f.status,
+                        isStaged: false,
+                        statusLetter: getStatusLetter(f.status),
+                      })),
+                    ...untrackedFiles
+                      .filter((u) => {
+                        const uPath = typeof u === 'string' ? u : (u as { path: string }).path;
+                        return !stagedFiles.some((s) => s.path === uPath);
+                      })
+                      .map((f) => {
+                        const uPath = typeof f === 'string' ? f : (f as { path: string }).path;
+                        return {
+                          path: uPath,
+                          status: 'untracked',
+                          isStaged: false,
+                          statusLetter: 'U',
+                        };
+                      }),
+                  ];
+
+                  const stagedCount = stagedFiles.length;
+                  const totalCount = allFiles.length;
+
+                  return (
+                    <motion.div
+                      className="inspector-section commit-panel-card"
+                      variants={sectionVariants}
+                    >
+                      <div className="inspector-section-title">
+                        Commit Changes
+                      </div>
+
+                      {/* Message Input Box + AI Generate Button */}
+                      <div className="commit-input-wrapper">
+                        <textarea
+                          className="commit-textarea"
+                          placeholder="Message (Ctrl+Enter to commit)..."
+                          value={commitInputMessage}
+                          onChange={(e) => setCommitInputMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                              e.preventDefault();
+                              if (commitInputMessage.trim()) {
+                                postMessage({ type: 'commit-staged', message: commitInputMessage.trim() });
+                                setCommitInputMessage('');
+                              }
+                            }
+                          }}
+                          rows={3}
+                        />
+                        <button
+                          className="generate-ai-btn"
+                          disabled={isGeneratingMessage || totalCount === 0}
+                          onClick={() => {
+                            setIsGeneratingMessage(true);
+                            postMessage({ type: 'generate-commit-message' });
+                          }}
+                          title="Generate commit message using AI"
+                        >
+                          {isGeneratingMessage ? 'Generating...' : 'Generate 🪄'}
+                        </button>
+                      </div>
+
+                      {/* Primary Commit Button */}
+                      <button
+                        className="primary-commit-btn"
+                        disabled={!commitInputMessage.trim() || totalCount === 0}
+                        onClick={() => {
+                          if (commitInputMessage.trim()) {
+                            postMessage({ type: 'commit-staged', message: commitInputMessage.trim() });
+                            setCommitInputMessage('');
+                          }
+                        }}
+                      >
+                        ✓ Commit ({stagedCount > 0 ? `${stagedCount} staged` : `${totalCount} all`})
+                      </button>
+
+                      {/* Collapsible Changes List */}
+                      <div className="changes-section">
+                        <div className="changes-header">
+                          <div className="changes-title-group">
+                            <span className="changes-title">Changes</span>
+                            <span className="changes-count-badge">{totalCount}</span>
+                          </div>
+                          <div className="changes-header-actions">
+                            <button
+                              className="icon-action-btn"
+                              title="Stage All Changes"
+                              onClick={() => postMessage({ type: 'stage-all' })}
+                            >
+                              +
+                            </button>
+                            <button
+                              className="icon-action-btn"
+                              title="Unstage All Changes"
+                              onClick={() => postMessage({ type: 'unstage-all' })}
+                            >
+                              −
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="changes-file-list">
+                          {allFiles.map((file) => (
+                            <div
+                              key={file.path}
+                              className={`file-change-row ${file.isStaged ? 'is-staged' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="file-checkbox"
+                                checked={file.isStaged}
+                                onChange={() => {
+                                  if (file.isStaged) {
+                                    postMessage({ type: 'unstage-file', path: file.path });
+                                  } else {
+                                    postMessage({ type: 'stage-file', path: file.path });
+                                  }
+                                }}
+                              />
+                              <span className="file-icon">{getFileIcon(file.path)}</span>
+                              <span
+                                className="file-path"
+                                title={file.path}
+                                onClick={() => postMessage({ type: 'open-file', path: file.path })}
+                              >
+                                <span className="file-basename">{getBasename(file.path)}</span>
+                                <span className="file-dir">{getDirname(file.path)}</span>
+                              </span>
+                              <span className={`file-status-tag ${file.status}`}>
+                                {file.statusLetter}
+                              </span>
+                              <div className="file-row-actions">
+                                <button
+                                  className="row-action-btn"
+                                  title={file.isStaged ? 'Unstage' : 'Stage'}
+                                  onClick={() => {
+                                    if (file.isStaged) {
+                                      postMessage({ type: 'unstage-file', path: file.path });
+                                    } else {
+                                      postMessage({ type: 'stage-file', path: file.path });
+                                    }
+                                  }}
+                                >
+                                  {file.isStaged ? '−' : '+'}
+                                </button>
+                                <button
+                                  className="row-action-btn discard"
+                                  title="Discard Changes"
+                                  onClick={() => postMessage({ type: 'discard-file', path: file.path })}
+                                >
+                                  ↺
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+
+                {/* Diff stats for regular commits */}
+                {details.kind !== 'working-directory' && details.diffStats && details.diffStats.length > 0 && (
                   <motion.div
                     className="inspector-section"
                     variants={sectionVariants}
@@ -504,4 +701,40 @@ function getTimeAgo(unixTimestamp: number): string {
   if (diff < 2592000) return `${Math.floor(diff / 604800)}w ago`;
   if (diff < 31536000) return `${Math.floor(diff / 2592000)}mo ago`;
   return `${Math.floor(diff / 31536000)}y ago`;
+}
+
+function getBasename(path: string): string {
+  const parts = path.split(/[/\\]/);
+  return parts.pop() || path;
+}
+
+function getDirname(path: string): string {
+  const parts = path.split(/[/\\]/);
+  parts.pop();
+  return parts.length > 0 ? parts.join('\\') : '';
+}
+
+function getStatusLetter(status: string): string {
+  switch (status) {
+    case 'modified': return 'M';
+    case 'added': return 'A';
+    case 'deleted': return 'D';
+    case 'renamed': return 'R';
+    case 'untracked': return 'U';
+    default: return 'M';
+  }
+}
+
+function getFileIcon(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'ts': case 'tsx': return '🟦';
+    case 'js': case 'jsx': return '🟨';
+    case 'css': case 'scss': return '{}';
+    case 'json': return '⚙️';
+    case 'md': return '📝';
+    case 'html': return '🌐';
+    case 'py': return '🐍';
+    default: return '📄';
+  }
 }
