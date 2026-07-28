@@ -5,6 +5,12 @@
  * 1. vscode.lm — Uses VS Code's native Language Model API (e.g., GitHub Copilot)
  * 2. openai — Uses a custom OpenAI-compatible API key from settings
  *
+ * Agentic capabilities:
+ * - The AI can request execution of git operations via tool calls
+ * - Every tool call is shown as an interactive confirmation card in the chat
+ * - User must approve each action before it runs
+ * - The AI explains its reasoning for each tool call
+ *
  * The provider injects repository context into every request so the AI
  * understands the user's current Git state.
  */
@@ -15,11 +21,348 @@ import * as fs from 'fs';
 import { RepositoryStateEngine } from '../engine/state-engine.js';
 import { GithubIntegrationEngine } from '../engine/github-integration.js';
 import { DisposableBase } from '../utils/disposable.js';
+import type { GitService } from '../services/git.service.js';
 
 interface ChatMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+  name?: string;
 }
+
+interface ToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
+interface PendingToolCall {
+  id: string;
+  name: string;
+  args: Record<string, any>;
+  reason: string;
+  isDangerous: boolean;
+}
+
+// ── Tool Definitions ─────────────────────────────────────────────
+
+const TOOL_DEFINITIONS = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'checkout',
+      description: 'Switch to a different branch or detach HEAD at a commit. Use for branch switching or checking out specific commits.',
+      parameters: {
+        type: 'object',
+        properties: {
+          ref: { type: 'string', description: 'Branch name or commit hash to checkout' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['ref', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_branch',
+      description: 'Create a new branch, optionally at a specific commit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Name for the new branch' },
+          ref: { type: 'string', description: 'Optional commit hash or branch to create from (defaults to HEAD)' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['name', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'delete_branch',
+      description: 'Delete a branch. Warning: this permanently removes the branch reference.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Branch name to delete' },
+          force: { type: 'boolean', description: 'Force delete even if not fully merged (default: false)' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['name', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'merge',
+      description: 'Merge a branch or commit into the current branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          ref: { type: 'string', description: 'Branch name or commit hash to merge in' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['ref', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'rebase',
+      description: 'Rebase the current branch onto another branch or commit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          ref: { type: 'string', description: 'Branch or commit hash to rebase onto' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['ref', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'cherry_pick',
+      description: 'Apply changes from a specific commit onto the current branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hash: { type: 'string', description: 'Commit hash to cherry-pick' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['hash', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'revert',
+      description: 'Create a new commit that undoes the changes of a specific commit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hash: { type: 'string', description: 'Commit hash to revert' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['hash', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'reset',
+      description: 'Reset the current branch to a specific commit. WARNING: hard reset will discard all uncommitted changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hash: { type: 'string', description: 'Commit hash to reset to' },
+          mode: { type: 'string', enum: ['soft', 'mixed', 'hard'], description: 'Reset mode: soft (keep staged), mixed (unstage), or hard (discard all)' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['hash', 'mode', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_tag',
+      description: 'Create a tag at a specific commit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Tag name (e.g. v1.0.0)' },
+          ref: { type: 'string', description: 'Optional commit hash (defaults to HEAD)' },
+          message: { type: 'string', description: 'Optional tag message (creates an annotated tag)' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['name', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'delete_tag',
+      description: 'Delete a tag.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Tag name to delete' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['name', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'push',
+      description: 'Push local commits to the remote repository.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch: { type: 'string', description: 'Optional specific branch to push (defaults to current)' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'fetch_remote',
+      description: 'Fetch updates from the remote repository without merging.',
+      parameters: {
+        type: 'object',
+        properties: {
+          remote: { type: 'string', description: 'Optional specific remote (defaults to all)' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'commit',
+      description: 'Create a commit with the currently staged files. If nothing is staged, stages everything first.',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'Commit message' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['message', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'stage_files',
+      description: 'Stage specific files or all files for commit.',
+      parameters: {
+        type: 'object',
+        properties: {
+          files: { type: 'array', items: { type: 'string' }, description: 'File paths to stage. Use ["*"] to stage all files.' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['files', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'unstage_files',
+      description: 'Unstage specific files or all files.',
+      parameters: {
+        type: 'object',
+        properties: {
+          files: { type: 'array', items: { type: 'string' }, description: 'File paths to unstage. Use ["*"] to unstage all files.' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['files', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'discard_changes',
+      description: 'Discard all uncommitted changes to a specific file. WARNING: this cannot be undone.',
+      parameters: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', description: 'File path to discard changes for' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['file', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'create_stash',
+      description: 'Stash the current working directory changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'Optional stash message' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_status',
+      description: 'Get the current working directory status (staged, modified, untracked files). Use this to inspect the repo state before suggesting actions.',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: { type: 'string', description: 'Brief explanation of why this information is needed' },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_log',
+      description: 'Get recent commit history. Use this to look up commit hashes, inspect history, or find specific commits.',
+      parameters: {
+        type: 'object',
+        properties: {
+          max_count: { type: 'number', description: 'Number of commits to fetch (default: 10)' },
+          reason: { type: 'string', description: 'Brief explanation of why this information is needed' },
+        },
+        required: ['reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_diff',
+      description: 'Get the diff statistics for a specific commit showing which files changed and how many lines were added/removed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hash: { type: 'string', description: 'Commit hash to get diff for' },
+          reason: { type: 'string', description: 'Brief explanation of why this information is needed' },
+        },
+        required: ['hash', 'reason'],
+      },
+    },
+  },
+];
+
+/** Tool names that are read-only and safe to auto-approve */
+const READ_ONLY_TOOLS = new Set(['get_status', 'get_log', 'get_diff']);
+
+/** Tool names that are destructive and need extra warning */
+const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes']);
+
 
 export class AiAssistantProvider
   extends DisposableBase
@@ -29,10 +372,20 @@ export class AiAssistantProvider
   private view: vscode.WebviewView | null = null;
   private chatHistory: ChatMessage[] = [];
 
+  /**
+   * When the AI makes a tool call, we pause streaming, store the pending
+   * tool call context here, and wait for user approval from the webview.
+   */
+  private pendingToolContext: {
+    toolCalls: ToolCall[];
+    resolve: (approved: boolean) => void;
+  } | null = null;
+
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly stateEngine: RepositoryStateEngine,
-    private readonly githubIntegration: GithubIntegrationEngine
+    private readonly githubIntegration: GithubIntegrationEngine,
+    private readonly gitService: GitService
   ) {
     super();
 
@@ -98,6 +451,16 @@ export class AiAssistantProvider
           case 'clear-chat':
             this.chatHistory = [];
             break;
+          case 'tool-call-approved':
+            if (this.pendingToolContext) {
+              this.pendingToolContext.resolve(true);
+            }
+            break;
+          case 'tool-call-rejected':
+            if (this.pendingToolContext) {
+              this.pendingToolContext.resolve(false);
+            }
+            break;
         }
       },
       undefined,
@@ -139,6 +502,8 @@ export class AiAssistantProvider
 
   /**
    * Handle a request using VS Code's native Language Model API.
+   * Falls back to text-based action extraction since vscode.lm
+   * may not support tool calling in all versions.
    */
   private async handleVsCodeLmRequest(
     context: string,
@@ -211,7 +576,7 @@ export class AiAssistantProvider
   }
 
   /**
-   * Handle a request using an OpenAI-compatible API (OpenRouter, Groq, Nvidia, Ollama, Custom).
+   * Handle a request using an OpenAI-compatible API with tool calling support.
    */
   private async handleCompatibleRequest(
     provider: string,
@@ -219,7 +584,6 @@ export class AiAssistantProvider
     _userMessage: string
   ): Promise<void> {
     const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
-    // Fallbacks to old keys just in case user hasn't updated settings yet, but prefer new keys
     const apiKey = config.get<string>('apiKey') || config.get<string>('openaiApiKey') || '';
     const model = config.get<string>('model') || config.get<string>('openaiModel') || 'gpt-4o-mini';
     const baseUrl = config.get<string>('baseUrl') || config.get<string>('customBaseUrl') || config.get<string>('openaiBaseUrl') || 'https://api.openai.com/v1';
@@ -234,78 +598,421 @@ export class AiAssistantProvider
     }
 
     // Build messages for OpenAI format
-    const messages: Array<{ role: string; content: string }> = [
+    const messages: ChatMessage[] = [
       { role: 'system', content: this.getSystemPrompt() + '\n\n' + context },
     ];
 
-    const recentHistory = this.chatHistory.slice(-10);
+    const recentHistory = this.chatHistory.slice(-20);
     for (const msg of recentHistory) {
-      messages.push({ role: msg.role, content: msg.content });
+      messages.push(msg);
     }
 
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        stream: true,
-      }),
-    });
+    // Agentic loop: keep calling the API until no more tool calls
+    let loopCount = 0;
+    const MAX_LOOPS = 10; // safety limit
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API error ${response.status}: ${errorText}`);
-    }
+    while (loopCount < MAX_LOOPS) {
+      loopCount++;
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('No response body');
-    }
+      const response = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: messages.map(m => {
+            const msg: any = { role: m.role, content: m.content };
+            if (m.tool_calls) msg.tool_calls = m.tool_calls;
+            if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
+            if (m.name) msg.name = m.name;
+            return msg;
+          }),
+          tools: TOOL_DEFINITIONS,
+          tool_choice: 'auto',
+          stream: true,
+        }),
+      });
 
-    let fullResponse = '';
-    const decoder = new TextDecoder();
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API error ${response.status}: ${errorText}`);
+      }
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
 
-      const text = decoder.decode(value, { stream: true });
-      const lines = text.split('\n').filter((line) => line.startsWith('data: '));
+      let fullContent = '';
+      let toolCalls: ToolCall[] = [];
+      const toolCallBuffers: Map<number, { id: string; name: string; arguments: string }> = new Map();
+      const decoder = new TextDecoder();
 
-      for (const line of lines) {
-        const data = line.slice(6);
-        if (data === '[DONE]') continue;
+      // Stream the response
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        try {
-          const parsed = JSON.parse(data);
-          const content = parsed.choices?.[0]?.delta?.content ?? '';
-          if (content) {
-            fullResponse += content;
-            this.postToWebview({
-              type: 'chat-response-chunk',
-              chunk: content,
-              done: false,
-            });
+        const text = decoder.decode(value, { stream: true });
+        const lines = text.split('\n').filter((line) => line.startsWith('data: '));
+
+        for (const line of lines) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta;
+            if (!delta) continue;
+
+            // Handle text content
+            const content = delta.content ?? '';
+            if (content) {
+              fullContent += content;
+              this.postToWebview({
+                type: 'chat-response-chunk',
+                chunk: content,
+                done: false,
+              });
+            }
+
+            // Handle tool calls
+            if (delta.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!toolCallBuffers.has(idx)) {
+                  toolCallBuffers.set(idx, {
+                    id: tc.id ?? '',
+                    name: tc.function?.name ?? '',
+                    arguments: '',
+                  });
+                }
+                const buf = toolCallBuffers.get(idx)!;
+                if (tc.id) buf.id = tc.id;
+                if (tc.function?.name) buf.name = tc.function.name;
+                if (tc.function?.arguments) buf.arguments += tc.function.arguments;
+              }
+            }
+          } catch {
+            // Skip malformed chunks
           }
-        } catch {
-          // Skip malformed chunks
         }
       }
+
+      // Convert buffered tool calls
+      toolCalls = Array.from(toolCallBuffers.values()).map(buf => ({
+        id: buf.id,
+        type: 'function' as const,
+        function: {
+          name: buf.name,
+          arguments: buf.arguments,
+        },
+      }));
+
+      // If there are no tool calls, we're done
+      if (toolCalls.length === 0) {
+        this.postToWebview({
+          type: 'chat-response-chunk',
+          chunk: '',
+          done: true,
+        });
+        this.chatHistory.push({ role: 'assistant', content: fullContent });
+        break;
+      }
+
+      // There are tool calls — finalize any text content first
+      // Always dismiss the streaming placeholder so it doesn't persist
+      if (fullContent) {
+        this.postToWebview({
+          type: 'chat-response-chunk',
+          chunk: '',
+          done: true,
+        });
+      } else {
+        // No text content — dismiss the empty streaming placeholder
+        this.postToWebview({
+          type: 'dismiss-streaming',
+        });
+      }
+
+      // Store assistant message with tool calls
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: fullContent || '',
+        tool_calls: toolCalls,
+      };
+      this.chatHistory.push(assistantMsg);
+      messages.push(assistantMsg);
+
+      // Process each tool call sequentially
+      for (const tc of toolCalls) {
+        let args: Record<string, any> = {};
+        try {
+          args = JSON.parse(tc.function.arguments);
+        } catch {
+          args = {};
+        }
+
+        const reason = args.reason || 'No reason provided';
+        const isDangerous = DANGEROUS_TOOLS.has(tc.function.name);
+        const isReadOnly = READ_ONLY_TOOLS.has(tc.function.name);
+
+        // For read-only tools, auto-approve but still show a notification
+        if (isReadOnly) {
+          this.postToWebview({
+            type: 'tool-call-executing',
+            toolCall: {
+              id: tc.id,
+              name: tc.function.name,
+              args,
+              reason,
+              isDangerous: false,
+            },
+          });
+
+          const result = await this.executeTool(tc.function.name, args);
+
+          this.postToWebview({
+            type: 'tool-call-result',
+            id: tc.id,
+            success: result.success,
+            output: result.output,
+          });
+
+          const toolMsg: ChatMessage = {
+            role: 'tool',
+            content: result.success ? result.output : `Error: ${result.output}`,
+            tool_call_id: tc.id,
+            name: tc.function.name,
+          };
+          this.chatHistory.push(toolMsg);
+          messages.push(toolMsg);
+          continue;
+        }
+
+        // For write operations, ask user for permission
+        this.postToWebview({
+          type: 'tool-call-request',
+          toolCall: {
+            id: tc.id,
+            name: tc.function.name,
+            args,
+            reason,
+            isDangerous,
+          },
+        });
+
+        // Wait for user approval
+        const approved = await new Promise<boolean>((resolve) => {
+          this.pendingToolContext = { toolCalls, resolve };
+        });
+        this.pendingToolContext = null;
+
+        if (approved) {
+          // Execute the tool
+          this.postToWebview({
+            type: 'tool-call-executing',
+            toolCall: {
+              id: tc.id,
+              name: tc.function.name,
+              args,
+              reason,
+              isDangerous,
+            },
+          });
+
+          const result = await this.executeTool(tc.function.name, args);
+
+          this.postToWebview({
+            type: 'tool-call-result',
+            id: tc.id,
+            success: result.success,
+            output: result.output,
+          });
+
+          // Refresh the graph after write operations
+          try {
+            await this.stateEngine.buildGraph();
+          } catch { /* ignore */ }
+
+          const toolMsg: ChatMessage = {
+            role: 'tool',
+            content: result.success ? result.output : `Error: ${result.output}`,
+            tool_call_id: tc.id,
+            name: tc.function.name,
+          };
+          this.chatHistory.push(toolMsg);
+          messages.push(toolMsg);
+        } else {
+          // User rejected — send rejection as tool result
+          const toolMsg: ChatMessage = {
+            role: 'tool',
+            content: 'User denied permission to execute this action.',
+            tool_call_id: tc.id,
+            name: tc.function.name,
+          };
+          this.chatHistory.push(toolMsg);
+          messages.push(toolMsg);
+
+          this.postToWebview({
+            type: 'tool-call-result',
+            id: tc.id,
+            success: false,
+            output: 'Action cancelled by user.',
+          });
+        }
+      }
+
+      // After processing all tool calls, add a new streaming assistant placeholder
+      // so the AI can respond to the tool results.
+      this.postToWebview({
+        type: 'chat-response-new',
+      });
+
+      // Loop back to call the API again with tool results
     }
-
-    // Signal completion
-    this.postToWebview({
-      type: 'chat-response-chunk',
-      chunk: '',
-      done: true,
-    });
-
-    this.chatHistory.push({ role: 'assistant', content: fullResponse });
   }
+
+  // ── Tool Execution ───────────────────────────────────────────────
+
+  /**
+   * Execute a tool by name and return the result.
+   */
+  private async executeTool(
+    name: string,
+    args: Record<string, any>
+  ): Promise<{ success: boolean; output: string }> {
+    try {
+      switch (name) {
+        case 'checkout': {
+          await this.gitService.checkout(args.ref);
+          return { success: true, output: `Checked out '${args.ref}'.` };
+        }
+        case 'create_branch': {
+          await this.gitService.createBranch(args.name, args.ref);
+          return { success: true, output: `Created branch '${args.name}'${args.ref ? ` at ${args.ref}` : ''}.` };
+        }
+        case 'delete_branch': {
+          await this.gitService.deleteBranch(args.name, args.force ?? false);
+          return { success: true, output: `Deleted branch '${args.name}'.` };
+        }
+        case 'merge': {
+          await this.gitService.merge(args.ref);
+          return { success: true, output: `Merged '${args.ref}' into current branch.` };
+        }
+        case 'rebase': {
+          await this.gitService.rebase(args.ref);
+          return { success: true, output: `Rebased current branch onto '${args.ref}'.` };
+        }
+        case 'cherry_pick': {
+          await this.gitService.cherryPick(args.hash);
+          return { success: true, output: `Cherry-picked commit ${args.hash.substring(0, 7)}.` };
+        }
+        case 'revert': {
+          await this.gitService.revert(args.hash);
+          return { success: true, output: `Reverted commit ${args.hash.substring(0, 7)}.` };
+        }
+        case 'reset': {
+          await this.gitService.reset(args.hash, args.mode);
+          return { success: true, output: `Reset (${args.mode}) to commit ${args.hash.substring(0, 7)}.` };
+        }
+        case 'create_tag': {
+          await this.gitService.createTag(args.name, args.ref, args.message);
+          return { success: true, output: `Created tag '${args.name}'.` };
+        }
+        case 'delete_tag': {
+          await this.gitService.deleteTag(args.name);
+          return { success: true, output: `Deleted tag '${args.name}'.` };
+        }
+        case 'push': {
+          await this.gitService.push(args.branch);
+          return { success: true, output: `Pushed${args.branch ? ` branch '${args.branch}'` : ''} to remote.` };
+        }
+        case 'fetch_remote': {
+          await this.gitService.fetch(args.remote);
+          return { success: true, output: `Fetched from ${args.remote || 'all remotes'}.` };
+        }
+        case 'commit': {
+          await this.gitService.createCommit(args.message);
+          return { success: true, output: `Created commit: "${args.message}".` };
+        }
+        case 'stage_files': {
+          const files: string[] = args.files || [];
+          if (files.includes('*')) {
+            await this.gitService.stageAll();
+            return { success: true, output: 'Staged all files.' };
+          }
+          for (const f of files) {
+            await this.gitService.stageFile(f);
+          }
+          return { success: true, output: `Staged ${files.length} file(s): ${files.join(', ')}` };
+        }
+        case 'unstage_files': {
+          const files: string[] = args.files || [];
+          if (files.includes('*')) {
+            await this.gitService.unstageAll();
+            return { success: true, output: 'Unstaged all files.' };
+          }
+          for (const f of files) {
+            await this.gitService.unstageFile(f);
+          }
+          return { success: true, output: `Unstaged ${files.length} file(s): ${files.join(', ')}` };
+        }
+        case 'discard_changes': {
+          await this.gitService.discardFile(args.file);
+          return { success: true, output: `Discarded changes in '${args.file}'.` };
+        }
+        case 'create_stash': {
+          await this.gitService.createStash(args.message);
+          return { success: true, output: `Stashed changes${args.message ? `: "${args.message}"` : ''}.` };
+        }
+        case 'get_status': {
+          const status = await this.gitService.getStatus();
+          const parts: string[] = [];
+          if (status.staged.length > 0) {
+            parts.push(`Staged (${status.staged.length}): ${status.staged.map(f => `${f.path} [${f.status}]`).join(', ')}`);
+          }
+          if (status.modified.length > 0) {
+            parts.push(`Modified (${status.modified.length}): ${status.modified.map(f => `${f.path} [${f.status}]`).join(', ')}`);
+          }
+          if (status.untracked.length > 0) {
+            parts.push(`Untracked (${status.untracked.length}): ${status.untracked.join(', ')}`);
+          }
+          if (parts.length === 0) {
+            parts.push('Working directory is clean.');
+          }
+          return { success: true, output: parts.join('\n') };
+        }
+        case 'get_log': {
+          const count = args.max_count || 10;
+          const commits = await this.gitService.getLog(count);
+          const logLines = commits.slice(0, count).map(c =>
+            `${c.shortHash} | ${c.author} | ${new Date(c.timestamp * 1000).toISOString().split('T')[0]} | ${c.message}`
+          );
+          return { success: true, output: logLines.join('\n') || 'No commits found.' };
+        }
+        case 'get_diff': {
+          const stats = await this.gitService.getDiffStats(args.hash);
+          if (stats.length === 0) {
+            return { success: true, output: 'No file changes in this commit.' };
+          }
+          const diffLines = stats.map(f =>
+            `${f.path}: +${f.insertions} -${f.deletions}${f.isBinary ? ' (binary)' : ''}`
+          );
+          return { success: true, output: diffLines.join('\n') };
+        }
+        default:
+          return { success: false, output: `Unknown tool: ${name}` };
+      }
+    } catch (err: any) {
+      const errorMsg = err.stderr || err.message || 'Unknown error';
+      return { success: false, output: errorMsg };
+    }
+  }
+
+  // ── Context & Prompts ────────────────────────────────────────────
 
   /**
    * Build a context string from the current repository state.
@@ -388,26 +1095,31 @@ export class AiAssistantProvider
   }
 
   /**
-   * System prompt that defines the AI assistant's personality and capabilities.
+   * System prompt that defines the AI assistant's personality and agentic capabilities.
    */
   private getSystemPrompt(): string {
     return `You are the Git Atlas AI Assistant, an expert Git advisor embedded inside a VS Code extension.
 
-Your role:
-- Help users understand their Git repository state visually
-- Explain Git concepts clearly using analogies and diagrams
-- Suggest solutions for common Git problems (merge conflicts, detached HEAD, dirty working tree)
-- Recommend best practices for branching, committing, and collaboration
-- Explain what specific Git commands will do before the user runs them
+You are an AGENTIC assistant — you can directly execute Git actions on the user's repository using the tools provided.
+
+IMPORTANT RULES:
+1. ALWAYS use tools when the user asks you to perform an action (commit, branch, merge, etc.)
+2. For EVERY tool call, you MUST provide a clear "reason" parameter explaining WHY you are performing this action
+3. Read-only tools (get_status, get_log, get_diff) will execute automatically
+4. Write operations require explicit user approval — the user will see a confirmation card
+5. For dangerous operations (reset, delete), warn the user in your text response before calling the tool
+6. You can chain multiple tool calls (e.g. stage_files then commit) — each will be confirmed individually
+7. Always reference the actual repo state (provided as context) when answering questions
+8. If you need more information before acting, use get_status or get_log first
 
 Style:
 - Be concise but thorough
 - Use markdown formatting (headers, bullet points, code blocks)
-- When suggesting Git commands, wrap them in \`backticks\`
+- When explaining what you did, be specific about what changed
 - Be encouraging and supportive — Git can be intimidating
+- After executing actions, summarize what was done
 
-You have access to the user's current repository state which is provided below as context.
-Always reference the actual state when answering questions.`;
+You have access to the user's current repository state which is provided below as context.`;
   }
 
   /**

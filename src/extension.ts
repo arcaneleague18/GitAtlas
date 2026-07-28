@@ -102,7 +102,8 @@ export async function activate(
   const aiAssistant = new AiAssistantProvider(
     context.extensionUri,
     stateEngine,
-    githubIntegration
+    githubIntegration,
+    gitService
   );
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(

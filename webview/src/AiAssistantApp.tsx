@@ -5,9 +5,10 @@
  * - Streaming message display with typing animation
  * - Markdown rendering for AI responses
  * - Chat history with user/assistant bubbles
+ * - Tool call confirmation cards with reason display
  * - Input area with submit on Enter
  * - Clear chat button
- * - Premium glassmorphic design
+ * - Premium dark-mode design
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -15,10 +16,67 @@ import { postMessage } from './vscode';
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'tool-request' | 'tool-executing' | 'tool-result';
   content: string;
   isStreaming?: boolean;
+  toolCall?: ToolCallData;
+  toolResult?: { success: boolean; output: string };
 }
+
+interface ToolCallData {
+  id: string;
+  name: string;
+  args: Record<string, any>;
+  reason: string;
+  isDangerous: boolean;
+}
+
+// Human-readable labels for tool names
+const TOOL_LABELS: Record<string, string> = {
+  checkout: 'Checkout',
+  create_branch: 'Create Branch',
+  delete_branch: 'Delete Branch',
+  merge: 'Merge',
+  rebase: 'Rebase',
+  cherry_pick: 'Cherry Pick',
+  revert: 'Revert',
+  reset: 'Reset',
+  create_tag: 'Create Tag',
+  delete_tag: 'Delete Tag',
+  push: 'Push',
+  fetch_remote: 'Fetch',
+  commit: 'Commit',
+  stage_files: 'Stage Files',
+  unstage_files: 'Unstage Files',
+  discard_changes: 'Discard Changes',
+  create_stash: 'Stash',
+  get_status: 'Get Status',
+  get_log: 'Get Log',
+  get_diff: 'Get Diff',
+};
+
+const TOOL_ICONS: Record<string, string> = {
+  checkout: '🔀',
+  create_branch: '🌿',
+  delete_branch: '🗑️',
+  merge: '🔗',
+  rebase: '📐',
+  cherry_pick: '🍒',
+  revert: '↩️',
+  reset: '⚠️',
+  create_tag: '🏷️',
+  delete_tag: '🗑️',
+  push: '⬆️',
+  fetch_remote: '⬇️',
+  commit: '💾',
+  stage_files: '📋',
+  unstage_files: '📄',
+  discard_changes: '🚮',
+  create_stash: '📦',
+  get_status: '📊',
+  get_log: '📜',
+  get_diff: '📝',
+};
 
 // Simple markdown-like rendering (bold, code, headers, lists)
 function renderMarkdown(text: string): string {
@@ -43,6 +101,16 @@ function renderMarkdown(text: string): string {
     .replace(/\n/g, '<br>');
 }
 
+/** Format tool args for display (excluding 'reason') */
+function formatToolArgs(args: Record<string, any>): [string, string][] {
+  return Object.entries(args)
+    .filter(([key]) => key !== 'reason')
+    .map(([key, value]) => [
+      key.replace(/_/g, ' '),
+      Array.isArray(value) ? value.join(', ') : String(value),
+    ]);
+}
+
 export function AiAssistantApp() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -64,17 +132,14 @@ export function AiAssistantApp() {
       switch (message.type) {
         case 'chat-response-chunk': {
           if (message.done) {
-            // Capture content before clearing — React 18 batching
-            // defers the updater, so the ref would be empty by then.
             const finalContent = streamBufferRef.current;
             streamBufferRef.current = '';
-            // Finalize the streaming message
             setMessages((prev) => {
               const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last && last.role === 'assistant') {
-                updated[updated.length - 1] = {
-                  ...last,
+              const lastIdx = findLastStreamingIndex(updated);
+              if (lastIdx >= 0) {
+                updated[lastIdx] = {
+                  ...updated[lastIdx],
                   content: finalContent,
                   isStreaming: false,
                 };
@@ -84,13 +149,12 @@ export function AiAssistantApp() {
             setIsLoading(false);
           } else {
             streamBufferRef.current += message.chunk;
-            // Update the last assistant message with new content
             setMessages((prev) => {
               const updated = [...prev];
-              const last = updated[updated.length - 1];
-              if (last && last.role === 'assistant' && last.isStreaming) {
-                updated[updated.length - 1] = {
-                  ...last,
+              const lastIdx = findLastStreamingIndex(updated);
+              if (lastIdx >= 0) {
+                updated[lastIdx] = {
+                  ...updated[lastIdx],
                   content: streamBufferRef.current,
                 };
               }
@@ -100,9 +164,80 @@ export function AiAssistantApp() {
           break;
         }
 
+        case 'chat-response-new': {
+          // A new assistant placeholder is needed after tool results
+          streamBufferRef.current = '';
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `ai-${Date.now()}`,
+              role: 'assistant',
+              content: '',
+              isStreaming: true,
+            },
+          ]);
+          setIsLoading(true);
+          break;
+        }
+
+        case 'dismiss-streaming': {
+          // Remove the empty streaming placeholder when AI only returned tool calls
+          streamBufferRef.current = '';
+          setMessages((prev) => prev.filter((m) => !(m.isStreaming && !m.content)));
+          setIsLoading(false);
+          break;
+        }
+
+        case 'tool-call-request': {
+          const tc = message.toolCall as ToolCallData;
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `tool-req-${tc.id}`,
+              role: 'tool-request',
+              content: '',
+              toolCall: tc,
+            },
+          ]);
+          // Ensure the full tool card (including buttons) is scrolled into view
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+          break;
+        }
+
+        case 'tool-call-executing': {
+          const tc = message.toolCall as ToolCallData;
+          setMessages((prev) => {
+            // Replace the request card with executing state
+            return prev.map((m) =>
+              m.id === `tool-req-${tc.id}`
+                ? { ...m, role: 'tool-executing' as const }
+                : m
+            );
+          });
+          break;
+        }
+
+        case 'tool-call-result': {
+          const { id, success, output } = message;
+          setMessages((prev) => {
+            // Replace the executing card with result
+            return prev.map((m) =>
+              m.id === `tool-req-${id}`
+                ? {
+                    ...m,
+                    role: 'tool-result' as const,
+                    toolResult: { success, output },
+                  }
+                : m
+            );
+          });
+          break;
+        }
+
         case 'chat-error': {
           setMessages((prev) => {
-            // Remove the streaming placeholder if it exists
             const updated = prev.filter((m) => !m.isStreaming);
             return [
               ...updated,
@@ -169,6 +304,14 @@ export function AiAssistantApp() {
     postMessage({ type: 'clear-chat' } as any);
   }, []);
 
+  const handleToolApprove = useCallback(() => {
+    postMessage({ type: 'tool-call-approved' } as any);
+  }, []);
+
+  const handleToolReject = useCallback(() => {
+    postMessage({ type: 'tool-call-rejected' } as any);
+  }, []);
+
   return (
     <div className="ai-assistant">
       {/* Header */}
@@ -176,6 +319,7 @@ export function AiAssistantApp() {
         <div className="ai-header-title">
           <span className="ai-header-icon">✨</span>
           <span>AI Assistant</span>
+          <span className="ai-agentic-badge">Agentic</span>
         </div>
         {messages.length > 0 && (
           <button
@@ -195,14 +339,14 @@ export function AiAssistantApp() {
             <div className="ai-welcome-icon">🌳</div>
             <div className="ai-welcome-title">Git Atlas AI</div>
             <div className="ai-welcome-subtitle">
-              Ask me anything about your repository
+              I can answer questions <strong>and execute actions</strong> on your repository
             </div>
             <div className="ai-suggestions">
               {[
-                'What branch am I on?',
-                'Explain my recent commits',
-                'How do I resolve merge conflicts?',
-                'What are my open PRs?',
+                'Create a feature branch',
+                'Stage all files and commit',
+                'What changed in the last 5 commits?',
+                'Cherry-pick the latest commit from main',
               ].map((suggestion) => (
                 <button
                   key={suggestion}
@@ -218,35 +362,50 @@ export function AiAssistantApp() {
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`ai-message ${msg.role}`}
-            >
-              <div className="ai-message-avatar">
-                {msg.role === 'user' ? '👤' : '✨'}
+          messages.map((msg) => {
+            // Tool call cards
+            if (msg.role === 'tool-request' || msg.role === 'tool-executing' || msg.role === 'tool-result') {
+              return (
+                <ToolCallCard
+                  key={msg.id}
+                  msg={msg}
+                  onApprove={handleToolApprove}
+                  onReject={handleToolReject}
+                />
+              );
+            }
+
+            // Regular chat messages
+            return (
+              <div
+                key={msg.id}
+                className={`ai-message ${msg.role}`}
+              >
+                <div className="ai-message-avatar">
+                  {msg.role === 'user' ? '👤' : '✨'}
+                </div>
+                <div className="ai-message-content">
+                  {msg.role === 'assistant' ? (
+                    <div
+                      className={`ai-markdown ${msg.isStreaming ? 'streaming' : ''}`}
+                      dangerouslySetInnerHTML={{
+                        __html: renderMarkdown(msg.content || ''),
+                      }}
+                    />
+                  ) : (
+                    <div className="ai-user-text">{msg.content}</div>
+                  )}
+                  {msg.isStreaming && !msg.content && (
+                    <div className="ai-typing-indicator">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="ai-message-content">
-                {msg.role === 'assistant' ? (
-                  <div
-                    className={`ai-markdown ${msg.isStreaming ? 'streaming' : ''}`}
-                    dangerouslySetInnerHTML={{
-                      __html: renderMarkdown(msg.content || ''),
-                    }}
-                  />
-                ) : (
-                  <div className="ai-user-text">{msg.content}</div>
-                )}
-                {msg.isStreaming && !msg.content && (
-                  <div className="ai-typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -259,7 +418,7 @@ export function AiAssistantApp() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isLoading ? 'Thinking...' : 'Ask about your repository...'}
+          placeholder={isLoading ? 'Thinking...' : 'Ask or command your repository...'}
           disabled={isLoading}
           rows={1}
         />
@@ -278,4 +437,112 @@ export function AiAssistantApp() {
       </div>
     </div>
   );
+}
+
+// ── Tool Call Confirmation Card ────────────────────────────────
+
+interface ToolCallCardProps {
+  msg: ChatMessage;
+  onApprove: () => void;
+  onReject: () => void;
+}
+
+function ToolCallCard({ msg, onApprove, onReject }: ToolCallCardProps) {
+  const tc = msg.toolCall;
+  if (!tc) return null;
+
+  const label = TOOL_LABELS[tc.name] || tc.name;
+  const icon = TOOL_ICONS[tc.name] || '🔧';
+  const params = formatToolArgs(tc.args);
+  const isPending = msg.role === 'tool-request';
+  const isExecuting = msg.role === 'tool-executing';
+  const isDone = msg.role === 'tool-result';
+
+  return (
+    <div
+      className={`ai-tool-card ${tc.isDangerous ? 'dangerous' : ''} ${
+        isPending ? 'pending' : isExecuting ? 'executing' : isDone ? 'done' : ''
+      } ${isDone && msg.toolResult ? (msg.toolResult.success ? 'success' : 'error') : ''}`}
+    >
+      {/* Header */}
+      <div className="ai-tool-header">
+        <span className="ai-tool-icon">{icon}</span>
+        <span className="ai-tool-name">{label}</span>
+        {isPending && (
+          <span className="ai-tool-badge pending">Awaiting Approval</span>
+        )}
+        {isExecuting && (
+          <span className="ai-tool-badge executing">Executing…</span>
+        )}
+        {isDone && msg.toolResult?.success && (
+          <span className="ai-tool-badge success">✓ Done</span>
+        )}
+        {isDone && !msg.toolResult?.success && (
+          <span className="ai-tool-badge error">✗ Failed</span>
+        )}
+      </div>
+
+      {/* Reason */}
+      <div className="ai-tool-reason">
+        <span className="ai-tool-reason-label">Reason:</span>
+        <span>{tc.reason}</span>
+      </div>
+
+      {/* Parameters */}
+      {params.length > 0 && (
+        <div className="ai-tool-params">
+          {params.map(([key, value]) => (
+            <div key={key} className="ai-tool-param">
+              <span className="ai-tool-param-key">{key}</span>
+              <span className="ai-tool-param-value">{value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Danger warning */}
+      {tc.isDangerous && isPending && (
+        <div className="ai-tool-warning">
+          ⚠️ This is a destructive action that may not be easily undone.
+        </div>
+      )}
+
+      {/* Action buttons (only for pending) */}
+      {isPending && (
+        <div className="ai-tool-actions">
+          <button className="ai-tool-btn approve" onClick={onApprove}>
+            ✓ Execute
+          </button>
+          <button className="ai-tool-btn reject" onClick={onReject}>
+            ✗ Deny
+          </button>
+        </div>
+      )}
+
+      {/* Execution spinner */}
+      {isExecuting && (
+        <div className="ai-tool-executing">
+          <span className="ai-tool-spinner" />
+          <span>Running...</span>
+        </div>
+      )}
+
+      {/* Result */}
+      {isDone && msg.toolResult && (
+        <div className={`ai-tool-output ${msg.toolResult.success ? 'success' : 'error'}`}>
+          <pre>{msg.toolResult.output}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Find the index of the last streaming assistant message */
+function findLastStreamingIndex(messages: ChatMessage[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'assistant' && messages[i].isStreaming) {
+      return i;
+    }
+  }
+  return -1;
 }
