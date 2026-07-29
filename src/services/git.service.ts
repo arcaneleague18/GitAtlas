@@ -286,6 +286,7 @@ export class GitService {
           '%(HEAD)',
           '%(upstream:short)',
           '%(objectname:short)',
+          '%(refname)'
         ].join(FIELD_SEP),
       ]);
     } catch {
@@ -298,10 +299,13 @@ export class GitService {
     for (const line of lines) {
       const fields = line.split(FIELD_SEP);
       const name = fields[0]?.trim() ?? '';
-      if (!name || name.startsWith('(')) continue;
       const isCurrent = fields[1]?.trim() === '*';
       const upstream = fields[2]?.trim() || null;
       const tipHash = fields[3]?.trim() ?? '';
+      const fullRef = fields[4]?.trim() ?? '';
+      
+      // Ignore symbolic remote HEADs (e.g. refs/remotes/origin/HEAD)
+      if (!name || name.startsWith('(') || fullRef.endsWith('/HEAD')) continue;
       const isRemote = name.includes('/');
 
       // Get ahead/behind count for branches with upstreams

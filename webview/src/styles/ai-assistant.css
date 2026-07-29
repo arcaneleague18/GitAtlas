@@ -513,51 +513,57 @@
 
 /* Action buttons */
 .ai-tool-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 2px;
+  display: flex !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+  width: 100% !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .ai-tool-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  font-size: var(--text-xs, 11px);
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all var(--duration-fast, 120ms) var(--ease-out);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+  flex: 1 !important;
+  padding: 8px 16px !important;
+  min-height: 32px !important;
+  border-radius: 6px !important;
+  border: 1px solid transparent !important;
+  font-size: var(--text-xs, 11px) !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  transition: all var(--duration-fast, 120ms) var(--ease-out) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .ai-tool-btn.approve {
-  background: rgba(63, 185, 80, 0.15);
-  color: #3fb950;
-  border-color: rgba(63, 185, 80, 0.4);
+  background: #238636 !important;
+  color: #ffffff !important;
+  border-color: #2ea043 !important;
 }
 
 .ai-tool-btn.approve:hover {
-  background: rgba(63, 185, 80, 0.25);
-  border-color: rgba(63, 185, 80, 0.6);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(63, 185, 80, 0.2);
+  background: #2ea043 !important;
+  border-color: #3fb950 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(63, 185, 80, 0.3) !important;
 }
 
 .ai-tool-btn.reject {
-  background: rgba(139, 148, 158, 0.1);
-  color: var(--text-secondary, #8b949e);
-  border-color: var(--border-default, #30363d);
+  background: #21262d !important;
+  color: #f85149 !important;
+  border-color: #30363d !important;
 }
 
 .ai-tool-btn.reject:hover {
-  background: rgba(248, 81, 73, 0.1);
-  color: #f85149;
-  border-color: rgba(248, 81, 73, 0.4);
-  transform: translateY(-1px);
+  background: rgba(248, 81, 73, 0.15) !important;
+  color: #ff7b72 !important;
+  border-color: rgba(248, 81, 73, 0.4) !important;
+  transform: translateY(-1px) !important;
 }
 
 /* Executing spinner */

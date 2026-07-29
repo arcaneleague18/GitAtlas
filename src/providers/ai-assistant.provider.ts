@@ -374,12 +374,8 @@ export class AiAssistantProvider
 
   /**
    * When the AI makes a tool call, we pause streaming, store the pending
-   * tool call context here, and wait for user approval from the webview.
+   * tool call context here, and wait for user approval  // Removed pendingToolContext since we will use native modals
    */
-  private pendingToolContext: {
-    toolCalls: ToolCall[];
-    resolve: (approved: boolean) => void;
-  } | null = null;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -450,16 +446,6 @@ export class AiAssistantProvider
             break;
           case 'clear-chat':
             this.chatHistory = [];
-            break;
-          case 'tool-call-approved':
-            if (this.pendingToolContext) {
-              this.pendingToolContext.resolve(true);
-            }
-            break;
-          case 'tool-call-rejected':
-            if (this.pendingToolContext) {
-              this.pendingToolContext.resolve(false);
-            }
             break;
         }
       },
@@ -804,11 +790,26 @@ export class AiAssistantProvider
           },
         });
 
-        // Wait for user approval
-        const approved = await new Promise<boolean>((resolve) => {
-          this.pendingToolContext = { toolCalls, resolve };
-        });
-        this.pendingToolContext = null;
+        // Format args for modal
+        const argLines = Object.entries(args)
+          .filter(([k]) => k !== 'reason')
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join('\\n');
+        
+        let modalMsg = `Git Atlas AI wants to execute: ${tc.function.name}\\n\\nReason: ${reason}`;
+        if (argLines) {
+          modalMsg += `\\n\\nParameters:\\n${argLines}`;
+        }
+
+        // Wait for user approval via native modal
+        const choice = await vscode.window.showInformationMessage(
+          modalMsg,
+          { modal: true, detail: isDangerous ? 'WARNING: This is a destructive action.' : 'Are you sure you want to proceed?' },
+          'Execute Action',
+          'Deny'
+        );
+
+        const approved = choice === 'Execute Action';
 
         if (approved) {
           // Execute the tool
@@ -1104,13 +1105,14 @@ You are an AGENTIC assistant — you can directly execute Git actions on the use
 
 IMPORTANT RULES:
 1. ALWAYS use tools when the user asks you to perform an action (commit, branch, merge, etc.)
-2. For EVERY tool call, you MUST provide a clear "reason" parameter explaining WHY you are performing this action
-3. Read-only tools (get_status, get_log, get_diff) will execute automatically
-4. Write operations require explicit user approval — the user will see a confirmation card
-5. For dangerous operations (reset, delete), warn the user in your text response before calling the tool
-6. You can chain multiple tool calls (e.g. stage_files then commit) — each will be confirmed individually
-7. Always reference the actual repo state (provided as context) when answering questions
-8. If you need more information before acting, use get_status or get_log first
+2. DO NOT ask the user for permission in your text response. You MUST simply execute the tool call directly. The system will automatically pause and show an approval button to the user.
+3. For EVERY tool call, you MUST provide a clear "reason" parameter explaining WHY you are performing this action.
+4. Read-only tools (get_status, get_log, get_diff) will execute automatically.
+5. Write operations require explicit user approval — the user will see a confirmation card with buttons.
+6. For dangerous operations (reset, delete), warn the user in your text response before calling the tool.
+7. You can chain multiple tool calls (e.g. stage_files then commit) — each will be confirmed individually.
+8. Always reference the actual repo state (provided as context) when answering questions.
+9. If you need more information before acting, use get_status or get_log first.
 
 Style:
 - Be concise but thorough

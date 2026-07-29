@@ -121,7 +121,10 @@ export function AiAssistantApp() {
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const timeoutId = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
+    return () => clearTimeout(timeoutId);
   }, [messages]);
 
   // Listen for messages from the extension
@@ -304,14 +307,6 @@ export function AiAssistantApp() {
     postMessage({ type: 'clear-chat' } as any);
   }, []);
 
-  const handleToolApprove = useCallback(() => {
-    postMessage({ type: 'tool-call-approved' } as any);
-  }, []);
-
-  const handleToolReject = useCallback(() => {
-    postMessage({ type: 'tool-call-rejected' } as any);
-  }, []);
-
   return (
     <div className="ai-assistant">
       {/* Header */}
@@ -369,8 +364,6 @@ export function AiAssistantApp() {
                 <ToolCallCard
                   key={msg.id}
                   msg={msg}
-                  onApprove={handleToolApprove}
-                  onReject={handleToolReject}
                 />
               );
             }
@@ -407,7 +400,7 @@ export function AiAssistantApp() {
             );
           })
         )}
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} style={{ height: '32px', flexShrink: 0 }} />
       </div>
 
       {/* Input */}
@@ -443,11 +436,9 @@ export function AiAssistantApp() {
 
 interface ToolCallCardProps {
   msg: ChatMessage;
-  onApprove: () => void;
-  onReject: () => void;
 }
 
-function ToolCallCard({ msg, onApprove, onReject }: ToolCallCardProps) {
+function ToolCallCard({ msg }: ToolCallCardProps) {
   const tc = msg.toolCall;
   if (!tc) return null;
 
@@ -503,19 +494,16 @@ function ToolCallCard({ msg, onApprove, onReject }: ToolCallCardProps) {
       {/* Danger warning */}
       {tc.isDangerous && isPending && (
         <div className="ai-tool-warning">
-          ⚠️ This is a destructive action that may not be easily undone.
+          [Warning] This is a destructive action that may not be easily undone.
         </div>
       )}
 
       {/* Action buttons (only for pending) */}
       {isPending && (
-        <div className="ai-tool-actions">
-          <button className="ai-tool-btn approve" onClick={onApprove}>
-            ✓ Execute
-          </button>
-          <button className="ai-tool-btn reject" onClick={onReject}>
-            ✗ Deny
-          </button>
+        <div className="ai-tool-actions" style={{ marginTop: '8px', width: '100%', textAlign: 'center' }}>
+          <span style={{ fontSize: '11px', color: '#8b949e', fontStyle: 'italic' }}>
+            Please check the popup in the center of your screen to approve or deny.
+          </span>
         </div>
       )}
 
