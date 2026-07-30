@@ -547,12 +547,23 @@ export class GraphPanelProvider extends DisposableBase {
 
   /**
    * Handle a commit message reword request from the webview.
+   *
+   * After a successful reword, checks if the original commit was pushed
+   * to a remote and offers a --force-with-lease push to update the remote.
    */
   private async handleRewordCommit(hash: string, newMessage: string): Promise<void> {
     const graph = this.stateEngine.graph;
     if (!graph) return;
 
     const isHead = graph.headHash === hash;
+
+    // Check BEFORE rewording whether the commit was pushed
+    let wasPushed = false;
+    try {
+      wasPushed = await this.gitService.isCommitPushed(hash);
+    } catch {
+      // If check fails, assume not pushed — user can always push manually
+    }
 
     try {
       this.postMessage({ type: 'loading', loading: true });
@@ -565,7 +576,32 @@ export class GraphPanelProvider extends DisposableBase {
         hash,
       } as any);
 
-      vscode.window.showInformationMessage('Git Atlas: Commit message updated.');
+      // If the commit was pushed, offer force-push with lease
+      if (wasPushed && graph.currentBranch) {
+        const forcePush = 'Force Push (--force-with-lease)';
+        const choice = await vscode.window.showWarningMessage(
+          `Git Atlas: Commit message updated. This commit was already pushed to the remote. ` +
+          `You need to force-push to update the remote branch "${graph.currentBranch}".`,
+          { modal: false },
+          forcePush
+        );
+        if (choice === forcePush) {
+          try {
+            await this.gitService.forcePushWithLease(graph.currentBranch);
+            await this.stateEngine.buildGraph();
+            vscode.window.showInformationMessage(
+              `Git Atlas: Force-pushed "${graph.currentBranch}" to remote with --force-with-lease.`
+            );
+          } catch (pushErr: any) {
+            const pushErrMsg = pushErr.stderr?.trim() || pushErr.message || 'Unknown error';
+            vscode.window.showErrorMessage(
+              `Git Atlas: Force-push failed — ${pushErrMsg}`
+            );
+          }
+        }
+      } else {
+        vscode.window.showInformationMessage('Git Atlas: Commit message updated.');
+      }
     } catch (err: any) {
       const errorMessage = err.stderr?.trim() || err.message || 'Unknown error';
       this.postMessage({

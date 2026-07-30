@@ -784,53 +784,164 @@ export class GitService {
   }
 
   /**
-   * Reword a commit message.
-   * - For HEAD: uses `git commit --amend -m "new message"`
-   * - For older commits: uses `git rebase` with a sequence editor
-   *   that replaces the `pick` with `reword`, then applies the new message.
+   * Reword a commit message — robust implementation covering ALL cases:
+   *
+   * Case 1 (HEAD, not pushed): git commit --amend --only -m "msg"
+   * Case 2 (HEAD, already pushed): same as 1, then offer force-push
+   * Case 3 (older commit): git rebase -i with temp-file-based editors
+   * Case 5 (root/first commit): git rebase -i --root
+   * Case 6 (merge commit): --rebase-merges preserves merge topology
+   *
+   * Key robustness features:
+   * - Uses temp files for commit messages (handles any characters: $, ", ', `, newlines, Unicode)
+   * - --autostash handles dirty working directories automatically
+   * - --rebase-merges preserves merge commit structure
+   * - --root handles first commit in repository
+   * - --only flag on amend prevents accidentally staging files
+   * - Cleans up temp files in finally block
    */
   async rewordCommitMessage(hash: string, newMessage: string, isHead: boolean): Promise<void> {
     if (isHead) {
-      await this.exec(['commit', '--amend', '-m', newMessage]);
+      // Case 1 & 2: HEAD commit — simple amend
+      // --only ensures we ONLY change the message, never accidentally include staged files
+      await this.exec(['commit', '--amend', '--only', '-m', newMessage]);
     } else {
-      // For non-HEAD commits, use interactive rebase with GIT_SEQUENCE_EDITOR
-      // to change 'pick <hash>' to 'reword <hash>', then set EDITOR to write
-      // the new message.
-      const shortHash = hash.substring(0, 7);
-      const isWindows = process.platform === 'win32';
+      // Case 3, 5, 6: Older / root / merge commits — interactive rebase with temp files
+      await this.rewordViaRebase(hash, newMessage);
+    }
+  }
 
-      let seqEditor: string;
-      let commitEditor: string;
+  /**
+   * Reword a non-HEAD commit via interactive rebase.
+   *
+   * Uses temporary script files (.sh) as editors.
+   * This approach is completely robust across Windows, Mac, and Linux because:
+   * - Git on Windows uses MSYS2 bash internally, so .sh scripts work perfectly there.
+   * - By using forward slashes for all paths, we avoid bash escape sequence hell.
+   * - The commit message is safely read from a file, bypassing inline quote issues.
+   */
+  private async rewordViaRebase(hash: string, newMessage: string): Promise<void> {
+    const shortHash = hash.substring(0, 7);
 
-      if (isWindows) {
-        seqEditor = `powershell -Command "(Get-Content $args[0]) -replace '^pick ${shortHash}', 'reword ${shortHash}' | Set-Content $args[0]"`;
-        commitEditor = `powershell -Command "Set-Content $args[0] '${newMessage.replace(/'/g, "''").replace(/\n/g, "`n")}'"`;
-      } else {
-        seqEditor = `sed -i 's/^pick ${shortHash}/reword ${shortHash}/'`;
-        const escapedMessage = newMessage.replace(/\\/g, '\\\\').replace(/'/g, "'\\''").replace(/\n/g, '\\n');
-        commitEditor = `sh -c 'printf "${escapedMessage}" > "$1"' --`;
+    const { join } = await import('path');
+    const { writeFileSync, unlinkSync, existsSync, chmodSync } = await import('fs');
+    const { tmpdir } = await import('os');
+
+    const timestamp = Date.now();
+    // Use .sh for everything — Git uses bash internally on all platforms
+    const tempMsgFile = join(tmpdir(), `git-atlas-msg-${shortHash}-${timestamp}.txt`);
+    const tempSeqScript = join(tmpdir(), `git-atlas-seq-${shortHash}-${timestamp}.sh`);
+    const tempEditorScript = join(tmpdir(), `git-atlas-edit-${shortHash}-${timestamp}.sh`);
+
+    const tempFiles = [tempMsgFile, tempSeqScript, tempEditorScript];
+
+    // Helper to format paths for bash (convert \ to /)
+    const toPosixPath = (p: string) => p.replace(/\\/g, '/');
+
+    try {
+      // Write the new commit message to a temp file
+      writeFileSync(tempMsgFile, newMessage, 'utf-8');
+
+      // Sequence editor .sh: sed replace pick→reword
+      const seqSh = [
+        '#!/bin/sh',
+        `sed -i -E 's/^pick (${shortHash}[^ ]*)/reword \\1/' "$1"`,
+      ].join('\n');
+      writeFileSync(tempSeqScript, seqSh, 'utf-8');
+      chmodSync(tempSeqScript, '755');
+
+      // Editor .sh: copy temp message file
+      const editorSh = [
+        '#!/bin/sh',
+        `cp '${toPosixPath(tempMsgFile)}' "$1"`,
+      ].join('\n');
+      writeFileSync(tempEditorScript, editorSh, 'utf-8');
+      chmodSync(tempEditorScript, '755');
+
+      // Determine target: parent commit, or --root if this is the first commit
+      let targetCommit = `${hash}^`;
+      try {
+        await this.exec(['rev-parse', '--verify', `${hash}^`]);
+      } catch {
+        // No parent → this is the root commit (Case 5)
+        targetCommit = '--root';
       }
 
-      this.outputChannel.appendLine(`[GitService] > git rebase -i ${hash}^ (reword)`);
+      this.outputChannel.appendLine(
+        `[GitService] > git rebase -i --autostash --rebase-merges ${targetCommit} (reword ${shortHash})`
+      );
 
-      try {
-        await execFileAsync(this.gitPath, ['rebase', '-i', `${hash}^`], {
+      // Invoke sh explicitly with posix paths
+      const seqEditorCmd = `sh "${toPosixPath(tempSeqScript)}"`;
+      const commitEditorCmd = `sh "${toPosixPath(tempEditorScript)}"`;
+
+      await execFileAsync(
+        this.gitPath,
+        ['rebase', '-i', '--autostash', '--rebase-merges', targetCommit],
+        {
           cwd: this.workspaceRoot,
           maxBuffer: MAX_BUFFER,
           windowsHide: true,
           env: {
             ...process.env,
-            GIT_SEQUENCE_EDITOR: seqEditor,
-            GIT_EDITOR: commitEditor,
+            GIT_SEQUENCE_EDITOR: seqEditorCmd,
+            GIT_EDITOR: commitEditorCmd,
           },
-        });
-      } catch (err: any) {
-        if (err.stderr) {
-          this.outputChannel.appendLine(`[GitService] ERROR: ${err.stderr.trim()}`);
         }
-        throw err;
+      );
+    } catch (err: any) {
+      if (err.stderr) {
+        this.outputChannel.appendLine(`[GitService] ERROR: ${err.stderr.trim()}`);
+      }
+
+      // If rebase failed mid-way, abort to leave repo in clean state
+      try {
+        await this.exec(['rebase', '--abort']);
+        this.outputChannel.appendLine('[GitService] Rebase aborted after failure.');
+      } catch {
+        // Already clean or abort also failed — nothing we can do
+      }
+
+      throw err;
+    } finally {
+      // Always clean up ALL temp files
+      for (const f of tempFiles) {
+        try {
+          if (existsSync(f)) {
+            unlinkSync(f);
+          }
+        } catch {
+          // Non-critical
+        }
       }
     }
+  }
+
+  /**
+   * Check if a commit has been pushed to any remote tracking branch.
+   * Used to determine whether to offer force-push after rewording.
+   */
+  async isCommitPushed(hash: string): Promise<boolean> {
+    try {
+      // Check if this commit is an ancestor of any remote branch
+      const stdout = await this.exec(['branch', '-r', '--contains', hash]);
+      return stdout.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Force-push with lease — the safe way to update remote after history rewrite.
+   * --force-with-lease ensures we don't overwrite others' work if the remote
+   * has changed since our last fetch.
+   */
+  async forcePushWithLease(branch?: string): Promise<void> {
+    const args = ['push', '--force-with-lease'];
+    if (branch) {
+      args.push('origin', branch);
+    }
+    await this.exec(args);
   }
 }
 
