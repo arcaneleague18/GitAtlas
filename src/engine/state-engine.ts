@@ -158,7 +158,20 @@ export class RepositoryStateEngine extends DisposableBase {
 
     // Build commit nodes
     for (const commit of commits) {
-      const branchesOnCommit = commitBranches.get(commit.shortHash) ?? commitBranches.get(commit.hash) ?? [];
+      let branchesOnCommit = commitBranches.get(commit.shortHash) ?? commitBranches.get(commit.hash) ?? [];
+      
+      // Deduplicate: if both 'main' and 'origin/main' exist on this commit, remove 'origin/main'
+      const localBranches = new Set(branchesOnCommit.filter((b: string) => !b.includes('/')));
+      branchesOnCommit = branchesOnCommit.filter((b: string) => {
+        if (b.includes('/')) {
+          const shortName = b.replace(/^[^/]+\//, '');
+          if (localBranches.has(shortName)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
       const tagsOnCommit = commitTags.get(commit.shortHash) ?? commitTags.get(commit.hash) ?? [];
 
       // Determine if orphaned (only relevant when showLostCommits is active)

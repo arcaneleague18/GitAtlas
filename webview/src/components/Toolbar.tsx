@@ -27,6 +27,8 @@ function ToolbarComponent() {
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
 
+  const currentBranchColor = branchColors.find((b) => b.isCurrent)?.color ?? '#aaaaaa';
+
   // Close legend popup when clicking outside or pressing Escape
   useEffect(() => {
     if (!isLegendOpen) return;
@@ -114,17 +116,19 @@ function ToolbarComponent() {
 
       {/* Bottom-left status bar */}
       <div className="graph-status-bar glass">
-        <div className="status-item">
+        <div className="status-item" title={`Repository is ${repositoryState}`}>
           <div
-            className={`status-dot ${
-              repositoryState === 'clean'
-                ? 'clean'
-                : repositoryState === 'dirty'
-                ? 'dirty'
-                : 'conflict'
-            }`}
+            className="status-dot branch-color-dot"
+            style={{
+              backgroundColor: currentBranchColor,
+              boxShadow: `0 0 6px ${currentBranchColor}aa`,
+            }}
           />
-          <span>{currentBranch ?? 'detached'}</span>
+          <span>
+            {currentBranch ?? 'detached'}{' '}
+            {repositoryState === 'dirty' && '✏️'}
+            {repositoryState !== 'clean' && repositoryState !== 'dirty' && '⚠️'}
+          </span>
         </div>
         <div className="status-item">
           <span>{commitCount} commits</span>

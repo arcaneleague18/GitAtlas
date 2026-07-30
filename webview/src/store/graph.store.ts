@@ -169,11 +169,6 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       ([, node]) => node.kind === 'commit'
     );
 
-    // Count branches (for status display)
-    const branchNodes = graph.nodes.filter(
-      ([, node]) => node.kind === 'branch' || node.kind === 'remote-branch'
-    );
-
     // Filter to only parent edges (structural commit-to-commit)
     const parentEdges = graph.edges.filter((e) => e.kind === 'parent');
 
@@ -399,7 +394,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       repositoryState: graph.state,
       isLoading: false,
       commitCount: commitNodes.length,
-      branchCount: branchNodes.length,
+      branchCount: branchColorsList.length,
       branchColors: branchColorsList,
       hasMore: graph.hasMore ?? false,
       graphNodes: graphNodeMap,

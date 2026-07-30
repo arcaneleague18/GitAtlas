@@ -125,23 +125,28 @@ function CommitNodeComponent({ id, data }: NodeProps) {
         {/* Branch and tag badges */}
         {(nodeData.branches.length > 0 || nodeData.tags.length > 0) && (
           <div className="branch-labels">
-            {nodeData.branches.map((branch) => (
-              <span
-                key={branch}
-                className={`branch-badge ${
-                  nodeData.isCurrentBranch && branch === nodeData.branches[0]
-                    ? 'current'
-                    : branch.includes('/')
-                    ? 'remote'
-                    : 'local'
-                }`}
-              >
-                <span className="branch-badge-icon">
-                  {branch.includes('/') ? '☁' : '⎇'}
+            {nodeData.branches.map((branch) => {
+              const bColor = useGraphStore.getState().branchColors?.find(b => b.name === branch)?.color || nodeData.color;
+              const isCurrent = nodeData.isCurrentBranch && branch === nodeData.branches[0];
+              const isRemote = branch.includes('/');
+              
+              return (
+                <span
+                  key={branch}
+                  className={`branch-badge ${isCurrent ? 'current' : isRemote ? 'remote' : 'local'}`}
+                  style={{
+                    backgroundColor: `${bColor}26`, // 15% opacity hex
+                    color: bColor,
+                    borderColor: `${bColor}4d`, // 30% opacity hex
+                  }}
+                >
+                  <span className="branch-badge-icon">
+                    {isRemote ? '☁' : '⎇'}
+                  </span>
+                  {branch}
                 </span>
-                {branch}
-              </span>
-            ))}
+              );
+            })}
             {nodeData.tags.map((tag) => (
               <span key={tag} className="tag-badge">
                 <span className="tag-badge-icon">🏷</span>
