@@ -258,6 +258,62 @@ export class GraphPanelProvider extends DisposableBase {
         void this.stateEngine.buildGraph();
         break;
 
+      case 'edit-remote-url':
+        void (async () => {
+          try {
+            const remotes = await this.gitService.getRemotes();
+            if (remotes.length === 0) {
+              void vscode.window.showInformationMessage('No remotes found for this repository.');
+              return;
+            }
+            
+            // Default to 'origin' if it exists, otherwise use the first one
+            const targetRemote = remotes.find(r => r.name === 'origin') ?? remotes[0]!;
+            
+            const newUrl = await vscode.window.showInputBox({
+              prompt: `Edit remote URL for '${targetRemote.name}'`,
+              value: targetRemote.url,
+              ignoreFocusOut: true,
+            });
+
+            if (newUrl && newUrl !== targetRemote.url) {
+              await this.gitService.exec(['remote', 'set-url', targetRemote.name, newUrl]);
+              void vscode.window.showInformationMessage(`Remote '${targetRemote.name}' updated successfully.`);
+              void this.stateEngine.buildGraph();
+            }
+          } catch (err: any) {
+            void vscode.window.showErrorMessage(`Failed to update remote URL: ${err.message}`);
+          }
+        })();
+        break;
+
+      case 'remove-remote-url':
+        void (async () => {
+          try {
+            const remotes = await this.gitService.getRemotes();
+            if (remotes.length === 0) {
+              void vscode.window.showInformationMessage('No remotes found to remove.');
+              return;
+            }
+            const targetRemote = remotes.find(r => r.name === 'origin') ?? remotes[0]!;
+            
+            const selection = await vscode.window.showWarningMessage(
+              `Are you sure you want to remove the remote '${targetRemote.name}'?`,
+              { modal: true },
+              'Remove Remote'
+            );
+            
+            if (selection === 'Remove Remote') {
+              await this.gitService.exec(['remote', 'remove', targetRemote.name]);
+              void vscode.window.showInformationMessage(`Remote '${targetRemote.name}' removed successfully.`);
+              void this.stateEngine.buildGraph();
+            }
+          } catch (err: any) {
+            void vscode.window.showErrorMessage(`Failed to remove remote: ${err.message}`);
+          }
+        })();
+        break;
+
       case 'reword-commit':
         void this.handleRewordCommit(message.hash, message.newMessage);
         break;

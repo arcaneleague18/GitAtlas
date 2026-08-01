@@ -325,6 +325,7 @@ export class RepositoryStateEngine extends DisposableBase {
       currentBranch: head.branch,
       state: repoState,
       timestamp: Date.now(),
+      remotes,
     };
 
     this._graph = graph;
@@ -344,6 +345,7 @@ export class RepositoryStateEngine extends DisposableBase {
       currentBranch: graph.currentBranch,
       state: graph.state,
       timestamp: graph.timestamp,
+      remotes: graph.remotes,
       hasMore: this._totalCommitsAvailable >= this._currentMaxCount,
     };
   }

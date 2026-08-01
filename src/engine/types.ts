@@ -217,6 +217,8 @@ export interface RepositoryGraph {
   readonly state: RepositoryState;
   /** Timestamp when this graph snapshot was created. */
   readonly timestamp: number;
+  /** All remotes configured in the repository. */
+  readonly remotes: readonly RawRemote[];
 }
 
 // ============================================================
@@ -330,7 +332,9 @@ export type WebviewToExtensionMessage =
   | { type: 'show-diff'; commitHash: string; filePath: string }
   | { type: 'refresh' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
-  | { type: 'load-more' };
+  | { type: 'load-more' }
+  | { type: 'edit-remote-url' }
+  | { type: 'remove-remote-url' };
 
 /**
  * Serialized version of RepositoryGraph for postMessage transfer.
@@ -345,6 +349,7 @@ export interface SerializedGraph {
   readonly state: RepositoryState;
   readonly timestamp: number;
   readonly hasMore?: boolean;
+  readonly remotes: readonly RawRemote[];
 }
 
 // ============================================================

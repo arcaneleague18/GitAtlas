@@ -22,26 +22,31 @@ function ToolbarComponent() {
     showLostCommits,
     setShowLostCommits,
     branchColors,
+    remotes,
   } = useGraphStore();
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
+  const [isRemotePopupOpen, setIsRemotePopupOpen] = useState(false);
   const legendRef = useRef<HTMLDivElement>(null);
+  const remotePopupRef = useRef<HTMLDivElement>(null);
 
   const currentBranchColor = branchColors.find((b) => b.isCurrent)?.color ?? '#aaaaaa';
 
-  // Close legend popup when clicking outside or pressing Escape
+  // Close popups when clicking outside or pressing Escape
   useEffect(() => {
-    if (!isLegendOpen) return;
-
     const handleClickOutside = (e: MouseEvent) => {
       if (legendRef.current && !legendRef.current.contains(e.target as Node)) {
         setIsLegendOpen(false);
+      }
+      if (remotePopupRef.current && !remotePopupRef.current.contains(e.target as Node)) {
+        setIsRemotePopupOpen(false);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsLegendOpen(false);
+        setIsRemotePopupOpen(false);
       }
     };
 
@@ -51,7 +56,7 @@ function ToolbarComponent() {
       document.removeEventListener('mousedown', handleClickOutside);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isLegendOpen]);
+  }, []);
 
   const handleFitView = useCallback(() => {
     reactFlow.fitView({ padding: 0.2, duration: 500 });
@@ -79,10 +84,73 @@ function ToolbarComponent() {
     postMessage({ type: 'load-more' });
   }, []);
 
+  const handleEditRemoteUrl = useCallback(() => {
+    setIsRemotePopupOpen(false);
+    postMessage({ type: 'edit-remote-url' });
+  }, []);
+
+  const handleRemoveRemoteUrl = useCallback(() => {
+    setIsRemotePopupOpen(false);
+    postMessage({ type: 'remove-remote-url' });
+  }, []);
+
+  const handleCopyRemoteUrl = useCallback((url: string) => {
+    navigator.clipboard.writeText(url);
+    setIsRemotePopupOpen(false);
+  }, []);
+
+  const primaryRemote = remotes.find(r => r.name === 'origin') ?? remotes[0];
+
   return (
     <>
       {/* Top-right toolbar */}
       <div className="graph-toolbar">
+        <div style={{ position: 'relative' }} ref={remotePopupRef}>
+          <button
+            className="toolbar-button"
+            onClick={() => setIsRemotePopupOpen(!isRemotePopupOpen)}
+            title="Remote URL Settings"
+          >
+            🌐
+          </button>
+          
+          <AnimatePresence>
+            {isRemotePopupOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="toolbar-popover"
+                style={{ top: '100%', right: 0, marginTop: '8px', minWidth: '300px', padding: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}
+              >
+                <div style={{ fontSize: '16px', opacity: 0.8 }}>🌐</div>
+                {primaryRemote ? (
+                  <>
+                    <a 
+                      href={primaryRemote.fetchUrl} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--branch-blue)', textDecoration: 'none' }}
+                      title={primaryRemote.fetchUrl}
+                    >
+                      {primaryRemote.fetchUrl}
+                    </a>
+                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={() => handleCopyRemoteUrl(primaryRemote.fetchUrl)} title="Copy URL">📋</button>
+                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={handleEditRemoteUrl} title="Edit URL">✏️</button>
+                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={handleRemoveRemoteUrl} title="Remove Remote">🔗<span style={{ position: 'absolute', transform: 'rotate(-45deg)', fontSize: '14px', pointerEvents: 'none' }}>/</span></button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ flex: 1, color: 'var(--text-secondary)' }}>No remote configured</span>
+                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={handleEditRemoteUrl} title="Add Remote">➕</button>
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <div className="toolbar-separator" />
         <button
           className="toolbar-button"
           onClick={handleZoomIn}

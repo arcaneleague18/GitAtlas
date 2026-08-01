@@ -22,6 +22,7 @@ import type {
   ValidAction,
   PreviewData,
   GitHubContext,
+  RawRemote,
 } from '../types';
 
 /** Branch color palette — matches the extension host colors. */
@@ -66,6 +67,7 @@ export interface GraphStoreState {
   hasMore: boolean;
   showLostCommits: boolean;
   branchColors: BranchLegendItem[];
+  remotes: readonly RawRemote[];
 
   // Raw graph data for lookups
   graphNodes: Map<string, GraphNode>;
@@ -152,6 +154,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   hasMore: false,
   showLostCommits: false,
   branchColors: [],
+  remotes: [],
   graphNodes: new Map(),
   selectedNodeDetails: null,
   validActions: [],
@@ -396,6 +399,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       commitCount: commitNodes.length,
       branchCount: branchColorsList.length,
       branchColors: branchColorsList,
+      remotes: graph.remotes ?? [],
       hasMore: graph.hasMore ?? false,
       graphNodes: graphNodeMap,
     });

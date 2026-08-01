@@ -144,6 +144,12 @@ export type RepositoryState =
   | 'reverting'
   | 'bisecting';
 
+export interface RawRemote {
+  name: string;
+  fetchUrl: string;
+  pushUrl: string;
+}
+
 export interface SerializedGraph {
   readonly nodes: readonly [string, GraphNode][];
   readonly edges: readonly GraphEdge[];
@@ -152,6 +158,7 @@ export interface SerializedGraph {
   readonly state: RepositoryState;
   readonly timestamp: number;
   readonly hasMore?: boolean;
+  readonly remotes: readonly RawRemote[];
 }
 
 // ── Node Details — Inspector Panel Data ───────────────────────
@@ -254,6 +261,8 @@ export type WebviewToExtensionMessage =
   | { type: 'refresh' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
   | { type: 'load-more' }
+  | { type: 'edit-remote-url' }
+  | { type: 'remove-remote-url' }
   | { type: 'reword-commit'; hash: string; newMessage: string }
   | { type: 'stage-file'; path: string }
   | { type: 'unstage-file'; path: string }
