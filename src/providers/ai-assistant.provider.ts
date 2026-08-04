@@ -488,8 +488,7 @@ export class AiAssistantProvider
 
   /**
    * Handle a request using VS Code's native Language Model API.
-   * Falls back to text-based action extraction since vscode.lm
-   * may not support tool calling in all versions.
+   * Supports full agentic tool calling via vscode.lm's LanguageModelChatTool API.
    */
   private async handleVsCodeLmRequest(
     context: string,
@@ -518,47 +517,258 @@ export class AiAssistantProvider
       return;
     }
 
+    // Convert our TOOL_DEFINITIONS to vscode.LanguageModelChatTool format
+    const vscodeLmTools: vscode.LanguageModelChatTool[] = TOOL_DEFINITIONS.map(td => ({
+      name: td.function.name,
+      description: td.function.description,
+      inputSchema: td.function.parameters as any,
+    }));
+
     // Build messages
-    const messages = [
+    const messages: vscode.LanguageModelChatMessage[] = [
       vscode.LanguageModelChatMessage.User(
         this.getSystemPrompt() + '\n\n' + context
       ),
     ];
 
-    // Add recent history (last 10 messages)
-    const recentHistory = this.chatHistory.slice(-10);
+    // Add recent history (last 20 messages) — reconstruct from chatHistory
+    const recentHistory = this.chatHistory.slice(-20);
     for (const msg of recentHistory) {
       if (msg.role === 'user') {
         messages.push(vscode.LanguageModelChatMessage.User(msg.content));
       } else if (msg.role === 'assistant') {
+        if (msg.tool_calls && msg.tool_calls.length > 0) {
+          // Reconstruct assistant message with tool call parts
+          const parts: (vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart)[] = [];
+          if (msg.content) {
+            parts.push(new vscode.LanguageModelTextPart(msg.content));
+          }
+          for (const tc of msg.tool_calls) {
+            let input: Record<string, any> = {};
+            try { input = JSON.parse(tc.function.arguments); } catch { /* ignore */ }
+            parts.push(new vscode.LanguageModelToolCallPart(tc.id, tc.function.name, input));
+          }
+          messages.push(vscode.LanguageModelChatMessage.Assistant(parts));
+        } else {
+          messages.push(vscode.LanguageModelChatMessage.Assistant(msg.content));
+        }
+      } else if (msg.role === 'tool') {
+        // Tool results go as User messages with LanguageModelToolResultPart
         messages.push(
-          vscode.LanguageModelChatMessage.Assistant(msg.content)
+          vscode.LanguageModelChatMessage.User([
+            new vscode.LanguageModelToolResultPart(msg.tool_call_id!, [
+              new vscode.LanguageModelTextPart(msg.content),
+            ]),
+          ])
         );
       }
     }
 
-    // Stream the response
-    const response = await model.sendRequest(messages, {});
+    // Agentic loop: keep calling the model until no more tool calls
+    let loopCount = 0;
+    const MAX_LOOPS = 10;
 
-    let fullResponse = '';
-    for await (const chunk of response.text) {
-      fullResponse += chunk;
-      this.postToWebview({
-        type: 'chat-response-chunk',
-        chunk,
-        done: false,
+    while (loopCount < MAX_LOOPS) {
+      loopCount++;
+
+      // Send request with tools
+      const response = await model.sendRequest(messages, {
+        tools: vscodeLmTools,
+        toolMode: vscode.LanguageModelChatToolMode.Auto,
       });
+
+      // Consume the stream, collecting text parts and tool call parts
+      let fullTextContent = '';
+      const toolCallParts: vscode.LanguageModelToolCallPart[] = [];
+
+      for await (const chunk of response.stream) {
+        if (chunk instanceof vscode.LanguageModelTextPart) {
+          fullTextContent += chunk.value;
+          this.postToWebview({
+            type: 'chat-response-chunk',
+            chunk: chunk.value,
+            done: false,
+          });
+        } else if (chunk instanceof vscode.LanguageModelToolCallPart) {
+          toolCallParts.push(chunk);
+        }
+      }
+
+      // If there are no tool calls, we're done
+      if (toolCallParts.length === 0) {
+        this.postToWebview({
+          type: 'chat-response-chunk',
+          chunk: '',
+          done: true,
+        });
+        this.chatHistory.push({ role: 'assistant', content: fullTextContent });
+        break;
+      }
+
+      // There are tool calls — finalize any text content first
+      if (fullTextContent) {
+        this.postToWebview({
+          type: 'chat-response-chunk',
+          chunk: '',
+          done: true,
+        });
+      } else {
+        this.postToWebview({ type: 'dismiss-streaming' });
+      }
+
+      // Store assistant message with tool calls in chatHistory (OpenAI format for persistence)
+      const toolCallsForHistory: ToolCall[] = toolCallParts.map(tcp => ({
+        id: tcp.callId,
+        type: 'function' as const,
+        function: {
+          name: tcp.name,
+          arguments: JSON.stringify(tcp.input),
+        },
+      }));
+      const assistantMsg: ChatMessage = {
+        role: 'assistant',
+        content: fullTextContent || '',
+        tool_calls: toolCallsForHistory,
+      };
+      this.chatHistory.push(assistantMsg);
+
+      // Add assistant message with tool call parts to vscode.lm messages
+      const assistantParts: (vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart)[] = [];
+      if (fullTextContent) {
+        assistantParts.push(new vscode.LanguageModelTextPart(fullTextContent));
+      }
+      for (const tcp of toolCallParts) {
+        assistantParts.push(tcp);
+      }
+      messages.push(vscode.LanguageModelChatMessage.Assistant(assistantParts));
+
+      // Process each tool call sequentially
+      for (const tcp of toolCallParts) {
+        const args = (tcp.input as Record<string, any>) ?? {};
+        const reason = args.reason || 'No reason provided';
+        const isDangerous = DANGEROUS_TOOLS.has(tcp.name);
+        const isReadOnly = READ_ONLY_TOOLS.has(tcp.name);
+
+        // For read-only tools, auto-approve
+        if (isReadOnly) {
+          this.postToWebview({
+            type: 'tool-call-executing',
+            toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous: false },
+          });
+
+          const result = await this.executeTool(tcp.name, args);
+
+          this.postToWebview({
+            type: 'tool-call-result',
+            id: tcp.callId,
+            success: result.success,
+            output: result.output,
+          });
+
+          // Add tool result to both chatHistory and vscode.lm messages
+          const toolMsg: ChatMessage = {
+            role: 'tool',
+            content: result.success ? result.output : `Error: ${result.output}`,
+            tool_call_id: tcp.callId,
+            name: tcp.name,
+          };
+          this.chatHistory.push(toolMsg);
+          messages.push(
+            vscode.LanguageModelChatMessage.User([
+              new vscode.LanguageModelToolResultPart(tcp.callId, [
+                new vscode.LanguageModelTextPart(toolMsg.content),
+              ]),
+            ])
+          );
+          continue;
+        }
+
+        // For write operations, ask user for permission
+        this.postToWebview({
+          type: 'tool-call-request',
+          toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
+        });
+
+        const argLines = Object.entries(args)
+          .filter(([k]) => k !== 'reason')
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join('\\n');
+
+        let modalMsg = `Git Atlas AI wants to execute: ${tcp.name}\\n\\nReason: ${reason}`;
+        if (argLines) {
+          modalMsg += `\\n\\nParameters:\\n${argLines}`;
+        }
+
+        const choice = await vscode.window.showInformationMessage(
+          modalMsg,
+          { modal: true, detail: isDangerous ? 'WARNING: This is a destructive action.' : 'Are you sure you want to proceed?' },
+          'Execute Action',
+          'Deny'
+        );
+
+        const approved = choice === 'Execute Action';
+
+        if (approved) {
+          this.postToWebview({
+            type: 'tool-call-executing',
+            toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
+          });
+
+          const result = await this.executeTool(tcp.name, args);
+
+          this.postToWebview({
+            type: 'tool-call-result',
+            id: tcp.callId,
+            success: result.success,
+            output: result.output,
+          });
+
+          try { await this.stateEngine.buildGraph(); } catch { /* ignore */ }
+
+          const toolMsg: ChatMessage = {
+            role: 'tool',
+            content: result.success ? result.output : `Error: ${result.output}`,
+            tool_call_id: tcp.callId,
+            name: tcp.name,
+          };
+          this.chatHistory.push(toolMsg);
+          messages.push(
+            vscode.LanguageModelChatMessage.User([
+              new vscode.LanguageModelToolResultPart(tcp.callId, [
+                new vscode.LanguageModelTextPart(toolMsg.content),
+              ]),
+            ])
+          );
+        } else {
+          const toolMsg: ChatMessage = {
+            role: 'tool',
+            content: 'User denied permission to execute this action.',
+            tool_call_id: tcp.callId,
+            name: tcp.name,
+          };
+          this.chatHistory.push(toolMsg);
+          messages.push(
+            vscode.LanguageModelChatMessage.User([
+              new vscode.LanguageModelToolResultPart(tcp.callId, [
+                new vscode.LanguageModelTextPart(toolMsg.content),
+              ]),
+            ])
+          );
+
+          this.postToWebview({
+            type: 'tool-call-result',
+            id: tcp.callId,
+            success: false,
+            output: 'Action cancelled by user.',
+          });
+        }
+      }
+
+      // After processing all tool calls, add a new streaming placeholder
+      this.postToWebview({ type: 'chat-response-new' });
+
+      // Loop back to call the model again with tool results
     }
-
-    // Signal completion
-    this.postToWebview({
-      type: 'chat-response-chunk',
-      chunk: '',
-      done: true,
-    });
-
-    // Store assistant response
-    this.chatHistory.push({ role: 'assistant', content: fullResponse });
   }
 
   /**
