@@ -205,12 +205,16 @@ export class GraphPanelProvider extends DisposableBase {
         );
         break;
 
-      case 'open-file':
-        void vscode.commands.executeCommand(
-          'vscode.open',
-          vscode.Uri.file(message.path)
-        );
+      case 'open-file': {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+          void vscode.commands.executeCommand(
+            'vscode.open',
+            vscode.Uri.joinPath(workspaceFolder.uri, message.path)
+          );
+        }
         break;
+      }
 
       case 'show-diff': {
         if (message.commitHash && message.filePath) {
@@ -428,11 +432,12 @@ export class GraphPanelProvider extends DisposableBase {
         ...wdData.staged.map(f => ({ path: f.path, insertions: 0, deletions: 0, isBinary: false })),
         ...wdData.modified.map(f => ({ path: f.path, insertions: 0, deletions: 0, isBinary: false })),
         ...wdData.untracked.map(p => ({ path: p, insertions: 0, deletions: 0, isBinary: false })),
+        ...wdData.conflicted.map(f => ({ path: f.path, insertions: 0, deletions: 0, isBinary: false })),
       ];
 
       const wdDetails: NodeDetails = {
         ...details,
-        message: `${wdData.staged.length} staged, ${wdData.modified.length} modified, ${wdData.untracked.length} untracked`,
+        message: `${wdData.staged.length} staged, ${wdData.modified.length} modified, ${wdData.untracked.length} untracked, ${wdData.conflicted.length} conflicted`,
         diffStats: allFiles,
         totalFilesChanged: allFiles.length,
         totalInsertions: 0,
@@ -441,6 +446,7 @@ export class GraphPanelProvider extends DisposableBase {
           staged: wdData.staged,
           modified: wdData.modified,
           untracked: wdData.untracked.map((p) => ({ path: p, status: 'untracked' })),
+          conflicted: wdData.conflicted,
         },
       };
 

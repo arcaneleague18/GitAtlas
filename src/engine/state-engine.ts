@@ -314,6 +314,7 @@ export class RepositoryStateEngine extends DisposableBase {
         modified: status.modified,
         staged: status.staged,
         untracked: status.untracked,
+        conflicted: status.conflicted,
       } satisfies WorkingDirectoryNodeData,
     };
     nodes.set(wdNode.id, wdNode);

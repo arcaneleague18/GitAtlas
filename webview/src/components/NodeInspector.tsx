@@ -414,6 +414,7 @@ export function NodeInspector() {
                   const stagedFiles = wdStatus?.staged ?? [];
                   const modifiedFiles = wdStatus?.modified ?? [];
                   const untrackedFiles = wdStatus?.untracked ?? [];
+                  const conflictedFiles = wdStatus?.conflicted ?? [];
 
                   const allFiles: { path: string; status: string; isStaged: boolean; statusLetter: string }[] = [
                     ...stagedFiles.map((f) => ({
@@ -447,7 +448,7 @@ export function NodeInspector() {
                   ];
 
                   const stagedCount = stagedFiles.length;
-                  const totalCount = allFiles.length;
+                  const totalCount = allFiles.length + conflictedFiles.length;
 
                   return (
                     <motion.div
@@ -502,6 +503,47 @@ export function NodeInspector() {
                       >
                         ✓ Commit ({stagedCount > 0 ? `${stagedCount} staged` : `${totalCount} all`})
                       </button>
+
+                      {/* Conflicted Files Section */}
+                      {conflictedFiles.length > 0 && (
+                        <div className="changes-section conflicted-section">
+                          <div className="changes-header" style={{ borderBottomColor: 'rgba(248, 81, 73, 0.3)' }}>
+                            <div className="changes-title-group">
+                              <span className="changes-title" style={{ color: '#f85149' }}>Conflicted</span>
+                              <span className="changes-count-badge" style={{ background: 'rgba(248, 81, 73, 0.15)', color: '#f85149' }}>
+                                {conflictedFiles.length}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="changes-file-list">
+                            {conflictedFiles.map((file) => (
+                              <div key={file.path} className="file-change-row is-conflicted">
+                                <span className="file-icon">{getFileIcon(file.path)}</span>
+                                <span
+                                  className="file-path"
+                                  title={file.path}
+                                  onClick={() => postMessage({ type: 'open-file', path: file.path })}
+                                >
+                                  <span className="file-basename">{getBasename(file.path)}</span>
+                                  <span className="file-dir">{getDirname(file.path)}</span>
+                                </span>
+                                <span className="file-status-tag conflicted" style={{ color: '#f85149', background: 'transparent' }}>
+                                  !
+                                </span>
+                                <div className="file-row-actions">
+                                  <button
+                                    className="row-action-btn"
+                                    title="Open Merge Editor"
+                                    onClick={() => postMessage({ type: 'open-file', path: file.path })}
+                                  >
+                                    Resolve
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Collapsible Changes List */}
                       <div className="changes-section">
@@ -720,6 +762,7 @@ function getStatusLetter(status: string): string {
     case 'added': return 'A';
     case 'deleted': return 'D';
     case 'renamed': return 'R';
+    case 'conflicted': return '!';
     case 'untracked': return 'U';
     default: return 'M';
   }

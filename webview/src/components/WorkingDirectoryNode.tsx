@@ -20,6 +20,7 @@ interface WDNodeDataType {
   modified: readonly FileChange[];
   staged: readonly FileChange[];
   untracked: readonly string[];
+  conflicted: readonly FileChange[];
   isSelected: boolean;
 }
 
@@ -30,7 +31,8 @@ function WorkingDirectoryNodeComponent({ data }: NodeProps) {
   const modifiedCount = nodeData.modified?.length ?? 0;
   const stagedCount = nodeData.staged?.length ?? 0;
   const untrackedCount = nodeData.untracked?.length ?? 0;
-  const totalCount = modifiedCount + stagedCount + untrackedCount;
+  const conflictedCount = nodeData.conflicted?.length ?? 0;
+  const totalCount = modifiedCount + stagedCount + untrackedCount + conflictedCount;
 
   const handleMouseEnter = useCallback(() => setShowTooltip(true), []);
   const handleMouseLeave = useCallback(() => setShowTooltip(false), []);
@@ -58,8 +60,8 @@ function WorkingDirectoryNodeComponent({ data }: NodeProps) {
       />
 
       {/* Icon */}
-      <div className="wd-circle">
-        <span className="wd-circle-icon">✎</span>
+      <div className={`wd-circle ${conflictedCount > 0 ? 'wd-circle-conflicted' : ''}`}>
+        <span className="wd-circle-icon">{conflictedCount > 0 ? '!' : '✎'}</span>
       </div>
 
       {/* Content */}
@@ -82,6 +84,12 @@ function WorkingDirectoryNodeComponent({ data }: NodeProps) {
             <span className="wd-badge wd-badge-untracked" title="Untracked files">
               <span className="wd-badge-icon">?</span>
               {untrackedCount} untracked
+            </span>
+          )}
+          {conflictedCount > 0 && (
+            <span className="wd-badge wd-badge-conflicted" title="Conflicted files">
+              <span className="wd-badge-icon">!</span>
+              {conflictedCount} conflicted
             </span>
           )}
         </div>
@@ -130,6 +138,14 @@ function WorkingDirectoryNodeComponent({ data }: NodeProps) {
               <span className="tooltip-label">Untracked</span>
               <span className="tooltip-value" style={{ color: 'var(--text-muted)' }}>
                 {untrackedCount} file{untrackedCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+          {conflictedCount > 0 && (
+            <div className="tooltip-row">
+              <span className="tooltip-label">Conflicted</span>
+              <span className="tooltip-value" style={{ color: '#f85149' }}>
+                {conflictedCount} file{conflictedCount !== 1 ? 's' : ''}
               </span>
             </div>
           )}

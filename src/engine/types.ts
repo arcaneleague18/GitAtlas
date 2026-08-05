@@ -103,6 +103,7 @@ export interface WorkingDirectoryNodeData {
   readonly modified: readonly FileChange[];
   readonly staged: readonly FileChange[];
   readonly untracked: readonly string[];
+  readonly conflicted: readonly FileChange[];
 }
 
 export interface IndexNodeData {
@@ -181,7 +182,7 @@ export interface GraphEdge {
 // File Change
 // ============================================================
 
-export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied';
+export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'conflicted';
 
 export interface FileChange {
   readonly path: string;
@@ -271,6 +272,12 @@ export interface NodeDetails {
   readonly totalInsertions?: number;
   readonly totalDeletions?: number;
   readonly totalFilesChanged?: number;
+  readonly workingDirectoryStatus?: {
+    readonly staged: readonly { readonly path: string; readonly status: string }[];
+    readonly modified: readonly { readonly path: string; readonly status: string }[];
+    readonly untracked: readonly string[];
+    readonly conflicted: readonly { readonly path: string; readonly status: string }[];
+  };
 }
 
 // ============================================================
@@ -401,6 +408,7 @@ export interface RawStatus {
   modified: FileChange[];
   staged: FileChange[];
   untracked: string[];
+  conflicted: FileChange[];
 }
 
 export interface RawHead {

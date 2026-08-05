@@ -49,7 +49,7 @@ export type EdgeKind =
   | 'apply-stash'
   | 'pop-stash';
 
-export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied';
+export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'conflicted';
 
 export interface FileChange {
   readonly path: string;
@@ -104,6 +104,7 @@ export interface WorkingDirectoryNodeData {
   readonly modified: readonly FileChange[];
   readonly staged: readonly FileChange[];
   readonly untracked: readonly string[];
+  readonly conflicted: readonly FileChange[];
 }
 
 export type NodeData =
@@ -190,6 +191,7 @@ export interface NodeDetails {
     readonly staged: readonly { readonly path: string; readonly status: string }[];
     readonly modified: readonly { readonly path: string; readonly status: string }[];
     readonly untracked: readonly string[];
+    readonly conflicted: readonly { readonly path: string; readonly status: string }[];
   };
 }
 

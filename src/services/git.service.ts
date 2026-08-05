@@ -355,12 +355,13 @@ export class GitService {
         '--untracked-files=all',
       ]);
     } catch {
-      return { modified: [], staged: [], untracked: [] };
+      return { modified: [], staged: [], untracked: [], conflicted: [] };
     }
 
     const modified: FileChange[] = [];
     const staged: FileChange[] = [];
     const untracked: string[] = [];
+    const conflicted: FileChange[] = [];
 
     const lines = stdout.trim().split('\n').filter(Boolean);
 
@@ -392,10 +393,18 @@ export class GitService {
             status: parseFileStatus(wtStatus),
           });
         }
+      } else if (line.startsWith('u ')) {
+        // Unmerged entry (conflict)
+        const parts = line.split(' ');
+        const path = parts[parts.length - 1] ?? '';
+        conflicted.push({
+          path: path.trim(),
+          status: 'conflicted',
+        });
       }
     }
 
-    return { modified, staged, untracked };
+    return { modified, staged, untracked, conflicted };
   }
 
   /**
@@ -753,15 +762,62 @@ export class GitService {
 
   async generateCommitMessage(): Promise<string> {
     const status = await this.getStatus();
+    const hasStaged = status.staged.length > 0;
+    const hasModified = status.modified.length > 0;
+    const untracked = status.untracked;
+
+    if (!hasStaged && !hasModified && untracked.length === 0) {
+      return 'chore: commit changes';
+    }
+
+    let diff = '';
+    try {
+      if (hasStaged) {
+        diff = await this.exec(['diff', '--cached']);
+      } else {
+        diff = await this.exec(['diff']);
+      }
+    } catch {
+      // ignore
+    }
+
+    // Limit diff size to avoid token limits
+    if (diff.length > 10000) {
+      diff = diff.substring(0, 10000) + '\n... (diff truncated)';
+    }
+
+    const context = `Diff:\n${diff}\nUntracked files:\n${untracked.join('\n')}`;
+
+    try {
+      const models = await vscode.lm.selectChatModels();
+      const model = models.find(m => m.vendor === 'copilot' && m.family === 'gpt-4o') || models[0];
+
+      if (model) {
+        const prompt = `You are an expert developer. Generate a concise, conventional commit message based on the following changes. Do NOT wrap the output in quotes or markdown blocks. Just return the commit message text. Use the format "type: description".
+
+${context}`;
+
+        const response = await model.sendRequest([
+          vscode.LanguageModelChatMessage.User(prompt)
+        ], {}, new vscode.CancellationTokenSource().token);
+
+        let result = '';
+        for await (const chunk of response.text) {
+          result += chunk;
+        }
+
+        return result.trim().replace(/^['"`]+|['"`]+$/g, ''); // strip quotes
+      }
+    } catch (e) {
+      console.error('Failed to generate commit message with LM:', e);
+    }
+
+    // Fallback logic
     const files = [
       ...status.staged.map((f) => f.path),
       ...status.modified.map((f) => f.path),
       ...status.untracked,
     ];
-
-    if (files.length === 0) {
-      return 'chore: commit changes';
-    }
 
     const mainFile = files[0]!;
     const basename = mainFile.split(/[/\\]/).pop() || mainFile;
