@@ -128,7 +128,8 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
     isDangerous: false,
   });
 
-  // Merge — available when commit has branches that are not the current branch
+  // Merge — available when commit has branches that are not the current branch,
+  // or when the commit is not on the current branch (allows merging by hash)
   const mergableBranches = data.branches.filter(
     (b) => b !== graph.currentBranch && !b.includes('/')
   );
@@ -137,6 +138,16 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
       kind: 'merge',
       label: `Merge into ${graph.currentBranch || 'HEAD'}`,
       description: `Merge ${mergableBranches[0]} into your current branch`,
+      enabled: !isInSpecialState,
+      disabledReason: isInSpecialState ? 'Resolve current operation first' : undefined,
+      isDangerous: false,
+    });
+  } else if (!isHead && !isOnCurrentBranch) {
+    // Commit is not a branch tip but is on a different branch — still offer merge by hash
+    actions.push({
+      kind: 'merge',
+      label: `Merge into ${graph.currentBranch || 'HEAD'}`,
+      description: `Merge this commit into your current branch`,
       enabled: !isInSpecialState,
       disabledReason: isInSpecialState ? 'Resolve current operation first' : undefined,
       isDangerous: false,

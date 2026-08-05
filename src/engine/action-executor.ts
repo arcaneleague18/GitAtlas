@@ -31,14 +31,14 @@ export class ActionExecutor {
     action: EdgeKind,
     nodeId: string,
     postMessage: (msg: any) => void
-  ): Promise<void> {
+  ): Promise<{ mergeConflicts: boolean }> {
     const graph = this.stateEngine.graph;
-    if (!graph) return;
+    if (!graph) return { mergeConflicts: false };
 
     const node = graph.nodes.get(nodeId);
     if (!node) {
       vscode.window.showErrorMessage(`Cannot execute ${action}: Node ${nodeId} not found.`);
-      return;
+      return { mergeConflicts: false };
     }
 
     try {
@@ -52,7 +52,7 @@ export class ActionExecutor {
       const confirmed = await this.confirmAction(action, node);
       if (!confirmed) {
         postMessage({ type: 'clear-preview' });
-        return;
+        return { mergeConflicts: false };
       }
 
       // 3. Execute
@@ -88,6 +88,19 @@ export class ActionExecutor {
       postMessage({ type: 'clear-preview' });
       await this.stateEngine.buildGraph();
     }
+
+    // 7. After merge, check if conflicts exist
+    if (action === 'merge') {
+      const updatedGraph = this.stateEngine.graph;
+      if (updatedGraph && updatedGraph.state === 'merging') {
+        const wdNode = updatedGraph.nodes.get('working-directory');
+        if (wdNode && wdNode.data.kind === 'working-directory' && wdNode.data.conflicted.length > 0) {
+          return { mergeConflicts: true };
+        }
+      }
+    }
+
+    return { mergeConflicts: false };
   }
 
   /**

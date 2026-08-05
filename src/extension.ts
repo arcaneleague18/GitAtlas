@@ -168,32 +168,52 @@ export async function activate(
     console.error('Git Atlas: Failed to build initial graph', err);
   }
 
+  let isBuildingGraph = false;
+  let lastGraphBuildEndTime = 0;
+
   // Set up file system watcher for auto-refresh
   const debouncedRefresh = debounce(async () => {
+    if (isBuildingGraph) return;
+    isBuildingGraph = true;
     try {
       await stateEngine.buildGraph();
     } catch (err) {
       console.error('Git Atlas: Auto-refresh failed', err);
+    } finally {
+      isBuildingGraph = false;
+      lastGraphBuildEndTime = Date.now();
     }
   }, FS_DEBOUNCE);
   context.subscriptions.push(debouncedRefresh);
+
+  const handleWatcherEvent = (uri: vscode.Uri) => {
+    // Ignore index.lock to prevent infinite loops during git operations
+    if (uri.fsPath.endsWith('index.lock')) return;
+    
+    // If a file changed during or within 1000ms of a graph build, 
+    // it's likely a side effect of git status (e.g. updating the index stat cache)
+    // This is especially common during merge conflicts.
+    if (isBuildingGraph || Date.now() - lastGraphBuildEndTime < 1000) return;
+
+    debouncedRefresh();
+  };
 
   // Watch .git directory for changes (commits, branch switches, etc.)
   const gitWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(workspaceRoot, '.git/**')
   );
-  gitWatcher.onDidChange(() => debouncedRefresh());
-  gitWatcher.onDidCreate(() => debouncedRefresh());
-  gitWatcher.onDidDelete(() => debouncedRefresh());
+  gitWatcher.onDidChange(handleWatcherEvent);
+  gitWatcher.onDidCreate(handleWatcherEvent);
+  gitWatcher.onDidDelete(handleWatcherEvent);
   context.subscriptions.push(gitWatcher);
 
   // Watch workspace files for working directory status changes
   const fileWatcher = vscode.workspace.createFileSystemWatcher(
     new vscode.RelativePattern(workspaceRoot, '**/*')
   );
-  fileWatcher.onDidChange(() => debouncedRefresh());
-  fileWatcher.onDidCreate(() => debouncedRefresh());
-  fileWatcher.onDidDelete(() => debouncedRefresh());
+  fileWatcher.onDidChange(handleWatcherEvent);
+  fileWatcher.onDidCreate(handleWatcherEvent);
+  fileWatcher.onDidDelete(handleWatcherEvent);
   context.subscriptions.push(fileWatcher);
 
   // Periodic refresh as a safety net

@@ -501,7 +501,7 @@ export function NodeInspector() {
                           }
                         }}
                       >
-                        ✓ Commit ({stagedCount > 0 ? `${stagedCount} staged` : `${totalCount} all`})
+                        ✓ Commit to {currentBranch ?? 'HEAD'} ({stagedCount > 0 ? `${stagedCount} staged` : `${totalCount} all`})
                       </button>
 
                       {/* Conflicted Files Section */}

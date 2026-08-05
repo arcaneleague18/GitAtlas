@@ -93,6 +93,7 @@ export class GitService {
         cwd: cwd ?? this.workspaceRoot,
         maxBuffer: MAX_BUFFER,
         windowsHide: true,
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
       });
       if (stdout.trim().length > 0) {
         this.outputChannel.appendLine(stdout.trim());

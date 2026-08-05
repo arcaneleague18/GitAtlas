@@ -245,11 +245,17 @@ export class GraphPanelProvider extends DisposableBase {
       }
 
       case 'action-requested':
-        void this.actionExecutor.handleActionRequest(
-          message.action,
-          message.nodeId,
-          (msg) => this.postMessage(msg)
-        );
+        void (async () => {
+          const result = await this.actionExecutor.handleActionRequest(
+            message.action,
+            message.nodeId,
+            (msg) => this.postMessage(msg)
+          );
+          if (result.mergeConflicts) {
+            await this.handleNodeSelected('working-directory');
+            this.postMessage({ type: 'node-focus', nodeId: 'working-directory' });
+          }
+        })();
         break;
 
       case 'toggle-lost-commits':
