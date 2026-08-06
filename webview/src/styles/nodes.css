@@ -369,6 +369,11 @@
   font-size: var(--text-md);
 }
 
+.toolbar-button.text-button {
+  width: auto;
+  padding: 0 12px;
+}
+
 .toolbar-button:hover {
   background: var(--bg-hover);
   color: var(--text-primary);

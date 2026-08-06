@@ -300,6 +300,18 @@ export class RepositoryStateEngine extends DisposableBase {
         } satisfies StashNodeData,
       };
       nodes.set(stashNode.id, stashNode);
+
+      // Edge: stash attaches to its parent commit
+      const parentFullHash = findFullHash(commits, stash.parentHash);
+      if (parentFullHash) {
+        edges.push({
+          id: `${stashNode.id}->${parentFullHash}`,
+          source: stashNode.id,
+          target: parentFullHash,
+          kind: 'stash-parent',
+          label: '',
+        });
+      }
     }
 
     // Build working directory node

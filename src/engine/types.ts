@@ -162,6 +162,9 @@ export type EdgeKind =
   | 'tag'
   | 'create-tag'
   | 'stash'
+  | 'stash-apply'
+  | 'stash-pop'
+  | 'stash-drop'
   | 'apply-stash'
   | 'pop-stash';
 

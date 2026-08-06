@@ -66,6 +66,7 @@ export interface GraphStoreState {
   branchCount: number;
   hasMore: boolean;
   showLostCommits: boolean;
+  showStashes: boolean;
   branchColors: BranchLegendItem[];
   remotes: readonly RawRemote[];
 
@@ -96,6 +97,7 @@ export interface GraphStoreState {
   setPreviewState: (preview: PreviewData | null) => void;
   setGithubContext: (context: GitHubContext) => void;
   setShowLostCommits: (show: boolean) => void;
+  setShowStashes: (show: boolean) => void;
 }
 
 /** Map to track which color is assigned to which branch. */
@@ -153,6 +155,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   branchCount: 0,
   hasMore: false,
   showLostCommits: false,
+  showStashes: true,
   branchColors: [],
   remotes: [],
   graphNodes: new Map(),
@@ -163,8 +166,6 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   githubContext: null,
 
   setGraph: (graph: SerializedGraph) => {
-    branchColorMap.clear();
-
     const graphNodeMap = new Map(graph.nodes);
 
     // Filter to only commit nodes for the graph view
@@ -330,6 +331,22 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       }
     }
 
+    // Add Stash nodes
+    const stashGraphNodes = graph.nodes.filter(
+      ([, node]) => node.kind === 'stash'
+    );
+    for (const [stashId, stashNode] of stashGraphNodes) {
+      flowNodes.push({
+        id: stashId,
+        type: 'stash',
+        position: { x: 0, y: 0 },
+        data: {
+          ...stashNode.data,
+          isSelected: stashId === get().selectedNodeId,
+        },
+      });
+    }
+
     // Build React Flow edges
     const flowEdges: Edge[] = parentEdges
       .filter((e) => {
@@ -362,6 +379,28 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
           },
         };
       });
+
+    // Add Stash edges
+    const stashEdges = graph.edges.filter((e) => e.kind === 'stash-parent');
+    for (const edge of stashEdges) {
+      if (graphNodeMap.has(edge.source) && graphNodeMap.has(edge.target)) {
+        const parentColor = commitColorMap.get(edge.target) ?? BRANCH_COLORS[0]!;
+        flowEdges.push({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          type: 'smoothstep',
+          animated: false,
+          className: 'stash-edge',
+          style: {
+            stroke: parentColor,
+            strokeWidth: 2,
+            strokeDasharray: '4 4',
+            opacity: 0.8,
+          },
+        });
+      }
+    }
 
     // Add WD → HEAD edge if the WD node was added
     if (
@@ -470,5 +509,9 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   setShowLostCommits: (show: boolean) => {
     set({ showLostCommits: show });
     // Note: The actual graph update is triggered by Toolbar via postMessage
+  },
+
+  setShowStashes: (show: boolean) => {
+    set({ showStashes: show });
   },
 }));

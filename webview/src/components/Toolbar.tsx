@@ -21,8 +21,11 @@ function ToolbarComponent() {
     hasMore,
     showLostCommits,
     setShowLostCommits,
+    showStashes,
+    setShowStashes,
     branchColors,
     remotes,
+    nodes,
   } = useGraphStore();
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -84,6 +87,10 @@ function ToolbarComponent() {
     postMessage({ type: 'load-more' });
   }, []);
 
+  const handleToggleStashes = useCallback(() => {
+    setShowStashes(!showStashes);
+  }, [showStashes, setShowStashes]);
+
   const handleEditRemoteUrl = useCallback(() => {
     setIsRemotePopupOpen(false);
     postMessage({ type: 'edit-remote-url' });
@@ -100,11 +107,22 @@ function ToolbarComponent() {
   }, []);
 
   const primaryRemote = remotes.find(r => r.name === 'origin') ?? remotes[0];
+  const hasStashes = nodes.some(n => n.type === 'stash' || (n.data as any)?.kind === 'stash');
 
   return (
     <>
       {/* Top-right toolbar */}
       <div className="graph-toolbar">
+        {hasStashes && (
+          <button
+            className="toolbar-button text-button"
+            onClick={handleToggleStashes}
+            title={showStashes ? 'Hide Stashes' : 'Show Stashes'}
+            style={{ padding: '0 8px', fontSize: '12px', fontWeight: 'bold' }}
+          >
+            {showStashes ? 'Hide Stashes' : 'Show Stashes'}
+          </button>
+        )}
         <div style={{ position: 'relative' }} ref={remotePopupRef}>
           <button
             className="toolbar-button"

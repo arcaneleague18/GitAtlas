@@ -176,6 +176,7 @@ export class GitService {
         'log',
         `--max-count=${maxCount}`,
         `--format=${RECORD_SEP}${format}`,
+        '--exclude=refs/stash',
         '--all',
         '--topo-order',
       ]);
@@ -417,7 +418,7 @@ export class GitService {
       stdout = await this.exec([
         'stash',
         'list',
-        `--format=${['%H', '%gd', '%gs', '%at'].join(FIELD_SEP)}`,
+        `--format=${['%H', '%gd', '%gs', '%at', '%P'].join(FIELD_SEP)}`,
       ]);
     } catch {
       return [];
@@ -438,7 +439,7 @@ export class GitService {
           hash: fields[0] ?? '',
           message: fields[2] ?? `stash@{${idx}}`,
           timestamp: parseInt(fields[3] ?? '0', 10),
-          parentHash: '',
+          parentHash: (fields[4] ?? '').split(' ')[0] ?? '',
         };
       });
   }
@@ -712,7 +713,7 @@ export class GitService {
   }
 
   async fetch(remote?: string): Promise<void> {
-    const args = ['fetch'];
+    const args = ['fetch', '--prune'];
     if (remote) {
       args.push(remote);
     }
@@ -832,8 +833,7 @@ ${context}`;
     else if (mainFile.includes('test') || mainFile.includes('spec')) prefix = 'test';
     else if (mainFile.includes('doc') || mainFile.endsWith('.md')) prefix = 'docs';
     else if (mainFile.includes('config') || mainFile.endsWith('.json')) prefix = 'chore';
-
-    return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length - 1} other file${files.length > 2 ? 's' : ''}` : ''}`;
+return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length - 1} other file${files.length > 2 ? 's' : ''}` : ''}`;
   }
 
   async createStash(message?: string): Promise<void> {
@@ -842,6 +842,18 @@ ${context}`;
       args.push('-m', message);
     }
     await this.exec(args);
+  }
+
+  async applyStash(index: number): Promise<void> {
+    await this.exec(['stash', 'apply', `stash@{${index}}`]);
+  }
+
+  async popStash(index: number): Promise<void> {
+    await this.exec(['stash', 'pop', `stash@{${index}}`]);
+  }
+
+  async dropStash(index: number): Promise<void> {
+    await this.exec(['stash', 'drop', `stash@{${index}}`]);
   }
 
   /**

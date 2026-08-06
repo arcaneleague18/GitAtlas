@@ -32,6 +32,7 @@ import { postMessage } from '../vscode';
 import { CommitNode } from './CommitNode';
 import { BranchLabel } from './BranchLabel';
 import { WorkingDirectoryNode } from './WorkingDirectoryNode';
+import { StashNode } from './StashNode';
 import { Toolbar } from './Toolbar';
 import { NodeInspector } from './NodeInspector';
 
@@ -40,6 +41,7 @@ const nodeTypes = {
   commit: CommitNode,
   'branch-label': BranchLabel,
   'working-directory': WorkingDirectoryNode,
+  stash: StashNode,
 };
 
 export function GraphView() {
@@ -53,6 +55,7 @@ export function GraphView() {
     isInspectorOpen,
     validActions,
     previewState,
+    showStashes,
   } = useGraphStore();
 
   const [nodes, setNodes, onNodesChange] = useNodesState(storeNodes);
@@ -83,10 +86,16 @@ export function GraphView() {
       }
       return edge;
     });
-    // Apply preview overlays if active
+    
+    // Apply preview overlays if active, and filter out stashes if disabled
     let finalNodes = storeNodes;
+    
+    if (!showStashes) {
+      finalNodes = finalNodes.filter(node => node.type !== 'stash' && (node.data as any)?.kind !== 'stash');
+    }
+    
     if (previewState) {
-      finalNodes = storeNodes.map((node) => {
+      finalNodes = finalNodes.map((node) => {
         if (node.id === previewState.nodeId) {
           return {
             ...node,
@@ -112,7 +121,7 @@ export function GraphView() {
     setNodes(finalNodes);
     setEdges(highlightedEdges);
     initialFitDone.current = false;
-  }, [storeNodes, storeEdges, setNodes, setEdges, validActions, previewState]);
+  }, [storeNodes, storeEdges, setNodes, setEdges, validActions, previewState, showStashes]);
 
   // Handle node click → select and notify extension
   const onNodeClick = useCallback(

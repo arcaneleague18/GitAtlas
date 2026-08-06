@@ -1149,6 +1149,18 @@ export class AiAssistantProvider
           await this.gitService.createCommit(args.message);
           return { success: true, output: `Created commit: "${args.message}".` };
         }
+        case 'apply_stash': {
+          await this.gitService.applyStash(args.index);
+          return { success: true, output: `Applied stash@{${args.index}}.` };
+        }
+        case 'pop_stash': {
+          await this.gitService.popStash(args.index);
+          return { success: true, output: `Popped stash@{${args.index}}.` };
+        }
+        case 'drop_stash': {
+          await this.gitService.dropStash(args.index);
+          return { success: true, output: `Dropped stash@{${args.index}}.` };
+        }
         case 'stage_files': {
           const files: string[] = args.files || [];
           if (files.includes('*')) {
@@ -1286,6 +1298,19 @@ export class AiAssistantProvider
         );
         break;
       }
+    }
+
+    // Stashes
+    const stashes: string[] = [];
+    for (const [, node] of graph.nodes) {
+      if (node.kind === 'stash') {
+        const d = node.data as any;
+        stashes.push(`  - stash@{${d.index}}: ${d.message}`);
+      }
+    }
+    if (stashes.length > 0) {
+      parts.push('- Stashes:');
+      parts.push(...stashes);
     }
 
     // GitHub context

@@ -181,9 +181,9 @@ export class ActionExecutor {
 
     switch (action) {
       case 'checkout':
-        // If it's a remote branch, checkout creates a tracking branch.
-        // If it's a commit, it goes into detached HEAD.
-        await this.gitService.checkout(node.kind === 'remote-branch' ? branchName.replace('origin/', '') : (node.kind === 'branch' ? branchName : hash));
+        // For remote branches, checkout the remote branch itself (which results in a detached HEAD)
+        // For commits, it also goes into detached HEAD.
+        await this.gitService.checkout(node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash);
         break;
       case 'branch':
         await this.gitService.createBranch(node._tempBranchName, hash);
@@ -231,6 +231,15 @@ export class ActionExecutor {
       case 'stash':
         await this.gitService.createStash(node._tempStashMessage);
         break;
+      case 'apply-stash':
+        await this.gitService.applyStash(node.data.index);
+        break;
+      case 'pop-stash':
+        await this.gitService.popStash(node.data.index);
+        break;
+      case 'stash-drop':
+        await this.gitService.dropStash(node.data.index);
+        break;
       case 'push':
         await this.gitService.push(node.kind === 'branch' ? branchName : undefined);
         break;
@@ -252,11 +261,17 @@ export class ActionExecutor {
       rebase: 'Rebasing',
       'cherry-pick': 'Cherry-picking',
       revert: 'Reverting',
-      reset: 'Resetting (hard)',
-      'reset-soft': 'Resetting (soft)',
-      'reset-mixed': 'Resetting (mixed)',
+      reset: 'Resetting',
+      'reset-soft': 'Soft resetting',
+      'reset-mixed': 'Mixed resetting',
       'create-tag': 'Creating tag',
+      commit: 'Committing',
+      stash: 'Stashing',
+      'apply-stash': 'Applying stash',
+      'pop-stash': 'Popping stash',
+      'stash-drop': 'Dropping stash',
       push: 'Pushing',
+      pull: 'Pulling',
       fetch: 'Fetching',
     };
     return verbs[action] || 'Executing';

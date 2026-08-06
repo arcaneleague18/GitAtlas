@@ -461,11 +461,11 @@ function getStashActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction
       isDangerous: false,
     },
     {
-      kind: 'branch',
-      label: 'Create Branch from Stash',
-      description: 'Create a new branch from this stash and apply it',
+      kind: 'stash-drop',
+      label: 'Drop',
+      description: 'Permanently delete this stash',
       enabled: true,
-      isDangerous: false,
+      isDangerous: true,
     },
   ];
 }
