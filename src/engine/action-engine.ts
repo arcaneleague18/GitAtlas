@@ -236,7 +236,7 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
 
   // If this commit has local branches, offer to delete each one
   const deletableBranches = data.branches.filter(
-    (b) => b !== graph.currentBranch && !b.includes('/')
+    (b) => b !== graph.currentBranch && !b.includes('/') && b !== 'main' && b !== 'master'
   );
   for (const branch of deletableBranches) {
     actions.push({
@@ -318,9 +318,15 @@ function getBranchActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
     label: 'Delete Branch',
     description: isCurrent
       ? 'Cannot delete the current branch'
-      : `Delete the local branch "${node.label}"`,
-    enabled: !isCurrent,
-    disabledReason: isCurrent ? 'Cannot delete the currently checked out branch' : undefined,
+      : node.label === 'main' || node.label === 'master'
+        ? 'Cannot delete the main branch'
+        : `Delete the local branch "${node.label}"`,
+    enabled: !isCurrent && node.label !== 'main' && node.label !== 'master',
+    disabledReason: isCurrent 
+      ? 'Cannot delete the currently checked out branch' 
+      : node.label === 'main' || node.label === 'master'
+        ? 'Cannot delete the main branch'
+        : undefined,
     isDangerous: true,
   });
 
@@ -390,6 +396,19 @@ function getRemoteBranchActions(node: GraphNode, graph: RepositoryGraph): ValidA
     description: `Create a new local branch from ${node.label}`,
     enabled: true,
     isDangerous: false,
+  });
+
+  actions.push({
+    kind: 'delete-remote-branch',
+    label: 'Delete Remote Branch',
+    description: node.label.endsWith('/main') || node.label.endsWith('/master')
+      ? 'Cannot delete the main remote branch'
+      : `Delete the remote branch "${node.label}" from the remote server`,
+    enabled: !node.label.endsWith('/main') && !node.label.endsWith('/master'),
+    disabledReason: node.label.endsWith('/main') || node.label.endsWith('/master')
+      ? 'Cannot delete the main remote branch'
+      : undefined,
+    isDangerous: true,
   });
 
   return actions;

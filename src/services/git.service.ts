@@ -307,7 +307,7 @@ export class GitService {
       
       // Ignore symbolic remote HEADs (e.g. refs/remotes/origin/HEAD)
       if (!name || name.startsWith('(') || fullRef.endsWith('/HEAD')) continue;
-      const isRemote = name.includes('/');
+      const isRemote = fullRef.startsWith('refs/remotes/');
 
       // Get ahead/behind count for branches with upstreams
       let aheadBehind: { ahead: number; behind: number } | null = null;
@@ -660,6 +660,10 @@ export class GitService {
 
   async deleteBranch(name: string, force = false): Promise<void> {
     await this.exec(['branch', force ? '-D' : '-d', name]);
+  }
+
+  async deleteRemoteBranch(remote: string, branch: string): Promise<void> {
+    await this.exec(['push', remote, '--delete', branch]);
   }
 
   async merge(ref: string): Promise<void> {

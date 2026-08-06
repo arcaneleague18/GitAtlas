@@ -195,6 +195,12 @@ export class ActionExecutor {
           await this.gitService.deleteBranch(branchName, true);
         }
         break;
+      case 'delete-remote-branch': {
+        const [remote, ...rest] = branchName.split('/');
+        const remoteBranch = rest.join('/');
+        await this.gitService.deleteRemoteBranch(remote!, remoteBranch);
+        break;
+      }
       case 'merge':
         await this.gitService.merge(node.kind === 'branch' ? branchName : hash);
         break;
@@ -241,6 +247,7 @@ export class ActionExecutor {
       checkout: 'Checking out',
       branch: 'Creating branch',
       'delete-branch': 'Deleting branch',
+      'delete-remote-branch': 'Deleting remote branch',
       merge: 'Merging',
       rebase: 'Rebasing',
       'cherry-pick': 'Cherry-picking',

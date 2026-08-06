@@ -1241,14 +1241,20 @@ export class AiAssistantProvider
     parts.push(`- State: ${graph.state}`);
 
     // Branches
-    const branches: string[] = [];
+    const localBranches: string[] = [];
+    const remoteBranches: string[] = [];
     for (const [, node] of graph.nodes) {
       if (node.kind === 'branch') {
-        branches.push(node.label);
+        localBranches.push(node.label);
+      } else if (node.kind === 'remote-branch') {
+        remoteBranches.push(node.label);
       }
     }
-    if (branches.length > 0) {
-      parts.push(`- Local branches: ${branches.join(', ')}`);
+    if (localBranches.length > 0) {
+      parts.push(`- Local branches: ${localBranches.join(', ')}`);
+    }
+    if (remoteBranches.length > 0) {
+      parts.push(`- Remote branches: ${remoteBranches.join(', ')}`);
     }
 
     // Recent commits (last 5)
