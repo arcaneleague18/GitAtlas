@@ -428,6 +428,9 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
     // Compute layout positions
     const layoutedNodes = computeLayout(flowNodes, flowEdges);
 
+    const currentSelectedId = get().selectedNodeId;
+    const isSelectedNodeDeleted = currentSelectedId && !graphNodeMap.has(currentSelectedId);
+
     set({
       nodes: layoutedNodes,
       edges: flowEdges,
@@ -441,6 +444,12 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       remotes: graph.remotes ?? [],
       hasMore: graph.hasMore ?? false,
       graphNodes: graphNodeMap,
+      ...(isSelectedNodeDeleted && {
+        selectedNodeId: null,
+        isInspectorOpen: false,
+        selectedNodeDetails: null,
+        validActions: [],
+      }),
     });
   },
 

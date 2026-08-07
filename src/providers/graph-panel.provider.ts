@@ -254,6 +254,8 @@ export class GraphPanelProvider extends DisposableBase {
           if (result.mergeConflicts) {
             await this.handleNodeSelected('working-directory');
             this.postMessage({ type: 'node-focus', nodeId: 'working-directory' });
+          } else {
+            await this.handleNodeSelected(message.nodeId);
           }
         })();
         break;
