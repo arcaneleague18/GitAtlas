@@ -81,10 +81,10 @@ export function NodeInspector() {
 
   // Show preview panel instead of immediately executing
   const handleAction = useCallback(
-    (kind: EdgeKind) => {
+    (kind: EdgeKind, args?: any) => {
       const action = validActions.find((a) => a.kind === kind);
       if (action) {
-        setPendingAction(action);
+        setPendingAction({ ...action, args });
       }
     },
     [validActions]
@@ -97,6 +97,7 @@ export function NodeInspector() {
         type: 'action-requested',
         action: pendingAction.kind,
         nodeId: selectedNodeDetails.nodeId,
+        args: pendingAction.args,
       });
       setPendingAction(null);
     }

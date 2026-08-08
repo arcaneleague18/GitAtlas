@@ -198,12 +198,13 @@ export interface NodeDetails {
 // ── Valid Actions ──────────────────────────────────────────────
 
 export interface ValidAction {
-  readonly kind: EdgeKind;
-  readonly label: string;
-  readonly description: string;
-  readonly enabled: boolean;
-  readonly disabledReason?: string;
-  readonly isDangerous: boolean;
+  kind: EdgeKind;
+  label: string;
+  description: string;
+  enabled: boolean;
+  disabledReason?: string;
+  isDangerous?: boolean;
+  args?: any;
 }
 
 // ── GitHub Integration ────────────────────────────────────────
@@ -257,7 +258,7 @@ export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'node-selected'; nodeId: string }
   | { type: 'request-details'; nodeId: string }
-  | { type: 'action-requested'; action: EdgeKind; nodeId: string }
+  | { type: 'action-requested'; action: EdgeKind; nodeId: string; args?: any }
   | { type: 'open-file'; path: string }
   | { type: 'show-diff'; commitHash: string; filePath: string }
   | { type: 'refresh' }

@@ -249,7 +249,8 @@ export class GraphPanelProvider extends DisposableBase {
           const result = await this.actionExecutor.handleActionRequest(
             message.action,
             message.nodeId,
-            (msg) => this.postMessage(msg)
+            (msg) => this.postMessage(msg),
+            message.args
           );
           if (result.mergeConflicts) {
             await this.handleNodeSelected('working-directory');

@@ -30,7 +30,8 @@ export class ActionExecutor {
   async handleActionRequest(
     action: EdgeKind,
     nodeId: string,
-    postMessage: (msg: any) => void
+    postMessage: (msg: any) => void,
+    args?: any
   ): Promise<{ mergeConflicts: boolean }> {
     const graph = this.stateEngine.graph;
     if (!graph) return { mergeConflicts: false };
@@ -56,6 +57,7 @@ export class ActionExecutor {
       }
 
       // 3. Execute
+      let wasPushed = false;
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.Notification,
@@ -63,12 +65,43 @@ export class ActionExecutor {
           cancellable: false,
         },
         async () => {
-          await this.executeCommand(action, node);
+          if (action === 'delete-commit') {
+            const hash = node.data.hash || node.id;
+            try {
+              wasPushed = await this.gitService.isCommitPushed(hash);
+            } catch {
+              // ignore
+            }
+          }
+          await this.executeCommand(action, node, args);
         }
       );
 
       // 4. Success Notification
-      vscode.window.showInformationMessage(`Successfully completed ${action}.`);
+      if (action === 'delete-commit' && wasPushed && graph.currentBranch) {
+        const forcePush = 'Force Push (--force-with-lease)';
+        const choice = await vscode.window.showWarningMessage(
+          `Git Atlas: Commit deleted. This commit was already pushed to the remote. ` +
+          `You need to force-push to update the remote branch "${graph.currentBranch}".`,
+          { modal: false },
+          forcePush
+        );
+        if (choice === forcePush) {
+          try {
+            await this.gitService.forcePushWithLease(graph.currentBranch);
+            vscode.window.showInformationMessage(
+              `Git Atlas: Force-pushed "${graph.currentBranch}" to remote with --force-with-lease.`
+            );
+          } catch (pushErr: any) {
+            const pushErrMsg = pushErr.stderr?.trim() || pushErr.message || 'Unknown error';
+            vscode.window.showErrorMessage(
+              `Git Atlas: Force-push failed — ${pushErrMsg}`
+            );
+          }
+        }
+      } else {
+        vscode.window.showInformationMessage(`Successfully completed ${action}.`);
+      }
     } catch (err: any) {
       // 5. Error Handling
       const stderr = err.stderr || err.message || 'Unknown error';
@@ -112,8 +145,8 @@ export class ActionExecutor {
    */
   private async confirmAction(action: EdgeKind, node: any): Promise<boolean> {
     // Destructive actions get a native VS Code warning as a second safety net
-    if (action === 'reset' || action === 'delete-branch') {
-      const confirmText = action === 'reset' ? 'Reset (Hard)' : 'Delete Branch';
+    if (action === 'reset' || action === 'delete-branch' || action === 'delete-commit') {
+      const confirmText = action === 'reset' ? 'Reset (Hard)' : action === 'delete-commit' ? 'Delete Commit' : 'Delete Branch';
       const choice = await vscode.window.showWarningMessage(
         `Are you sure you want to perform a ${action} on ${node.label}? This action cannot be easily undone.`,
         { modal: true },
@@ -175,7 +208,7 @@ export class ActionExecutor {
   /**
    * Maps the UI action to the underlying GitService method.
    */
-  private async executeCommand(action: EdgeKind, node: any): Promise<void> {
+  private async executeCommand(action: EdgeKind, node: any, args?: any): Promise<void> {
     const hash = node.data.hash || node.id;
     const branchName = node.label;
 
@@ -241,10 +274,13 @@ export class ActionExecutor {
         await this.gitService.dropStash(node.data.index);
         break;
       case 'push':
-        await this.gitService.push(node.kind === 'branch' ? branchName : undefined);
+        await this.gitService.push(node.kind === 'branch' ? branchName : undefined, args?.pushMode);
         break;
       case 'fetch':
         await this.gitService.fetch();
+        break;
+      case 'delete-commit':
+        await this.gitService.deleteCommit(hash);
         break;
       default:
         throw new Error(`Action ${action} is not yet implemented.`);
@@ -256,6 +292,7 @@ export class ActionExecutor {
       checkout: 'Checking out',
       branch: 'Creating branch',
       'delete-branch': 'Deleting branch',
+      'delete-commit': 'Deleting commit',
       'delete-remote-branch': 'Deleting remote branch',
       merge: 'Merging',
       rebase: 'Rebasing',

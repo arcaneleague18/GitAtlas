@@ -704,8 +704,11 @@ export class GitService {
     await this.exec(['tag', '-d', name]);
   }
 
-  async push(branch?: string): Promise<void> {
+  async push(branch?: string, mode?: 'normal' | 'force-with-lease' | 'force'): Promise<void> {
     const args = ['push'];
+    if (mode === 'force-with-lease') args.push('--force-with-lease');
+    else if (mode === 'force') args.push('--force');
+
     if (branch) {
       args.push('origin', branch);
     }
@@ -1015,6 +1018,49 @@ return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length -
       args.push('origin', branch);
     }
     await this.exec(args);
+  }
+
+  /**
+   * Drops a commit from the current branch's history.
+   * Ensures the commit is an ancestor of HEAD before proceeding.
+   */
+  async deleteCommit(hash: string): Promise<void> {
+    try {
+      // Check if it's an ancestor of HEAD
+      await this.exec(['merge-base', '--is-ancestor', hash, 'HEAD']);
+    } catch {
+      throw new Error(`Commit ${hash.substring(0, 7)} is not in the history of the current branch. Please checkout a branch that contains this commit first.`);
+    }
+
+    try {
+      // Check if it's the root commit
+      await this.exec(['rev-parse', '--verify', `${hash}^`]);
+    } catch {
+      throw new Error(`Cannot delete the root commit of the repository.`);
+    }
+
+    try {
+      // Rebase to drop the commit: git rebase --onto <hash>^ <hash>
+      await this.exec(['rebase', '--onto', `${hash}^`, hash]);
+    } catch (err: any) {
+      const output = (err.stdout || '') + ' ' + (err.stderr || '');
+      const isConflict = output.toLowerCase().includes('conflict') || output.toLowerCase().includes('could not apply');
+
+      if (err.stderr) {
+        this.outputChannel.appendLine(`[GitService] ERROR: ${err.stderr.trim()}`);
+      }
+      try {
+        await this.exec(['rebase', '--abort']);
+        this.outputChannel.appendLine('[GitService] Rebase aborted after failure.');
+      } catch {
+        // Ignore
+      }
+
+      if (isConflict) {
+        throw new Error('Cannot delete this commit because subsequent commits depend on its changes. The operation was safely aborted.');
+      }
+      throw err;
+    }
   }
 }
 

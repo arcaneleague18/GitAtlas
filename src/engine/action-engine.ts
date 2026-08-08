@@ -264,6 +264,22 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
     });
   }
 
+  // ── Delete Commit ──
+  actions.push({
+    kind: 'delete-commit',
+    label: 'Delete Commit',
+    description: isMergeCommit
+      ? 'Cannot delete a merge commit automatically'
+      : 'Remove this commit from history (requires force push if already pushed)',
+    enabled: !isMergeCommit && !isInSpecialState,
+    disabledReason: isMergeCommit
+      ? 'Cannot automatically delete merge commits'
+      : isInSpecialState
+        ? 'Resolve current operation first'
+        : undefined,
+    isDangerous: true,
+  });
+
   return actions;
 }
 

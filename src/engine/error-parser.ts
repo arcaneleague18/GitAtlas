@@ -71,7 +71,7 @@ export function parseGitError(stderr: string, action: string): GitError {
   // Fallback for unknown errors
   return {
     message: `Git ${action} failed.`,
-    reason: 'An unexpected error occurred during the Git operation.',
+    reason: stderr ? stderr.split('\n')[0] : 'An unexpected error occurred during the Git operation.',
     nextSteps: 'Check the Git Atlas output channel for more details.',
     rawStderr: stderr,
   };

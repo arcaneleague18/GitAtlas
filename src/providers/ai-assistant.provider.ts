@@ -209,6 +209,21 @@ const TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'delete_commit',
+      description: 'Delete a commit from the history of the current branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hash: { type: 'string', description: 'Commit hash to delete' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['hash', 'reason'],
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'push',
       description: 'Push local commits to the remote repository.',
       parameters: {
@@ -1136,6 +1151,10 @@ export class AiAssistantProvider
         case 'delete_tag': {
           await this.gitService.deleteTag(args.name);
           return { success: true, output: `Deleted tag '${args.name}'.` };
+        }
+        case 'delete_commit': {
+          await this.gitService.deleteCommit(args.hash);
+          return { success: true, output: `Deleted commit ${args.hash.substring(0, 7)}.` };
         }
         case 'push': {
           await this.gitService.push(args.branch);

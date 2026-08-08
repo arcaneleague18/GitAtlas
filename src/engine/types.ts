@@ -158,6 +158,7 @@ export type EdgeKind =
   | 'fetch'
   | 'branch'
   | 'delete-branch'
+  | 'delete-commit'
   | 'delete-remote-branch'
   | 'tag'
   | 'create-tag'

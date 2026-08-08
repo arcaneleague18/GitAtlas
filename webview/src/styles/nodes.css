@@ -561,3 +561,63 @@
   text-align: center;
   padding: var(--space-2);
 }
+
+/* "?"? Action Button Dropdown "?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"?"? */
+.action-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  padding: var(--space-1);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-button-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-button-wrapper .action-button {
+  width: 100%;
+}
+
+.action-dropdown-item {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.action-dropdown-item:hover {
+  background: var(--bg-hover);
+}
+
+.action-dropdown-item.danger:hover {
+  background: rgba(248, 81, 73, 0.15);
+}
+
+.action-dropdown-item.danger .action-dropdown-title {
+  color: var(--text-danger);
+}
+
+.action-dropdown-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.action-dropdown-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
