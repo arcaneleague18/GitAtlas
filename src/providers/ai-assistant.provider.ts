@@ -707,11 +707,11 @@ export class AiAssistantProvider
         const argLines = Object.entries(args)
           .filter(([k]) => k !== 'reason')
           .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-          .join('\\n');
+          .join('\n');
 
-        let modalMsg = `Git Atlas AI wants to execute: ${tcp.name}\\n\\nReason: ${reason}`;
+        let modalMsg = `Git Atlas AI wants to execute: ${tcp.name}\n\nReason: ${reason}`;
         if (argLines) {
-          modalMsg += `\\n\\nParameters:\\n${argLines}`;
+          modalMsg += `\n\nParameters:\n${argLines}`;
         }
 
         const choice = await vscode.window.showInformationMessage(
@@ -1373,6 +1373,7 @@ IMPORTANT RULES:
 7. You can chain multiple tool calls (e.g. stage_files then commit) — each will be confirmed individually.
 8. Always reference the actual repo state (provided as context) when answering questions.
 9. If you need more information before acting, use get_status or get_log first.
+10. NEVER invent a branch name on your own. If the user asks you to create a branch but doesn't provide a name, ask them for a name before executing the create_branch tool.
 
 Style:
 - Be concise but thorough

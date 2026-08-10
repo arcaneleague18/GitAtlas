@@ -347,6 +347,7 @@
   gap: 8px;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 /* Pending state: glowing accent border */

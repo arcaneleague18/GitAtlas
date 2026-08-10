@@ -182,8 +182,25 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       if (node.data.kind === 'commit') {
         const commitData = node.data as CommitNodeData;
         if (commitData.branches.length > 0) {
-          // Use the first branch's color
-          const primaryBranch = commitData.branches[0]!;
+          // Sort branches by priority to find the best primary branch
+          const sortedBranches = [...commitData.branches].sort((a, b) => {
+            if (a === graph.currentBranch) return -1;
+            if (b === graph.currentBranch) return 1;
+            
+            const aIsMain = a === 'main' || a === 'master';
+            const bIsMain = b === 'main' || b === 'master';
+            if (aIsMain && !bIsMain) return -1;
+            if (!aIsMain && bIsMain) return 1;
+            
+            const aIsRemote = a.includes('/');
+            const bIsRemote = b.includes('/');
+            if (!aIsRemote && bIsRemote) return -1;
+            if (aIsRemote && !bIsRemote) return 1;
+            
+            return a.localeCompare(b);
+          });
+          
+          const primaryBranch = sortedBranches[0]!;
           commitColorMap.set(id, getBranchColor(primaryBranch));
         }
       }
