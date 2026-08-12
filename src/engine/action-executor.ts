@@ -14,7 +14,7 @@
 import * as vscode from 'vscode';
 import { GitService } from '../services/git.service.js';
 import { RepositoryStateEngine } from './state-engine.js';
-import { parseGitError } from './error-parser.js';
+import { parseGitError, explainGitErrorWithAi } from './error-parser.js';
 import type { EdgeKind } from './types.js';
 
 export class ActionExecutor {
@@ -66,7 +66,7 @@ export class ActionExecutor {
         },
         async () => {
           if (action === 'delete-commit') {
-            const hash = node.data.hash || node.id;
+            const hash = (node.data as any).hash || node.id;
             try {
               wasPushed = await this.gitService.isCommitPushed(hash);
             } catch {
@@ -103,19 +103,47 @@ export class ActionExecutor {
         vscode.window.showInformationMessage(`Successfully completed ${action}.`);
       }
     } catch (err: any) {
-      // 5. Error Handling
+      // 5. Error Handling — show static error immediately, then enhance with AI
       const stderr = err.stderr || err.message || 'Unknown error';
       const parsedError = parseGitError(stderr, action);
-      
-      const viewDetails = 'View Details';
-      vscode.window.showErrorMessage(
-        `${parsedError.message} ${parsedError.reason} ${parsedError.nextSteps}`,
-        viewDetails
-      ).then(choice => {
-        if (choice === viewDetails) {
-          this.outputChannel.show();
+
+      this.outputChannel.appendLine(`\n[Git Atlas] ${action} failed at ${new Date().toISOString()}`);
+      this.outputChannel.appendLine(`Stderr: ${stderr}`);
+
+      const viewDetailsBtn = 'View Details';
+
+      // Fire the AI explanation in the background without blocking
+      void (async () => {
+        const aiResult = await explainGitErrorWithAi(stderr, action);
+
+        if (aiResult) {
+          this.outputChannel.appendLine(`\n[AI Explanation]\n${aiResult.explanation}`);
+          if (aiResult.nextSteps) {
+            this.outputChannel.appendLine(`[Suggested next steps]\n${aiResult.nextSteps}`);
+          }
+
+          const fullMsg = aiResult.nextSteps
+            ? `${aiResult.explanation} ${aiResult.nextSteps}`
+            : aiResult.explanation;
+
+          const aiChoice = await vscode.window.showErrorMessage(
+            `⚡ Git Atlas — ${action} failed: ${fullMsg}`,
+            viewDetailsBtn
+          );
+          if (aiChoice === viewDetailsBtn) {
+            this.outputChannel.show();
+          }
+        } else {
+          // Fallback to static parser message
+          const choice = await vscode.window.showErrorMessage(
+            `Git Atlas — ${parsedError.message} ${parsedError.reason}\n${parsedError.nextSteps}`,
+            viewDetailsBtn
+          );
+          if (choice === viewDetailsBtn) {
+            this.outputChannel.show();
+          }
         }
-      });
+      })();
     } finally {
       // 6. Cleanup & Refresh
       postMessage({ type: 'clear-preview' });
