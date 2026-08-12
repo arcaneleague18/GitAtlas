@@ -19,7 +19,7 @@
 
 ---
 
-Git Atlas is a VS Code extension that replaces the mental overhead of Git with a beautiful, interactive visual graph. Understand Git through visualization rather than memorizing commands, treating Git as a visual state machine.
+Git Atlas is a VS Code extension that replaces the mental overhead of Git with a beautiful, interactive visual graph. Understand Git through visualization rather than memorizing commands — treating your repository as a navigable state machine.
 
 ## Philosophy
 
@@ -29,63 +29,105 @@ Git Atlas is a VS Code extension that replaces the mental overhead of Git with a
 
 The UI makes Git feel like navigating a flowchart instead of wrestling with a terminal.
 
+---
+<img alt="About Me" src="./resources/gitvis-ss.png">
+
 ## Features
 
-- **Interactive Graph Webview:** A React Flow-based visual Directed Acyclic Graph (DAG) of your commit history.
+- **Interactive Graph Webview** — A React Flow-based visual Directed Acyclic Graph (DAG) of your commit history with branch-colored edges and smooth animations.
 
-- **Working Directory Node:** Uncommitted changes (staged, modified, untracked) appear directly in the graph above HEAD. Commit (`git add -A && git commit -m`) or stash (`git stash push`) your work with interactive message prompts directly from the node.
+- **Working Directory Node** — Uncommitted changes (staged, modified, untracked) appear directly in the graph above HEAD. Commit (`git add -A && git commit -m`) or stash (`git stash push`) from the node with interactive prompts.
 
-- **Node Inspector & Commit Rewording:** Click any commit to view full details, diff statistics, and context-aware Git actions. Easily edit any commit message directly with the edit button (✏️) — automatically handling `git commit --amend` for HEAD and interactive rebase for older commits.
+- **Node Inspector & Commit Rewording** — Click any commit to view full details, diff statistics, and context-aware Git actions. Edit any commit message with the ✏️ button — automatically using `git commit --amend` for HEAD or interactive rebase for older commits.
 
-- **Interactive Branch Color Legend:** Click the branch counter in the status bar (`N branches ▼`) to reveal a popover showing all branches and their unique assigned colors. Colors use a Golden Ratio HSL algorithm to guarantee that no two distinct branches share the same color.
+- **Branch Color Legend** — Click the branch counter (`N branches ▼`) to reveal a popover of all branches and their unique colors. Uses a Golden Ratio HSL algorithm to guarantee no two branches share the same color. Newly created branches always inherit the correct color scope; ancestors of a new branch remain colored by their originating branch.
 
-- **Action Previews:** Before executing any action, a centered modal previews what will happen. It provides plain-English explanations of how the graph will change and clear danger warnings for destructive actions.
+- **Action Previews** — Before executing any action, a centered modal previews what will happen, with plain-English explanations and clear danger warnings for destructive operations.
 
-- **Git Action Execution:** Execute operations (Checkout, Branch, Commit, Stash, Merge, Rebase, Cherry-Pick, Reset, Reword) directly from the graph with confidence.
+- **Git Action Execution** — Checkout, Branch, Commit, Stash, Merge, Rebase, Cherry-Pick, Reset (hard), Reword, Delete Commit, Push (with force / force-with-lease dropdown), Tag.
 
-- **Git Fetch Sync:** Refreshing the graph automatically triggers a background `git fetch` with UI progress indicators to ensure your local view is synchronized with remote changes.
+- **AI-Powered Error Explanation** — When any Git action fails, the extension immediately asks an available language model (GitHub Copilot or any configured provider) to explain *why* it failed and what the user should do. The plain-English explanation appears directly in the VS Code notification, with all raw details logged to the output channel.
 
-- **Robust Error Handling:** Intercepts common Git errors (Merge Conflicts, Dirty Working Tree) and converts them into user-friendly explanations with suggested next steps.
+- **AI Assistant (Sidebar)** — An agentic Git co-pilot. Ask questions, get repo-aware answers, and instruct it to perform multi-step Git operations. The assistant asks for branch names before creating branches, pauses for user approval on every write action, and supports VS Code LM API (Copilot), OpenRouter, Groq, Nvidia, Ollama, and custom OpenAI-compatible endpoints.
 
-- **Repository Sidebar:** An organized tree view showing your current state, branches, recent commits, working directory, stashes, tags, and remotes.
+- **GitHub Integration** — Detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
 
-- **GitHub Integration:** Automatically detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
+- **Time-Travel (Reflog)** — Visually recover lost commits using `--reflog` visualization. Orphaned commits are distinctly styled.
 
-- **AI Assistant:** An intelligent Git co-pilot in the sidebar. Ask questions about your repository state, get explanations of Git concepts, and receive suggested fixes for errors. Supports VS Code Language Models (GitHub Copilot), OpenRouter, Groq, Nvidia, local Ollama models, and custom OpenAI-compatible API keys.
+- **Auto-Refresh** — Watches the `.git` folder for changes and automatically rebuilds the graph when external Git actions are performed.
 
-- **Time-Travel (Reflog):** Visually recover lost commits using the built-in `--reflog` visualization. Orphaned commits are dynamically styled to indicate their "lost" status.
+- **Repository Sidebar** — Organized tree view of current state, branches, recent commits, working directory, stashes, tags, and remotes.
 
-- **Auto-Refresh:** Automatically updates the graph and sidebar when you perform Git actions externally by actively watching the `.git` folder.
+- **Premium Design** — Glassmorphic panels, framer-motion animations, dynamic edge highlighting, and full VS Code theme integration (Dark, Light, High Contrast).
 
-- **Premium Design:** Glassmorphic elements, smooth animations, dynamic edge highlighting for valid actions, and full VS Code theme integration (Dark, Light, High Contrast).
+---
 
 ## Installation
 
-This extension is currently in development. To run it locally:
+> This extension is currently in development. To run it locally:
 
 1. Clone the repository.
 2. Open the `gitvis` folder in VS Code.
 3. Run `npm install` in the root directory.
 4. Run `cd webview && npm install` to install webview dependencies.
 5. Press `F5` to launch the Extension Development Host.
-6. Open a Git repository in the newly opened VS Code window to see the extension in action!
+6. Open a Git repository in the new VS Code window to see the extension in action!
 
-## Development Architecture
+---
 
-The extension consists of two robustly decoupled parts:
+## Architecture
 
-1. **Extension Host (Node.js):**
-   - Manages Git CLI communication (`GitService`).
-   - Reconstructs the Git state graph (`StateEngine`).
-   - Manages VS Code providers (`SidebarProvider`, `GraphPanelProvider`, `AiAssistantProvider`).
-   - Bundled securely using `esbuild`.
+Git Atlas has two decoupled runtimes that communicate over VS Code's message-passing bridge.
 
-2. **Webview (React / Vite):**
-   - A sandboxed React application.
-   - Uses `React Flow` for rendering the interactive DAG.
-   - `dagre` for directed graph layout.
-   - `zustand` for state management and `framer-motion` for animations.
-   - Built securely via `vite`.
+```mermaid
+graph TB
+    subgraph Host["Extension Host  (Node.js · esbuild)"]
+        GS["GitService\nspawns git CLI"]
+        GHS["GithubService\nfetches PRs · Issues · CI"]
+        SE["StateEngine\nbuilds immutable graph\nassigns branch colors"]
+        AE["ActionEngine\ncomputes valid actions\ngenerates previews"]
+        AX["ActionExecutor\nruns git commands\nAI error explanation"]
+        GP["GraphPanelProvider\nserializes graph → JSON\nroutes webview messages"]
+        SP["SidebarProvider\nTreeDataProvider"]
+        AI["AiAssistantProvider\nagentic tool-call loop\nmulti-provider LLM"]
+    end
+
+    subgraph WV["Webview  (React · Vite)"]
+        Store["Zustand Store\ndeserializes graph\ncolor propagation"]
+        Graph["GraphView\nReact Flow DAG\nDagre layout"]
+        Inspector["NodeInspector\naction buttons · diff stats\ncommit reword"]
+        ChatUI["AI Assistant UI\nchat · tool-call cards"]
+    end
+
+    Git[("git CLI")]
+    GitHub[("GitHub API")]
+    LM[("vscode.lm\nCopilot / OpenRouter\nGroq / Ollama")]
+
+    GS -->|spawn| Git
+    GHS -->|fetch| GitHub
+    AI & AX -->|selectChatModels| LM
+
+    GS --> SE
+    SE -->|onDidChangeGraph| GP & SP & AI
+    AE --> GP
+    AX --> GS & SE
+    GP <-->|postMessage| Store
+    AI <-->|postMessage| ChatUI
+    Store --> Graph & Inspector
+    Inspector -->|action-requested| GP
+```
+
+### Design Principles
+
+| | |
+|---|---|
+| **Immutable snapshots** | `StateEngine` produces a new `RepositoryGraph` on every rebuild — never mutates in place |
+| **Layered architecture** | `GitService` → `StateEngine` → `ActionExecutor` → `Providers` → Webview |
+| **Secure sandboxing** | Webview has zero Node.js access; all git I/O runs in the Extension Host |
+| **Reactive UI** | `onDidChangeGraph` drives all refreshes — the webview never polls |
+| **AI as enhancement** | Error explanation and the AI assistant degrade gracefully when no LM is available |
+
+---
 
 ## 🤝 Contributing
 
