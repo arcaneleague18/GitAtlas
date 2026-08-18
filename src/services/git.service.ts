@@ -769,6 +769,13 @@ export class GitService {
     }
   }
 
+  async discardAll(): Promise<void> {
+    // Discard all tracked changes
+    await this.exec(['checkout', '--', '.']);
+    // Discard all untracked files/directories
+    await this.exec(['clean', '-fd']);
+  }
+
   async generateCommitMessage(): Promise<string> {
     const status = await this.getStatus();
     const hasStaged = status.staged.length > 0;

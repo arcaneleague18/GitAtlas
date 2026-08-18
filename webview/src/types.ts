@@ -271,6 +271,7 @@ export type WebviewToExtensionMessage =
   | { type: 'unstage-file'; path: string }
   | { type: 'stage-all' }
   | { type: 'unstage-all' }
+  | { type: 'discard-all' }
   | { type: 'discard-file'; path: string }
   | { type: 'generate-commit-message' }
   | { type: 'commit-staged'; message: string };

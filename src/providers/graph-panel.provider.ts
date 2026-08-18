@@ -363,6 +363,22 @@ export class GraphPanelProvider extends DisposableBase {
         }
         break;
 
+      case 'discard-all': {
+        const choice = await vscode.window.showWarningMessage(
+          'Are you sure you want to discard ALL uncommitted changes? This action cannot be undone and will delete uncommitted work.',
+          { modal: true },
+          'Discard All Changes'
+        );
+        if (choice === 'Discard All Changes') {
+          await this.gitService.discardAll();
+          await this.stateEngine.buildGraph();
+          if (this.stateEngine.graph?.nodes.has('working-directory')) {
+            await this.handleNodeSelected('working-directory');
+          }
+        }
+        break;
+      }
+
       case 'discard-file':
         await this.gitService.discardFile(message.path);
         await this.stateEngine.buildGraph();

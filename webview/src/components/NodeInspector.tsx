@@ -555,6 +555,13 @@ export function NodeInspector() {
                           </div>
                           <div className="changes-header-actions">
                             <button
+                              className="icon-action-btn discard"
+                              title="Discard All Changes"
+                              onClick={() => postMessage({ type: 'discard-all' })}
+                            >
+                              ↺
+                            </button>
+                            <button
                               className="icon-action-btn"
                               title="Stage All Changes"
                               onClick={() => postMessage({ type: 'stage-all' })}
