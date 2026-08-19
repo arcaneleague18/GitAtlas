@@ -23,7 +23,7 @@ interface ActionPreviewPanelProps {
 }
 
 const ACTION_ICONS: Record<string, string> = {
-  checkout: '↗',
+  switch: '↗',
   branch: '⎇',
   tag: '🏷',
   merge: '⤵',
@@ -148,7 +148,7 @@ function getGraphImpact(
   const branchDisplay = currentBranch ?? `detached at ${shortHead}`;
 
   switch (kind) {
-    case 'checkout':
+    case 'switch':
       return [
         { icon: '→', text: `HEAD will move from ${branchDisplay} to ${details.label}` },
         { icon: '📂', text: 'Working directory files will be updated to match' },

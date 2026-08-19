@@ -72,10 +72,10 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
 
   // ── Navigation ──
 
-  // Checkout — always available unless already HEAD
+  // Switch — always available unless already HEAD
   actions.push({
-    kind: 'checkout',
-    label: 'Checkout',
+    kind: 'switch',
+    label: 'Switch',
     description: isHead
       ? 'You are already at this commit'
       : 'Switch to this commit (detached HEAD)',
@@ -291,8 +291,8 @@ function getBranchActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
   const isInSpecialState = graph.state === 'merging' || graph.state === 'rebasing' || graph.state === 'cherry-picking';
 
   actions.push({
-    kind: 'checkout',
-    label: 'Checkout',
+    kind: 'switch',
+    label: 'Switch',
     description: isCurrent ? 'Already on this branch' : 'Switch to this branch',
     enabled: !isCurrent,
     disabledReason: isCurrent ? 'Already on this branch' : undefined,
@@ -373,8 +373,8 @@ function getRemoteBranchActions(node: GraphNode, graph: RepositoryGraph): ValidA
   const isInSpecialState = graph.state === 'merging' || graph.state === 'rebasing' || graph.state === 'cherry-picking';
 
   actions.push({
-    kind: 'checkout',
-    label: 'Checkout',
+    kind: 'switch',
+    label: 'Switch',
     description: 'Create a local branch tracking this remote branch',
     enabled: true,
     isDangerous: false,
@@ -435,8 +435,8 @@ function getRemoteBranchActions(node: GraphNode, graph: RepositoryGraph): ValidA
 function getTagActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
   return [
     {
-      kind: 'checkout',
-      label: 'Checkout',
+      kind: 'switch',
+      label: 'Switch',
       description: 'Switch to this tag (detached HEAD)',
       enabled: true,
       isDangerous: false,
@@ -533,8 +533,8 @@ function getDetachedHeadActions(_node: GraphNode, _graph: RepositoryGraph): Vali
       isDangerous: false,
     },
     {
-      kind: 'checkout',
-      label: 'Checkout Branch',
+      kind: 'switch',
+      label: 'Switch to Branch',
       description: 'Switch to an existing branch',
       enabled: true,
       isDangerous: false,

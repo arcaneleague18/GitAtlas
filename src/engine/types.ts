@@ -3,7 +3,7 @@
  *
  * Models Git as a state machine where:
  * - Nodes represent repository states (commits, branches, working directory, etc.)
- * - Edges represent Git operations (commit, checkout, merge, etc.)
+ * - Edges represent Git operations (commit, switch, merge, etc.)
  *
  * This module is the single source of truth for all shared types
  * between the extension host and webview.
@@ -145,7 +145,7 @@ export type EdgeKind =
   | 'tag-target'      // structural: tag points to commit
   | 'stash-parent'    // structural: stash based on commit
   | 'commit'
-  | 'checkout'
+  | 'switch'
   | 'merge'
   | 'rebase'
   | 'reset'

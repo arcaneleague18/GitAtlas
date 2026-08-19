@@ -2,7 +2,7 @@
  * Action Executor — The central controller for executing Git actions.
  *
  * Architecture Flow:
- * 1. Webview requests an action (e.g. checkout, reset).
+ * 1. Webview requests an action (e.g. switch, reset).
  * 2. ActionExecutor validates the request.
  * 3. Sends a preview payload to the Webview.
  * 4. Shows a VS Code native confirmation dialog (if dangerous).
@@ -241,10 +241,10 @@ export class ActionExecutor {
     const branchName = node.label;
 
     switch (action) {
-      case 'checkout':
-        // For remote branches, checkout the remote branch itself (which results in a detached HEAD)
+      case 'switch':
+        // For remote branches, switch to the remote branch itself (which results in a detached HEAD)
         // For commits, it also goes into detached HEAD.
-        await this.gitService.checkout(node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash);
+        await this.gitService.switchRef(node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash);
         break;
       case 'branch':
         await this.gitService.createBranch(node._tempBranchName, hash);
@@ -317,7 +317,7 @@ export class ActionExecutor {
 
   private getVerb(action: EdgeKind): string {
     const verbs: Record<string, string> = {
-      checkout: 'Checking out',
+      switch: 'Switching',
       branch: 'Creating branch',
       'delete-branch': 'Deleting branch',
       'delete-commit': 'Deleting commit',

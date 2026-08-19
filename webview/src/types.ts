@@ -30,7 +30,7 @@ export type EdgeKind =
   | 'tag-target'
   | 'stash-parent'
   | 'commit'
-  | 'checkout'
+  | 'switch'
   | 'merge'
   | 'rebase'
   | 'reset'

@@ -18,7 +18,7 @@ interface ActionButtonProps {
 }
 
 const ACTION_ICONS: Record<string, string> = {
-  checkout: '↗',
+  switch: '↗',
   branch: '⎇',
   tag: '🏷',
   merge: '⤵',

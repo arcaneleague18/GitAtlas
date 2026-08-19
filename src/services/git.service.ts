@@ -647,8 +647,14 @@ export class GitService {
 
   // ── Execution Methods ───────────────────────────────────────────
 
-  async checkout(ref: string): Promise<void> {
-    await this.exec(['checkout', ref]);
+  async switchRef(ref: string): Promise<void> {
+    // Try git switch (works for local branches)
+    try {
+      await this.exec(['switch', ref]);
+    } catch {
+      // Fallback: detached HEAD for remote branches, commits, tags
+      await this.exec(['switch', '--detach', ref]);
+    }
   }
 
   async createBranch(name: string, ref?: string): Promise<void> {
@@ -763,16 +769,18 @@ export class GitService {
 
   async discardFile(relativePath: string): Promise<void> {
     try {
-      await this.exec(['checkout', '--', relativePath]);
+      // Restore tracked file to HEAD state
+      await this.exec(['restore', relativePath]);
     } catch {
+      // For untracked files, clean them
       await this.exec(['clean', '-f', relativePath]);
     }
   }
 
   async discardAll(): Promise<void> {
-    // Discard all tracked changes
-    await this.exec(['checkout', '--', '.']);
-    // Discard all untracked files/directories
+    // Restore all tracked changes
+    await this.exec(['restore', '.']);
+    // Remove all untracked files/directories
     await this.exec(['clean', '-fd']);
   }
 
@@ -1036,7 +1044,7 @@ return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length -
       // Check if it's an ancestor of HEAD
       await this.exec(['merge-base', '--is-ancestor', hash, 'HEAD']);
     } catch {
-      throw new Error(`Commit ${hash.substring(0, 7)} is not in the history of the current branch. Please checkout a branch that contains this commit first.`);
+      throw new Error(`Commit ${hash.substring(0, 7)} is not in the history of the current branch. Please switch to a branch that contains this commit first.`);
     }
 
     try {

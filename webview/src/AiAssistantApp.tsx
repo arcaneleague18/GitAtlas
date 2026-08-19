@@ -33,7 +33,7 @@ interface ToolCallData {
 
 // Human-readable labels for tool names
 const TOOL_LABELS: Record<string, string> = {
-  checkout: 'Checkout',
+  switch: 'Switch',
   create_branch: 'Create Branch',
   delete_branch: 'Delete Branch',
   merge: 'Merge',
@@ -56,7 +56,7 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 const TOOL_ICONS: Record<string, string> = {
-  checkout: '🔀',
+  switch: '🔀',
   create_branch: '🌿',
   delete_branch: '🗑️',
   merge: '🔗',

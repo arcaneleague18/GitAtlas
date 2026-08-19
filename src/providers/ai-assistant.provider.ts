@@ -54,12 +54,12 @@ const TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
-      name: 'checkout',
-      description: 'Switch to a different branch or detach HEAD at a commit. Use for branch switching or checking out specific commits.',
+      name: 'switch',
+      description: 'Switch to a different branch or detach HEAD at a commit. Uses modern git switch instead of checkout.',
       parameters: {
         type: 'object',
         properties: {
-          ref: { type: 'string', description: 'Branch name or commit hash to checkout' },
+          ref: { type: 'string', description: 'Branch name or commit hash to switch to' },
           reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
         },
         required: ['ref', 'reason'],
@@ -1112,9 +1112,9 @@ export class AiAssistantProvider
   ): Promise<{ success: boolean; output: string }> {
     try {
       switch (name) {
-        case 'checkout': {
-          await this.gitService.checkout(args.ref);
-          return { success: true, output: `Checked out '${args.ref}'.` };
+        case 'switch': {
+          await this.gitService.switchRef(args.ref);
+          return { success: true, output: `Switched to '${args.ref}'.` };
         }
         case 'create_branch': {
           await this.gitService.createBranch(args.name, args.ref);
