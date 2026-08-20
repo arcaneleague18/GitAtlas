@@ -784,6 +784,127 @@ export class GitService {
     await this.exec(['clean', '-fd']);
   }
 
+  /**
+   * Purge a file from the entire Git history using filter-branch.
+   * This rewrites history so that the file never existed in any commit.
+   *
+   * Steps:
+   * 1. Stash any uncommitted changes (filter-branch requires a clean index)
+   * 2. Rewrite all history with filter-branch to remove the file
+   * 3. Pop the stash to restore the user's working state
+   * 4. Clean up backup refs and garbage collect
+   * 5. Force push to sync with remote (if requested)
+   */
+  async purgeFileFromHistory(filePath: string, forcePush: boolean = false): Promise<string> {
+    const log: string[] = [];
+
+    // Step 1: Stash any uncommitted changes (filter-branch requires clean index)
+    let didStash = false;
+    try {
+      const status = await this.getStatus();
+      const hasChanges =
+        status.staged.length > 0 ||
+        status.modified.length > 0 ||
+        status.untracked.length > 0;
+
+      if (hasChanges) {
+        await this.exec(['stash', 'push', '-u', '-m', 'git-atlas: auto-stash before purge']);
+        didStash = true;
+        log.push('Stashed uncommitted changes.');
+      }
+    } catch {
+      // If stash fails, try to proceed anyway
+    }
+
+    // Step 2: Rewrite entire history to remove the file from all commits
+    const filterCmd = `git rm --cached --ignore-unmatch ${filePath}`;
+    try {
+      await execFileAsync(this.gitPath, [
+        'filter-branch',
+        '--force',
+        '--index-filter', filterCmd,
+        '--prune-empty',
+        '--tag-name-filter', 'cat',
+        '--', '--all',
+      ], {
+        cwd: this.workspaceRoot,
+        maxBuffer: MAX_BUFFER,
+        windowsHide: true,
+        env: {
+          ...process.env,
+          GIT_OPTIONAL_LOCKS: '0',
+          FILTER_BRANCH_SQUELCH_WARNING: '1',
+        },
+      });
+      log.push(`Rewrote Git history — '${filePath}' has been purged from all commits.`);
+    } catch (err: any) {
+      // filter-branch may print to stderr even on success
+      const stderr = err.stderr || '';
+      if (stderr.includes('Ref') && stderr.includes('was rewritten')) {
+        log.push(`Rewrote Git history — '${filePath}' has been purged from all commits.`);
+      } else {
+        // Pop stash before throwing so we don't lose changes
+        if (didStash) {
+          try { await this.exec(['stash', 'pop']); } catch { /* ignore */ }
+        }
+        throw new Error(`filter-branch failed: ${stderr || err.message}`);
+      }
+    }
+
+    // Step 3: Pop the stash to restore working state
+    if (didStash) {
+      try {
+        await this.exec(['stash', 'pop']);
+        log.push('Restored stashed changes.');
+      } catch {
+        log.push('Warning: Could not restore stash automatically. Run `git stash pop` manually.');
+      }
+    }
+
+    // Step 4: Clean up backup refs created by filter-branch
+    try {
+      const refsOutput = await this.exec([
+        'for-each-ref', '--format=%(refname)', 'refs/original/',
+      ]);
+      const refs = refsOutput.trim().split('\n').filter(Boolean);
+      for (const ref of refs) {
+        await this.exec(['update-ref', '-d', ref]);
+      }
+      log.push('Cleaned up backup refs.');
+    } catch {
+      // Non-critical — backup refs may not exist
+    }
+
+    // Step 5: Expire reflogs and garbage collect
+    try {
+      await this.exec(['reflog', 'expire', '--expire=now', '--all']);
+      await this.exec(['gc', '--prune=now', '--aggressive']);
+      log.push('Expired reflogs and garbage collected.');
+    } catch {
+      // Non-critical
+    }
+
+    // Step 6: Force push to remote if requested
+    if (forcePush) {
+      try {
+        const head = await this.getHead();
+        if (head.branch) {
+          // Use --force (not --force-with-lease) because filter-branch makes
+          // the lease info stale, causing --force-with-lease to always reject
+          await this.exec(['push', 'origin', head.branch, '--force']);
+          log.push(`Force-pushed '${head.branch}' to origin. Remote is now in sync.`);
+        } else {
+          log.push('Warning: HEAD is detached — cannot determine branch for force push. Push manually with: git push origin <branch> --force-with-lease');
+        }
+      } catch (err: any) {
+        const stderr = err.stderr || err.message || '';
+        log.push(`Warning: Force push failed: ${stderr}. Push manually with: git push origin <branch> --force-with-lease`);
+      }
+    }
+
+    return log.join('\n');
+  }
+
   async generateCommitMessage(): Promise<string> {
     const status = await this.getStatus();
     const hasStaged = status.staged.length > 0;

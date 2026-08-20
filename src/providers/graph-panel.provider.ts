@@ -73,7 +73,7 @@ export class GraphPanelProvider extends DisposableBase {
     // Create new panel
     this.panel = vscode.window.createWebviewPanel(
       'gitTreeExplorer.graphView',
-      'Git Graph',
+      'Git Atlas Graph',
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -279,10 +279,10 @@ export class GraphPanelProvider extends DisposableBase {
               void vscode.window.showInformationMessage('No remotes found for this repository.');
               return;
             }
-            
+
             // Default to 'origin' if it exists, otherwise use the first one
             const targetRemote = remotes.find(r => r.name === 'origin') ?? remotes[0]!;
-            
+
             const newUrl = await vscode.window.showInputBox({
               prompt: `Edit remote URL for '${targetRemote.name}'`,
               value: targetRemote.url,
@@ -309,13 +309,13 @@ export class GraphPanelProvider extends DisposableBase {
               return;
             }
             const targetRemote = remotes.find(r => r.name === 'origin') ?? remotes[0]!;
-            
+
             const selection = await vscode.window.showWarningMessage(
               `Are you sure you want to remove the remote '${targetRemote.name}'?`,
               { modal: true },
               'Remove Remote'
             );
-            
+
             if (selection === 'Remove Remote') {
               await this.gitService.exec(['remote', 'remove', targetRemote.name]);
               void vscode.window.showInformationMessage(`Remote '${targetRemote.name}' removed successfully.`);

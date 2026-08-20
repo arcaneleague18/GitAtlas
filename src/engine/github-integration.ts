@@ -31,14 +31,14 @@ export class GithubIntegrationEngine extends DisposableBase {
   private authPrompted = false;
 
   /**
-   * Called automatically when the local Git graph updates.
+   * Called automatically when the local Git Atlas Graph updates.
    * Fetches latest GitHub data and emits it to the webview.
    */
   private async updateGithubContext() {
     // Only prompt for auth once per session
     const shouldPrompt = !this.authPrompted;
     this.authPrompted = true;
-    
+
     // Only fetch if we have an initialized github session
     const initialized = await this.githubService.initialize(shouldPrompt);
     if (!initialized) return;
@@ -63,7 +63,7 @@ export class GithubIntegrationEngine extends DisposableBase {
       // To avoid rate limits, we only fetch status for the current HEAD and 
       // the tips of branches that have an associated PR.
       const commitHashesToFetch = new Set<string>();
-      
+
       const head = graph.nodes.get('HEAD');
       if (head && head.data.hash) {
         commitHashesToFetch.add(head.data.hash);

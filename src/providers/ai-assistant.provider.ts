@@ -370,13 +370,29 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'purge_file_from_history',
+      description: 'Permanently remove a file from the ENTIRE Git history. This rewrites all commits using filter-branch so the file never existed. Use when a sensitive file (.env, secrets, credentials, API keys) was accidentally committed. WARNING: This rewrites history. Set force_push to true to automatically sync with the remote. CRITICAL: After this tool runs, do NOT reset, merge, pull, or fetch from origin — that would undo the purge.',
+      parameters: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', description: 'File path to purge from history (e.g. ".env", "config/secrets.json")' },
+          force_push: { type: 'boolean', description: 'If true, automatically force-push to origin after purging. Recommended when the file has already been pushed to a remote.' },
+          reason: { type: 'string', description: 'Brief explanation of why this file needs to be purged from history' },
+        },
+        required: ['file', 'reason'],
+      },
+    },
+  },
 ];
 
 /** Tool names that are read-only and safe to auto-approve */
 const READ_ONLY_TOOLS = new Set(['get_status', 'get_log', 'get_diff']);
 
 /** Tool names that are destructive and need extra warning */
-const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes']);
+const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes', 'purge_file_from_history']);
 
 
 export class AiAssistantProvider
@@ -582,6 +598,8 @@ export class AiAssistantProvider
     // Agentic loop: keep calling the model until no more tool calls
     let loopCount = 0;
     const MAX_LOOPS = 10;
+    // Once the user approves the first write action, auto-approve subsequent non-dangerous ones
+    let userApprovedSession = false;
 
     while (loopCount < MAX_LOOPS) {
       loopCount++;
@@ -698,36 +716,54 @@ export class AiAssistantProvider
           continue;
         }
 
-        // For write operations, ask user for permission
-        this.postToWebview({
-          type: 'tool-call-request',
-          toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
-        });
+        // For write operations: auto-approve if user already approved a previous action
+        // in this session (unless this specific action is dangerous)
+        let approved = false;
 
-        const argLines = Object.entries(args)
-          .filter(([k]) => k !== 'reason')
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-          .join('\n');
-
-        let modalMsg = `Git Atlas AI wants to execute: ${tcp.name}\n\nReason: ${reason}`;
-        if (argLines) {
-          modalMsg += `\n\nParameters:\n${argLines}`;
-        }
-
-        const choice = await vscode.window.showInformationMessage(
-          modalMsg,
-          { modal: true, detail: isDangerous ? 'WARNING: This is a destructive action.' : 'Are you sure you want to proceed?' },
-          'Execute Action',
-          'Deny'
-        );
-
-        const approved = choice === 'Execute Action';
-
-        if (approved) {
+        if (userApprovedSession && !isDangerous) {
+          // Auto-approve: user already gave consent for this agentic session
+          approved = true;
           this.postToWebview({
             type: 'tool-call-executing',
             toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
           });
+        } else {
+          // Ask for explicit permission
+          this.postToWebview({
+            type: 'tool-call-request',
+            toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
+          });
+
+          const argLines = Object.entries(args)
+            .filter(([k]) => k !== 'reason')
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join('\n');
+
+          let modalMsg = `Git Atlas AI wants to execute: ${tcp.name}\n\nReason: ${reason}`;
+          if (argLines) {
+            modalMsg += `\n\nParameters:\n${argLines}`;
+          }
+
+          const choice = await vscode.window.showInformationMessage(
+            modalMsg,
+            { modal: true, detail: isDangerous ? 'WARNING: This is a destructive action.' : 'Are you sure you want to proceed?' },
+            'Execute Action',
+            'Deny'
+          );
+
+          approved = choice === 'Execute Action';
+        }
+
+        if (approved) {
+          // Mark session as approved for future non-dangerous actions
+          if (!userApprovedSession) {
+            userApprovedSession = true;
+            // Send executing state (auto-approve path already sent it)
+            this.postToWebview({
+              type: 'tool-call-executing',
+              toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
+            });
+          }
 
           const result = await this.executeTool(tcp.name, args);
 
@@ -821,6 +857,8 @@ export class AiAssistantProvider
     // Agentic loop: keep calling the API until no more tool calls
     let loopCount = 0;
     const MAX_LOOPS = 10; // safety limit
+    // Once the user approves the first write action, auto-approve subsequent non-dangerous ones
+    let userApprovedSession = false;
 
     while (loopCount < MAX_LOOPS) {
       loopCount++;
@@ -1003,41 +1041,13 @@ export class AiAssistantProvider
           continue;
         }
 
-        // For write operations, ask user for permission
-        this.postToWebview({
-          type: 'tool-call-request',
-          toolCall: {
-            id: tc.id,
-            name: tc.function.name,
-            args,
-            reason,
-            isDangerous,
-          },
-        });
+        // For write operations: auto-approve if user already approved a previous action
+        // in this session (unless this specific action is dangerous)
+        let approved = false;
 
-        // Format args for modal
-        const argLines = Object.entries(args)
-          .filter(([k]) => k !== 'reason')
-          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-          .join('\\n');
-        
-        let modalMsg = `Git Atlas AI wants to execute: ${tc.function.name}\\n\\nReason: ${reason}`;
-        if (argLines) {
-          modalMsg += `\\n\\nParameters:\\n${argLines}`;
-        }
-
-        // Wait for user approval via native modal
-        const choice = await vscode.window.showInformationMessage(
-          modalMsg,
-          { modal: true, detail: isDangerous ? 'WARNING: This is a destructive action.' : 'Are you sure you want to proceed?' },
-          'Execute Action',
-          'Deny'
-        );
-
-        const approved = choice === 'Execute Action';
-
-        if (approved) {
-          // Execute the tool
+        if (userApprovedSession && !isDangerous) {
+          // Auto-approve: user already gave consent for this agentic session
+          approved = true;
           this.postToWebview({
             type: 'tool-call-executing',
             toolCall: {
@@ -1048,6 +1058,57 @@ export class AiAssistantProvider
               isDangerous,
             },
           });
+        } else {
+          // Ask for explicit permission
+          this.postToWebview({
+            type: 'tool-call-request',
+            toolCall: {
+              id: tc.id,
+              name: tc.function.name,
+              args,
+              reason,
+              isDangerous,
+            },
+          });
+
+          // Format args for modal
+          const argLines = Object.entries(args)
+            .filter(([k]) => k !== 'reason')
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+            .join('\\n');
+          
+          let modalMsg = `Git Atlas AI wants to execute: ${tc.function.name}\\n\\nReason: ${reason}`;
+          if (argLines) {
+            modalMsg += `\\n\\nParameters:\\n${argLines}`;
+          }
+
+          // Wait for user approval via native modal
+          const choice = await vscode.window.showInformationMessage(
+            modalMsg,
+            { modal: true, detail: isDangerous ? 'WARNING: This is a destructive action.' : 'Are you sure you want to proceed?' },
+            'Execute Action',
+            'Deny'
+          );
+
+          approved = choice === 'Execute Action';
+        }
+
+        if (approved) {
+          // Mark session as approved for future non-dangerous actions
+          if (!userApprovedSession) {
+            userApprovedSession = true;
+            // Send executing state (auto-approve path already sent it)
+            this.postToWebview({
+              type: 'tool-call-executing',
+              toolCall: {
+                id: tc.id,
+                name: tc.function.name,
+                args,
+                reason,
+                isDangerous,
+              },
+            });
+          }
 
           const result = await this.executeTool(tc.function.name, args);
 
@@ -1205,6 +1266,15 @@ export class AiAssistantProvider
         case 'discard_changes': {
           await this.gitService.discardFile(args.file);
           return { success: true, output: `Discarded changes in '${args.file}'.` };
+        }
+        case 'purge_file_from_history': {
+          const forcePush = args.force_push === true;
+          const result = await this.gitService.purgeFileFromHistory(args.file, forcePush);
+          let output = result;
+          if (!forcePush) {
+            output += `\n\n⚠️ History has been rewritten locally. To sync with the remote, run:\n  git push origin <branch> --force-with-lease\n\nCRITICAL: Do NOT reset, merge, pull, or fetch from origin — that would undo the purge.`;
+          }
+          return { success: true, output };
         }
         case 'create_stash': {
           await this.gitService.createStash(args.message);
@@ -1368,12 +1438,15 @@ IMPORTANT RULES:
 2. DO NOT ask the user for permission in your text response. You MUST simply execute the tool call directly. The system will automatically pause and show an approval button to the user.
 3. For EVERY tool call, you MUST provide a clear "reason" parameter explaining WHY you are performing this action.
 4. Read-only tools (get_status, get_log, get_diff) will execute automatically.
-5. Write operations require explicit user approval — the user will see a confirmation card with buttons.
-6. For dangerous operations (reset, delete), warn the user in your text response before calling the tool.
-7. You can chain multiple tool calls (e.g. stage_files then commit) — each will be confirmed individually.
+5. The FIRST write operation requires explicit user approval. After the user approves, subsequent non-dangerous actions in the same conversation turn will auto-execute without requiring additional approvals.
+6. For dangerous operations (reset, delete, discard), EACH one requires explicit approval regardless.
+7. You can chain multiple tool calls (e.g. stage_files then commit) — after the first approval, the rest will auto-execute.
 8. Always reference the actual repo state (provided as context) when answering questions.
 9. If you need more information before acting, use get_status or get_log first.
 10. NEVER invent a branch name on your own. If the user asks you to create a branch but doesn't provide a name, ask them for a name before executing the create_branch tool.
+11. When a tool call FAILS, do NOT stop and ask the user what to do. Instead, autonomously diagnose the problem (use get_status, get_log, or get_diff), adjust your approach, and retry with a corrected strategy. Only stop if you've exhausted all reasonable approaches.
+12. If a commit fails because there is nothing to commit, check the status first to understand why, then adjust (e.g. stage files first, or skip the commit if the goal was already achieved).
+13. When using purge_file_from_history: ALWAYS set force_push=true if the file has been pushed to a remote. After purging, NEVER use reset, merge, pull, fetch, or any action that would sync with the un-purged remote history — doing so would undo the purge entirely. The tool handles everything including the force push.
 
 Style:
 - Be concise but thorough

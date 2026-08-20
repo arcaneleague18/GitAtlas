@@ -49,6 +49,7 @@ const TOOL_LABELS: Record<string, string> = {
   stage_files: 'Stage Files',
   unstage_files: 'Unstage Files',
   discard_changes: 'Discard Changes',
+  purge_file_from_history: 'Purge File from History',
   create_stash: 'Stash',
   get_status: 'Get Status',
   get_log: 'Get Log',
@@ -72,6 +73,7 @@ const TOOL_ICONS: Record<string, string> = {
   stage_files: '📋',
   unstage_files: '📄',
   discard_changes: '🚮',
+  purge_file_from_history: '🛡️',
   create_stash: '📦',
   get_status: '📊',
   get_log: '📜',
@@ -331,7 +333,7 @@ export function AiAssistantApp() {
       <div className="ai-messages">
         {messages.length === 0 ? (
           <div className="ai-welcome">
-            <div className="ai-welcome-icon">🌳</div>
+            <div className="ai-welcome-icon">🧭</div>
             <div className="ai-welcome-title">Git Atlas AI</div>
             <div className="ai-welcome-subtitle">
               I can answer questions <strong>and execute actions</strong> on your repository
