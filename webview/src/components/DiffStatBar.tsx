@@ -9,7 +9,8 @@
  * - Clickable to open diff view
  */
 
-import React from 'react';
+import React, { ReactNode } from 'react';
+import GlobeIcon from '../../../resources/icons/globe.svg';
 import { postMessage } from '../vscode';
 import type { DiffFileStat } from '../types';
 
@@ -91,14 +92,14 @@ function DiffStatBarComponent({ stat, maxChanges, commitHash }: DiffStatBarProps
   );
 }
 
-function getFileIcon(ext: string): string {
-  const icons: Record<string, string> = {
+function getFileIcon(ext: string): ReactNode {
+  const icons: Record<string, ReactNode> = {
     ts: '🟦',
     tsx: '⚛',
     js: '🟨',
     jsx: '⚛',
     css: '🎨',
-    html: '🌐',
+    html: <img src={GlobeIcon} style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle' }} alt="HTML" />,
     json: '📋',
     md: '📝',
     svg: '🖼',

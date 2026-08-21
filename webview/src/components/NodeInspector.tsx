@@ -10,7 +10,7 @@
  * - Close on Escape key
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGraphStore } from '../store/graph.store';
@@ -19,6 +19,8 @@ import { DiffStatBar } from './DiffStatBar';
 import { ActionButton } from './ActionButton';
 import { ActionPreviewPanel } from './ActionPreviewPanel';
 import type { EdgeKind, ValidAction, GitHubPullRequest, CommitNodeData } from '../types';
+import GlobeIcon from '../../../resources/icons/globe.svg';
+import EditIcon from '../../../resources/icons/edit.svg';
 
 export function NodeInspector() {
   const {
@@ -286,7 +288,7 @@ export function NodeInspector() {
                             }
                           }}
                         >
-                          ✏️
+                          <img src={EditIcon} style={{ width: '1.2em', height: '1.2em' }} alt="Edit" />
                         </button>
                       )}
                     </div>
@@ -813,7 +815,7 @@ function getStatusLetter(status: string): string {
   }
 }
 
-function getFileIcon(path: string): string {
+function getFileIcon(path: string): ReactNode {
   const ext = path.split('.').pop()?.toLowerCase();
   switch (ext) {
     case 'ts': case 'tsx': return '🟦';
@@ -821,7 +823,7 @@ function getFileIcon(path: string): string {
     case 'css': case 'scss': return '{}';
     case 'json': return '⚙️';
     case 'md': return '📝';
-    case 'html': return '🌐';
+    case 'html': return <img src={GlobeIcon} style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle' }} alt="HTML" />;
     case 'py': return '🐍';
     default: return '📄';
   }

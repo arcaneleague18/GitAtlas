@@ -10,6 +10,12 @@ import { useReactFlow } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postMessage } from '../vscode';
 import { useGraphStore } from '../store/graph.store';
+import SearchIcon from '../../../resources/icons/searchicon.svg';
+import GlobeIcon from '../../../resources/icons/globe.svg';
+import DeleteIcon from '../../../resources/icons/delete.svg';
+import EditIcon from '../../../resources/icons/edit.svg';
+import CopyIcon from '../../../resources/icons/copy.svg';
+
 
 interface FileSearchCommit {
   hash: string;
@@ -200,7 +206,7 @@ function ToolbarComponent() {
             title="Search File in History"
             style={{ fontSize: '14px' }}
           >
-            🔍
+            <img src={SearchIcon} style={{ width: '1.5em', height: '1.5em' }} alt="Search" />
           </button>
 
           <AnimatePresence>
@@ -213,7 +219,7 @@ function ToolbarComponent() {
                 className="file-search-popup"
               >
                 <div className="file-search-header">
-                  <span className="file-search-title">🔍 Search File in History</span>
+                  <span className="file-search-title"><img src={SearchIcon} style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />Search File in History</span>
                 </div>
                 <div className="file-search-input-row">
                   <input
@@ -256,7 +262,7 @@ function ToolbarComponent() {
                             disabled={isPurging !== null}
                             title="Permanently remove this file from all history"
                           >
-                            {isPurging === searchResults.filePath ? '⏳ Purging...' : '🗑️ Purge from History'}
+                            {isPurging === searchResults.filePath ? '⏳ Purging...' : <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><img src={DeleteIcon} style={{ width: '1.5em', height: '1.5em' }} alt="Delete" /> Purge from History</span>}
                           </button>
                         </div>
                         <div className="file-search-commit-list">
@@ -286,7 +292,7 @@ function ToolbarComponent() {
             onClick={() => setIsRemotePopupOpen(!isRemotePopupOpen)}
             title="Remote URL Settings"
           >
-            🌐
+            <img src={GlobeIcon} style={{ width: '1.2em', height: '1.2em' }} alt="Globe" />
           </button>
           
           <AnimatePresence>
@@ -299,7 +305,7 @@ function ToolbarComponent() {
                 className="toolbar-popover"
                 style={{ top: '100%', right: 0, marginTop: '8px', minWidth: '300px', padding: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}
               >
-                <div style={{ fontSize: '16px', opacity: 0.8 }}>🌐</div>
+                <div style={{ fontSize: '16px', opacity: 0.8, display: 'flex', alignItems: 'center' }}><img src={GlobeIcon} style={{ width: '1.2em', height: '1.2em' }} alt="Globe" /></div>
                 {primaryRemote ? (
                   <>
                     <a 
@@ -311,8 +317,8 @@ function ToolbarComponent() {
                     >
                       {primaryRemote.fetchUrl}
                     </a>
-                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={() => handleCopyRemoteUrl(primaryRemote.fetchUrl)} title="Copy URL">📋</button>
-                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={handleEditRemoteUrl} title="Edit URL">✏️</button>
+                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={() => handleCopyRemoteUrl(primaryRemote.fetchUrl)} title="Copy URL"><img src={CopyIcon} style={{ width: '1.2em', height: '1.2em' }} alt="Copy" /></button>
+                    <button className="toolbar-button" style={{ padding: '4px' }} onClick={handleEditRemoteUrl} title="Edit URL"><img src={EditIcon} style={{ width: '1.2em', height: '1.2em' }} alt="Edit" /></button>
                     <button className="toolbar-button" style={{ padding: '4px' }} onClick={handleRemoveRemoteUrl} title="Remove Remote">🔗<span style={{ position: 'absolute', transform: 'rotate(-45deg)', fontSize: '14px', pointerEvents: 'none' }}>/</span></button>
                   </>
                 ) : (

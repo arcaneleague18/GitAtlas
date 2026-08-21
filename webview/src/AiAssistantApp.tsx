@@ -13,6 +13,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { postMessage } from './vscode';
+import AiAssistantIcon from '../../resources/icons/bloub-nuage-attentif-gris-anime.svg';
 
 interface ChatMessage {
   id: string;
@@ -314,9 +315,10 @@ export function AiAssistantApp() {
       {/* Header */}
       <div className="ai-header">
         <div className="ai-header-title">
-          <span className="ai-header-icon">✨</span>
-          <span>AI Assistant</span>
-          <span className="ai-agentic-badge">Agentic</span>
+          <span className="ai-header-icon" style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <img src={AiAssistantIcon} style={{ width: '3em', height: '3em' }} alt="AI Assistant" />
+          </span>
+          AI Assistant<span className="ai-agentic-badge">Agentic</span>
         </div>
         {messages.length > 0 && (
           <button
@@ -376,8 +378,10 @@ export function AiAssistantApp() {
                 key={msg.id}
                 className={`ai-message ${msg.role}`}
               >
-                <div className="ai-message-avatar">
-                  {msg.role === 'user' ? '👤' : '✨'}
+                <div className={`chat-bubble-avatar ${msg.role === 'user' ? 'user' : 'assistant'}`}>
+                  {msg.role === 'user' ? '👤' : (
+                    <img src={AiAssistantIcon} style={{ width: '1em', height: '1em' }} alt="AI Assistant" />
+                  )}
                 </div>
                 <div className="ai-message-content">
                   {msg.role === 'assistant' ? (
