@@ -12,6 +12,8 @@
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
 import type {
   RawCommit,
@@ -36,6 +38,39 @@ const RECORD_SEP = '\x1e'; // ASCII Record Separator
 
 /** Maximum buffer size for git commands (50 MB). */
 const MAX_BUFFER = 50 * 1024 * 1024;
+
+/**
+ * Patterns for files/folders that should typically be in .gitignore.
+ * Each entry has a pattern (matched against the file path) and a description.
+ */
+const SENSITIVE_PATTERNS: { pattern: RegExp; description: string }[] = [
+  // Environment / secrets
+  { pattern: /(\/|^)\.env(\..*)?$/i, description: 'Environment variables (may contain secrets)' },
+  { pattern: /(\/|^)\.env\.local$/i, description: 'Local environment variables' },
+  { pattern: /(\/|^)secrets?\.(json|ya?ml|toml|ini|cfg)$/i, description: 'Secrets configuration file' },
+  { pattern: /(\/|^)credentials?\.(json|ya?ml|toml|ini|cfg)$/i, description: 'Credentials file' },
+  { pattern: /(\/|^)\.secret$/i, description: 'Secret file' },
+  { pattern: /\.(pem|key|p12|pfx|jks|keystore)$/i, description: 'Private key / certificate' },
+  { pattern: /(\/|^)id_rsa/i, description: 'SSH private key' },
+  { pattern: /(\/|^)\.aws\//i, description: 'AWS credentials directory' },
+  { pattern: /(\/|^)\.gcp\//i, description: 'GCP credentials directory' },
+  // Config files that often contain secrets
+  { pattern: /(\/|^)firebase[\w-]*config\.(json|js|ts)$/i, description: 'Firebase configuration (may contain API keys)' },
+  { pattern: /(\/|^)serviceAccount(Key)?\.(json)$/i, description: 'Service account key' },
+  // Build / cache / logs
+  { pattern: /(\/|^)__pycache__\//i, description: 'Python bytecode cache' },
+  { pattern: /(\/|^)\.pytest_cache\//i, description: 'Pytest cache' },
+  { pattern: /(\/|^)node_modules\//i, description: 'Node.js dependencies' },
+  { pattern: /(\/|^)\.next\//i, description: 'Next.js build output' },
+  { pattern: /(\/|^)dist\//i, description: 'Build output' },
+  { pattern: /(\/|^)build\//i, description: 'Build output' },
+  { pattern: /(\/|^)logs?\//i, description: 'Log files directory' },
+  { pattern: /\.log$/i, description: 'Log file' },
+  // IDE / OS
+  { pattern: /(\/|^)\.DS_Store$/i, description: 'macOS metadata' },
+  { pattern: /(\/|^)Thumbs\.db$/i, description: 'Windows thumbnail cache' },
+  { pattern: /(\/|^)\.idea\//i, description: 'JetBrains IDE config' },
+];
 
 export class GitService {
   private gitPath: string = 'git';
@@ -782,6 +817,56 @@ export class GitService {
     await this.exec(['restore', '.']);
     // Remove all untracked files/directories
     await this.exec(['clean', '-fd']);
+  }
+
+  /**
+   * Check a list of staged file paths for sensitive patterns.
+   * Returns an array of { path, description } for each match.
+   */
+  checkSensitiveFiles(filePaths: string[]): { path: string; description: string }[] {
+    const warnings: { path: string; description: string }[] = [];
+    for (const filePath of filePaths) {
+      // Normalize path separators for matching
+      const normalized = filePath.replace(/\\/g, '/');
+      for (const { pattern, description } of SENSITIVE_PATTERNS) {
+        if (pattern.test(normalized)) {
+          warnings.push({ path: filePath, description });
+          break; // One warning per file is enough
+        }
+      }
+    }
+    return warnings;
+  }
+
+  /**
+   * Add a pattern to .gitignore file. Creates the file if it doesn't exist.
+   * Also unstages the file if it was staged.
+   */
+  async addToGitignore(pattern: string): Promise<void> {
+    const gitignorePath = path.join(this.workspaceRoot, '.gitignore');
+    let content = '';
+    try {
+      content = fs.readFileSync(gitignorePath, 'utf-8');
+    } catch {
+      // File doesn't exist yet — we'll create it
+    }
+
+    // Check if the pattern is already in .gitignore
+    const lines = content.split('\n').map(l => l.trim());
+    if (lines.includes(pattern.trim())) {
+      return; // Already present
+    }
+
+    // Append the pattern
+    const newLine = content.endsWith('\n') || content === '' ? '' : '\n';
+    fs.writeFileSync(gitignorePath, content + newLine + pattern + '\n', 'utf-8');
+
+    // Unstage the file if it was staged
+    try {
+      await this.exec(['rm', '--cached', '--ignore-unmatch', pattern]);
+    } catch {
+      // Ignore — may not be tracked
+    }
   }
 
   /**

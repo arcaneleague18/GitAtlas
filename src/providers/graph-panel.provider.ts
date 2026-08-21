@@ -393,11 +393,54 @@ export class GraphPanelProvider extends DisposableBase {
         break;
       }
 
-      case 'commit-staged':
+      case 'commit-staged': {
+        // Check for sensitive files before committing
+        const status = await this.gitService.getStatus();
+        const stagedPaths = status.staged.map(f => f.path);
+        const sensitiveWarnings = this.gitService.checkSensitiveFiles(stagedPaths);
+
+        if (sensitiveWarnings.length > 0) {
+          // Build warning message
+          const fileList = sensitiveWarnings
+            .map(w => `  • ${w.path} — ${w.description}`)
+            .join('\n');
+          const warningMsg =
+            `⚠️ You are about to commit ${sensitiveWarnings.length} sensitive file${sensitiveWarnings.length > 1 ? 's' : ''}:\n\n` +
+            fileList +
+            '\n\nThese files may contain secrets, credentials, or unnecessary build artifacts. ' +
+            'It is strongly recommended to add them to .gitignore instead.';
+
+          const choice = await vscode.window.showWarningMessage(
+            warningMsg,
+            { modal: true },
+            'Add to .gitignore',
+            'Continue Anyway'
+          );
+
+          if (choice === 'Add to .gitignore') {
+            // Add each sensitive file to .gitignore and unstage it
+            for (const w of sensitiveWarnings) {
+              await this.gitService.addToGitignore(w.path);
+            }
+            await this.stateEngine.buildGraph();
+            if (this.stateEngine.graph?.nodes.has('working-directory')) {
+              await this.handleNodeSelected('working-directory');
+            }
+            vscode.window.showInformationMessage(
+              `Git Atlas: Added ${sensitiveWarnings.length} file${sensitiveWarnings.length > 1 ? 's' : ''} to .gitignore and unstaged them.`
+            );
+            return; // Don't commit — let user re-stage and commit clean files
+          } else if (choice !== 'Continue Anyway') {
+            return; // User cancelled
+          }
+          // If "Continue Anyway" — fall through and commit
+        }
+
         await this.gitService.createCommit(message.message);
         await this.stateEngine.buildGraph();
         vscode.window.showInformationMessage('Git Atlas: Changes committed successfully.');
         break;
+      }
 
       case 'search-file-in-history': {
         const commits = await this.gitService.searchFileInHistory(message.filePath);
