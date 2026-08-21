@@ -252,7 +252,9 @@ export type ExtensionToWebviewMessage =
   | { type: 'preview-action'; preview: PreviewData }
   | { type: 'clear-preview' }
   | { type: 'github-context'; context: GitHubContext }
-  | { type: 'commit-message-generated'; message: string };
+  | { type: 'commit-message-generated'; message: string }
+  | { type: 'file-search-results'; filePath: string; commits: { hash: string; shortHash: string; message: string; author: string; date: string }[] }
+  | { type: 'file-purge-result'; filePath: string; success: boolean; message: string };
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
@@ -274,4 +276,6 @@ export type WebviewToExtensionMessage =
   | { type: 'discard-all' }
   | { type: 'discard-file'; path: string }
   | { type: 'generate-commit-message' }
-  | { type: 'commit-staged'; message: string };
+  | { type: 'commit-staged'; message: string }
+  | { type: 'search-file-in-history'; filePath: string }
+  | { type: 'purge-file-from-history'; filePath: string };

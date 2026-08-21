@@ -785,6 +785,33 @@ export class GitService {
   }
 
   /**
+   * Search for a file across the entire Git history.
+   * Returns all commits that include the given file path.
+   */
+  async searchFileInHistory(filePath: string): Promise<{
+    hash: string;
+    shortHash: string;
+    message: string;
+    author: string;
+    date: string;
+  }[]> {
+    try {
+      const output = await this.exec([
+        'log', '--all', '--full-history',
+        '--format=%H|%h|%s|%an|%ai',
+        '--', filePath,
+      ]);
+      const lines = output.trim().split('\n').filter(Boolean);
+      return lines.map(line => {
+        const [hash, shortHash, message, author, date] = line.split('|');
+        return { hash, shortHash, message, author, date };
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Purge a file from the entire Git history using filter-branch.
    * This rewrites history so that the file never existed in any commit.
    *

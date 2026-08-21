@@ -398,6 +398,33 @@ export class GraphPanelProvider extends DisposableBase {
         await this.stateEngine.buildGraph();
         vscode.window.showInformationMessage('Git Atlas: Changes committed successfully.');
         break;
+
+      case 'search-file-in-history': {
+        const commits = await this.gitService.searchFileInHistory(message.filePath);
+        this.postMessage({ type: 'file-search-results', filePath: message.filePath, commits });
+        break;
+      }
+
+      case 'purge-file-from-history': {
+        const purgeChoice = await vscode.window.showWarningMessage(
+          `Are you sure you want to permanently remove "${message.filePath}" from the ENTIRE Git history? This rewrites all commits and force-pushes to the remote. This action CANNOT be undone.`,
+          { modal: true },
+          'Purge from History'
+        );
+        if (purgeChoice === 'Purge from History') {
+          try {
+            const result = await this.gitService.purgeFileFromHistory(message.filePath, true);
+            this.postMessage({ type: 'file-purge-result', filePath: message.filePath, success: true, message: result });
+            await this.stateEngine.buildGraph();
+            vscode.window.showInformationMessage(`Git Atlas: "${message.filePath}" has been purged from all history.`);
+          } catch (err: any) {
+            const errMsg = err.message || 'Unknown error during purge';
+            this.postMessage({ type: 'file-purge-result', filePath: message.filePath, success: false, message: errMsg });
+            vscode.window.showErrorMessage(`Git Atlas: Purge failed — ${errMsg}`);
+          }
+        }
+        break;
+      }
     }
   }
 

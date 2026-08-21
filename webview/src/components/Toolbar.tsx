@@ -11,6 +11,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { postMessage } from '../vscode';
 import { useGraphStore } from '../store/graph.store';
 
+interface FileSearchCommit {
+  hash: string;
+  shortHash: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
 function ToolbarComponent() {
   const reactFlow = useReactFlow();
   const {
@@ -30,10 +38,36 @@ function ToolbarComponent() {
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
   const [isRemotePopupOpen, setIsRemotePopupOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<{ filePath: string; commits: FileSearchCommit[] } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isPurging, setIsPurging] = useState<string | null>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const remotePopupRef = useRef<HTMLDivElement>(null);
+  const searchPopupRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const currentBranchColor = branchColors.find((b) => b.isCurrent)?.color ?? '#aaaaaa';
+
+  // Listen for search results and purge results from extension
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      const msg = event.data;
+      if (msg.type === 'file-search-results') {
+        setSearchResults({ filePath: msg.filePath, commits: msg.commits });
+        setIsSearching(false);
+      } else if (msg.type === 'file-purge-result') {
+        setIsPurging(null);
+        if (msg.success) {
+          // File is purged — update results to show empty
+          setSearchResults(prev => prev ? { ...prev, commits: [] } : null);
+        }
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   // Close popups when clicking outside or pressing Escape
   useEffect(() => {
@@ -44,12 +78,16 @@ function ToolbarComponent() {
       if (remotePopupRef.current && !remotePopupRef.current.contains(e.target as Node)) {
         setIsRemotePopupOpen(false);
       }
+      if (searchPopupRef.current && !searchPopupRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsLegendOpen(false);
         setIsRemotePopupOpen(false);
+        setIsSearchOpen(false);
       }
     };
 
@@ -60,6 +98,13 @@ function ToolbarComponent() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
+
+  // Focus search input when popup opens
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
 
   const handleFitView = useCallback(() => {
     reactFlow.fitView({ padding: 0.2, duration: 500 });
@@ -106,6 +151,29 @@ function ToolbarComponent() {
     setIsRemotePopupOpen(false);
   }, []);
 
+  const handleSearchSubmit = useCallback(() => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    setIsSearching(true);
+    setSearchResults(null);
+    postMessage({ type: 'search-file-in-history', filePath: query });
+  }, [searchQuery]);
+
+  const handlePurgeFile = useCallback((filePath: string) => {
+    setIsPurging(filePath);
+    postMessage({ type: 'purge-file-from-history', filePath });
+  }, []);
+
+  const handleToggleSearch = useCallback(() => {
+    setIsSearchOpen(prev => {
+      if (!prev) {
+        setSearchQuery('');
+        setSearchResults(null);
+      }
+      return !prev;
+    });
+  }, []);
+
   const primaryRemote = remotes.find(r => r.name === 'origin') ?? remotes[0];
   const hasStashes = nodes.some(n => n.type === 'stash' || (n.data as any)?.kind === 'stash');
 
@@ -123,6 +191,95 @@ function ToolbarComponent() {
             {showStashes ? 'Hide Stashes' : 'Show Stashes'}
           </button>
         )}
+
+        {/* File History Search */}
+        <div style={{ position: 'relative' }} ref={searchPopupRef}>
+          <button
+            className={`toolbar-button ${isSearchOpen ? 'active' : ''}`}
+            onClick={handleToggleSearch}
+            title="Search File in History"
+            style={{ fontSize: '14px' }}
+          >
+            🔍
+          </button>
+
+          <AnimatePresence>
+            {isSearchOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="file-search-popup"
+              >
+                <div className="file-search-header">
+                  <span className="file-search-title">🔍 Search File in History</span>
+                </div>
+                <div className="file-search-input-row">
+                  <input
+                    ref={searchInputRef}
+                    className="file-search-input"
+                    type="text"
+                    placeholder="e.g. .env, config/secrets.json"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSearchSubmit();
+                      e.stopPropagation();
+                    }}
+                  />
+                  <button
+                    className="file-search-btn"
+                    onClick={handleSearchSubmit}
+                    disabled={isSearching || !searchQuery.trim()}
+                  >
+                    {isSearching ? '...' : 'Search'}
+                  </button>
+                </div>
+
+                {/* Results */}
+                {searchResults && (
+                  <div className="file-search-results">
+                    {searchResults.commits.length === 0 ? (
+                      <div className="file-search-empty">
+                        No commits found containing "<strong>{searchResults.filePath}</strong>"
+                      </div>
+                    ) : (
+                      <>
+                        <div className="file-search-results-header">
+                          <span>
+                            Found in <strong>{searchResults.commits.length}</strong> commit{searchResults.commits.length !== 1 ? 's' : ''}
+                          </span>
+                          <button
+                            className="file-search-purge-btn danger"
+                            onClick={() => handlePurgeFile(searchResults.filePath)}
+                            disabled={isPurging !== null}
+                            title="Permanently remove this file from all history"
+                          >
+                            {isPurging === searchResults.filePath ? '⏳ Purging...' : '🗑️ Purge from History'}
+                          </button>
+                        </div>
+                        <div className="file-search-commit-list">
+                          {searchResults.commits.map((c) => (
+                            <div key={c.hash} className="file-search-commit">
+                              <span className="file-search-commit-hash">{c.shortHash}</span>
+                              <span className="file-search-commit-msg" title={c.message}>{c.message}</span>
+                              <span className="file-search-commit-author">{c.author}</span>
+                              <span className="file-search-commit-date">
+                                {new Date(c.date).toLocaleDateString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <div style={{ position: 'relative' }} ref={remotePopupRef}>
           <button
             className="toolbar-button"
