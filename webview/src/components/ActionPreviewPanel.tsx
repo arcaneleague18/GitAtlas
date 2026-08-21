@@ -3,13 +3,14 @@
  *
  * Shows before execution:
  * - Action name + icon
+ * - Mergeability status (for merge/rebase actions)
  * - Plain-English description of what will happen
  * - Graph impact summary (textual before → after)
  * - Warning for dangerous actions
  * - Proceed / Cancel buttons
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { ValidAction, EdgeKind, NodeDetails } from '../types';
 
@@ -18,7 +19,15 @@ interface ActionPreviewPanelProps {
   nodeDetails: NodeDetails;
   headHash: string;
   currentBranch: string | null;
-  onProceed: () => void;
+  mergeability?: {
+    canMerge: boolean;
+    status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error';
+    conflictFiles: string[];
+    aheadBehind: { ahead: number; behind: number };
+    message: string;
+  } | null;
+  isCheckingMerge?: boolean;
+  onProceed: (extraArgs?: Record<string, any>) => void;
   onCancel: () => void;
 }
 
@@ -49,12 +58,19 @@ function ActionPreviewPanelComponent({
   nodeDetails,
   headHash,
   currentBranch,
+  mergeability,
+  isCheckingMerge,
   onProceed,
   onCancel,
 }: ActionPreviewPanelProps) {
   const icon = ACTION_ICONS[action.kind] ?? '⚡';
   const shortHead = headHash?.substring(0, 7) ?? '???';
   const targetShort = nodeDetails.hash?.substring(0, 7) ?? nodeDetails.label;
+  const isMergeAction = action.kind === 'merge' || action.kind === 'rebase';
+  const isMergeOnly = action.kind === 'merge';
+
+  // Merge strategy state
+  const [mergeStrategy, setMergeStrategy] = useState<'ff' | 'no-ff' | 'ff-only'>('ff');
 
   const graphImpact = useMemo(
     () => getGraphImpact(action.kind, nodeDetails, shortHead, currentBranch, targetShort),
@@ -76,13 +92,49 @@ function ActionPreviewPanelComponent({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
         transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the panel
+        onClick={(e) => e.stopPropagation()}
       >
       {/* Header */}
       <div className="action-preview-header">
         <span className="action-preview-icon">{icon}</span>
         <span className="action-preview-title">{action.label}</span>
       </div>
+
+      {/* Mergeability Banner */}
+      {isMergeAction && (
+        <div className={`mergeability-banner ${
+          isCheckingMerge ? 'checking' :
+          !mergeability ? 'checking' :
+          mergeability.canMerge ? 'mergeable' : 'conflict'
+        }`}>
+          {isCheckingMerge || !mergeability ? (
+            <>
+              <span className="mergeability-spinner" />
+              <span className="mergeability-text">Checking mergeability…</span>
+            </>
+          ) : (
+            <>
+              <span className="mergeability-icon">
+                {mergeability.canMerge ? '✓' : '✕'}
+              </span>
+              <span className="mergeability-text">{mergeability.message}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Conflict file list */}
+      {isMergeAction && mergeability && !mergeability.canMerge && mergeability.conflictFiles.length > 0 && (
+        <div className="mergeability-conflicts">
+          <div className="mergeability-conflicts-title">Conflicting files:</div>
+          {mergeability.conflictFiles.map((f, i) => (
+            <div key={i} className="mergeability-conflict-file">
+              <span className="mergeability-conflict-icon">⚠</span>
+              <span>{f}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Description */}
       <div className="action-preview-section">
@@ -111,6 +163,54 @@ function ActionPreviewPanelComponent({
         </div>
       )}
 
+      {/* Merge Strategy Selector */}
+      {isMergeOnly && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Merge Strategy</div>
+          <div className="merge-strategy-options">
+            <label className={`merge-strategy-option ${mergeStrategy === 'ff' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                name="mergeStrategy"
+                value="ff"
+                checked={mergeStrategy === 'ff'}
+                onChange={() => setMergeStrategy('ff')}
+              />
+              <div className="merge-strategy-content">
+                <span className="merge-strategy-name">Fast-forward</span>
+                <span className="merge-strategy-desc">Move branch pointer forward when possible, otherwise create merge commit</span>
+              </div>
+            </label>
+            <label className={`merge-strategy-option ${mergeStrategy === 'no-ff' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                name="mergeStrategy"
+                value="no-ff"
+                checked={mergeStrategy === 'no-ff'}
+                onChange={() => setMergeStrategy('no-ff')}
+              />
+              <div className="merge-strategy-content">
+                <span className="merge-strategy-name">No fast-forward</span>
+                <span className="merge-strategy-desc">Always create a merge commit, even if fast-forward is possible</span>
+              </div>
+            </label>
+            <label className={`merge-strategy-option ${mergeStrategy === 'ff-only' ? 'selected' : ''}`}>
+              <input
+                type="radio"
+                name="mergeStrategy"
+                value="ff-only"
+                checked={mergeStrategy === 'ff-only'}
+                onChange={() => setMergeStrategy('ff-only')}
+              />
+              <div className="merge-strategy-content">
+                <span className="merge-strategy-name">Fast-forward only</span>
+                <span className="merge-strategy-desc">Merge only if fast-forward is possible, fail otherwise</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* Buttons */}
       <div className="action-preview-buttons">
         <button
@@ -123,7 +223,7 @@ function ActionPreviewPanelComponent({
           className={`action-preview-btn action-preview-btn-proceed ${
             action.isDangerous ? 'danger' : ''
           }`}
-          onClick={onProceed}
+          onClick={() => onProceed(isMergeOnly ? { mergeStrategy } : undefined)}
         >
           {action.isDangerous ? '⚠ Proceed' : 'Proceed'}
         </button>

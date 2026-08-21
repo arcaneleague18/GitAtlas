@@ -34,6 +34,16 @@ export function NodeInspector() {
   // Pending action for preview panel
   const [pendingAction, setPendingAction] = useState<ValidAction | null>(null);
 
+  // Mergeability check state
+  const [mergeability, setMergeability] = useState<{
+    canMerge: boolean;
+    status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error';
+    conflictFiles: string[];
+    aheadBehind: { ahead: number; behind: number };
+    message: string;
+  } | null>(null);
+  const [isCheckingMerge, setIsCheckingMerge] = useState(false);
+
   // Commit message editing state
   const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -43,13 +53,22 @@ export function NodeInspector() {
   const [commitInputMessage, setCommitInputMessage] = useState('');
   const [isGeneratingMessage, setIsGeneratingMessage] = useState(false);
 
-  // Listen for generated commit message from extension host
+  // Listen for generated commit message and mergeability results from extension host
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       const msg = e.data;
       if (msg?.type === 'commit-message-generated') {
         setCommitInputMessage(msg.message);
         setIsGeneratingMessage(false);
+      } else if (msg?.type === 'mergeability-result') {
+        setMergeability({
+          canMerge: msg.canMerge,
+          status: msg.status,
+          conflictFiles: msg.conflictFiles,
+          aheadBehind: msg.aheadBehind,
+          message: msg.message,
+        });
+        setIsCheckingMerge(false);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -59,6 +78,8 @@ export function NodeInspector() {
   // Clear pending action and editing state when node changes
   useEffect(() => {
     setPendingAction(null);
+    setMergeability(null);
+    setIsCheckingMerge(false);
     setIsEditingMessage(false);
     setEditedMessage('');
     setShowEditConfirm(false);
@@ -85,26 +106,40 @@ export function NodeInspector() {
       const action = validActions.find((a) => a.kind === kind);
       if (action) {
         setPendingAction({ ...action, args });
+        // Trigger mergeability check for merge/rebase actions
+        if ((kind === 'merge' || kind === 'rebase') && selectedNodeDetails) {
+          setMergeability(null);
+          setIsCheckingMerge(true);
+          // Use the node label as the ref (branch name or remote branch name)
+          const ref = selectedNodeDetails.label;
+          postMessage({
+            type: 'check-mergeability',
+            nodeId: selectedNodeDetails.nodeId,
+            ref,
+          });
+        }
       }
     },
-    [validActions]
+    [validActions, selectedNodeDetails]
   );
 
   // Execute the pending action
-  const handleProceed = useCallback(() => {
+  const handleProceed = useCallback((extraArgs?: Record<string, any>) => {
     if (pendingAction && selectedNodeDetails) {
       postMessage({
         type: 'action-requested',
         action: pendingAction.kind,
         nodeId: selectedNodeDetails.nodeId,
-        args: pendingAction.args,
+        args: { ...pendingAction.args, ...extraArgs },
       });
       setPendingAction(null);
+      setMergeability(null);
     }
   }, [pendingAction, selectedNodeDetails]);
 
   const handleCancel = useCallback(() => {
     setPendingAction(null);
+    setMergeability(null);
   }, []);
 
   const details = selectedNodeDetails;
@@ -703,6 +738,8 @@ export function NodeInspector() {
                           nodeDetails={details}
                           headHash={headHash}
                           currentBranch={currentBranch}
+                          mergeability={mergeability}
+                          isCheckingMerge={isCheckingMerge}
                           onProceed={handleProceed}
                           onCancel={handleCancel}
                         />

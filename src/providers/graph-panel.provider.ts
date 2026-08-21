@@ -468,6 +468,16 @@ export class GraphPanelProvider extends DisposableBase {
         }
         break;
       }
+
+      case 'check-mergeability': {
+        const result = await this.gitService.checkMergeability(message.ref);
+        this.postMessage({
+          type: 'mergeability-result',
+          nodeId: message.nodeId,
+          ...result,
+        });
+        break;
+      }
     }
   }
 

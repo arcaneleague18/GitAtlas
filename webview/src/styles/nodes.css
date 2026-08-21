@@ -796,4 +796,154 @@
   color: var(--text-primary);
 }
 
+/* ── Mergeability Banner ──────────────────────────────────── */
+.mergeability-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 0;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.mergeability-banner.mergeable {
+  background: rgba(34, 197, 94, 0.1);
+  border-left: 3px solid #22c55e;
+}
+
+.mergeability-banner.conflict {
+  background: rgba(239, 68, 68, 0.1);
+  border-left: 3px solid #ef4444;
+}
+
+.mergeability-banner.checking {
+  background: rgba(234, 179, 8, 0.08);
+  border-left: 3px solid #eab308;
+}
+
+.mergeability-icon {
+  font-size: 14px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.mergeability-banner.mergeable .mergeability-icon {
+  color: #22c55e;
+}
+
+.mergeability-banner.conflict .mergeability-icon {
+  color: #ef4444;
+}
+
+.mergeability-text {
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.mergeability-stats {
+  font-size: 11px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.mergeability-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(234, 179, 8, 0.3);
+  border-top-color: #eab308;
+  border-radius: 50%;
+  animation: merge-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes merge-spin {
+  to { transform: rotate(360deg); }
+}
+
+.mergeability-conflicts {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-muted);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.mergeability-conflicts-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ef4444;
+  margin-bottom: 4px;
+}
+
+.mergeability-conflict-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.mergeability-conflict-icon {
+  color: #ef4444;
+  font-size: 10px;
+}
+
+/* ── Merge Strategy Selector ─────────────────────────────── */
+.merge-strategy-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.merge-strategy-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  background: transparent;
+}
+
+.merge-strategy-option:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.merge-strategy-option.selected {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: var(--border-accent);
+}
+
+.merge-strategy-option input[type="radio"] {
+  margin-top: 2px;
+  accent-color: var(--border-accent);
+  flex-shrink: 0;
+}
+
+.merge-strategy-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.merge-strategy-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.merge-strategy-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+
+
 

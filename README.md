@@ -52,9 +52,9 @@ The UI makes Git feel like navigating a flowchart instead of wrestling with a te
 
 - **GitHub Integration** — Detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits and in the sidebar.
 
-- **File History Search & Purge** — Click the 🔍 button in the toolbar to search for a file across the entire repository history. See every commit that modified the file, and use the "Purge from History" button to permanently delete it from all commits (useful for accidentally committed secrets).
+> - **File History Search & Purge** — Click the 🔍 button in the toolbar to search for a file across the entire repository history. See every commit that modified the file, and use the "Purge from History" button to permanently delete it from all commits (useful for accidentally committed secrets).
 
-- **Sensitive File Detection** — When committing staged changes, Git Atlas intercepts and checks file paths against a list of sensitive patterns (e.g., `.env`, credentials, build caches). If found, it warns you and provides a one-click option to add them to `.gitignore` and unstage them before committing.
+> - **Sensitive File Detection** — When committing staged changes, Git Atlas intercepts and checks file paths against a list of sensitive patterns (e.g., `.env`, credentials, build caches). If found, it warns you and provides a one-click option to add them to `.gitignore` and unstage them before committing.
 
 - **Time-Travel (Reflog)** — Visually recover lost commits using `--reflog` visualization. Orphaned commits are distinctly styled.
 

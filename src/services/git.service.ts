@@ -708,8 +708,134 @@ export class GitService {
     await this.exec(['push', remote, '--delete', branch]);
   }
 
-  async merge(ref: string): Promise<void> {
-    await this.exec(['merge', ref]);
+  async merge(ref: string, strategy?: 'ff' | 'no-ff' | 'ff-only'): Promise<void> {
+    const args = ['merge'];
+    if (strategy === 'no-ff') {
+      args.push('--no-ff');
+    } else if (strategy === 'ff-only') {
+      args.push('--ff-only');
+    }
+    // Default ('ff') uses git's default behavior (fast-forward when possible)
+    args.push(ref);
+    await this.exec(args);
+  }
+
+  /**
+   * Check if a ref can be cleanly merged into the current branch.
+   * Uses `git merge-tree --write-tree` (Git 2.38+) for an in-memory merge check.
+   * Falls back to `git merge-base` diff check for older Git versions.
+   */
+  async checkMergeability(ref: string): Promise<{
+    canMerge: boolean;
+    status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error';
+    conflictFiles: string[];
+    aheadBehind: { ahead: number; behind: number };
+    message: string;
+  }> {
+    try {
+      // First check ahead/behind counts
+      let ahead = 0, behind = 0;
+      try {
+        const revList = await this.exec(['rev-list', '--left-right', '--count', `HEAD...${ref}`]);
+        const parts = revList.trim().split(/\s+/);
+        ahead = parseInt(parts[0] ?? '0', 10);
+        behind = parseInt(parts[1] ?? '0', 10);
+      } catch { /* ignore */ }
+
+      // Already up to date (nothing to merge)
+      if (behind === 0) {
+        return {
+          canMerge: true,
+          status: 'up-to-date',
+          conflictFiles: [],
+          aheadBehind: { ahead, behind },
+          message: 'Already up to date. Nothing to merge.',
+        };
+      }
+
+      // Check if fast-forward is possible
+      try {
+        await this.exec(['merge-base', '--is-ancestor', 'HEAD', ref]);
+        return {
+          canMerge: true,
+          status: 'fast-forward',
+          conflictFiles: [],
+          aheadBehind: { ahead, behind },
+          message: `Fast-forward merge possible. ${behind} commit${behind !== 1 ? 's' : ''} will be added.`,
+        };
+      } catch { /* not a fast-forward — need to try merge */ }
+
+      // Try in-memory merge with merge-tree (Git 2.38+)
+      try {
+        await this.exec(['merge-tree', '--write-tree', 'HEAD', ref]);
+        // Exit code 0 = clean merge
+        return {
+          canMerge: true,
+          status: 'clean',
+          conflictFiles: [],
+          aheadBehind: { ahead, behind },
+          message: `Able to merge. These branches can be automatically merged.`,
+        };
+      } catch (err: any) {
+        const stderr = (err.stderr || '').toString();
+        const stdout = (err.stdout || '').toString();
+        const combined = stdout + '\n' + stderr;
+
+        // merge-tree exits with code 1 if there are conflicts
+        // Parse conflicting files from CONFLICT lines in stdout
+        const conflictFiles: string[] = [];
+        const lines = combined.split('\n');
+        for (const line of lines) {
+          // Pattern: "CONFLICT (content): Merge conflict in <filepath>"
+          const mergeConflict = line.match(/CONFLICT\s+\([^)]+\):\s+Merge conflict in\s+(.+)/i);
+          if (mergeConflict && mergeConflict[1]) {
+            conflictFiles.push(mergeConflict[1].trim());
+            continue;
+          }
+          // Pattern: "CONFLICT (modify/delete): <filepath> deleted in ..."
+          const modifyDelete = line.match(/CONFLICT\s+\([^)]+\):\s+([^\s]+)\s+/i);
+          if (modifyDelete && modifyDelete[1]) {
+            conflictFiles.push(modifyDelete[1].trim());
+            continue;
+          }
+          // Pattern: "CONFLICT (add/add): Merge conflict in <filepath>"
+          const addAdd = line.match(/CONFLICT\s+\([^)]+\):\s+.*in\s+(\S+)/i);
+          if (addAdd && addAdd[1] && !conflictFiles.includes(addAdd[1].trim())) {
+            conflictFiles.push(addAdd[1].trim());
+            continue;
+          }
+        }
+
+        if (conflictFiles.length > 0 || combined.includes('CONFLICT')) {
+          return {
+            canMerge: false,
+            status: 'conflicts',
+            conflictFiles,
+            aheadBehind: { ahead, behind },
+            message: conflictFiles.length > 0
+              ? `Cannot merge automatically. ${conflictFiles.length} file${conflictFiles.length !== 1 ? 's have' : ' has'} merge conflicts.`
+              : 'Cannot merge automatically. There are merge conflicts.',
+          };
+        }
+
+        // merge-tree not available, fall back to optimistic
+        return {
+          canMerge: true,
+          status: 'clean',
+          conflictFiles: [],
+          aheadBehind: { ahead, behind },
+          message: 'Merge check completed. Conflicts may still occur.',
+        };
+      }
+    } catch (err: any) {
+      return {
+        canMerge: false,
+        status: 'error',
+        conflictFiles: [],
+        aheadBehind: { ahead: 0, behind: 0 },
+        message: `Could not check mergeability: ${err.message || 'Unknown error'}`,
+      };
+    }
   }
 
   async rebase(ref: string): Promise<void> {

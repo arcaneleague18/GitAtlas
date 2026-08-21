@@ -262,11 +262,14 @@ export class ActionExecutor {
         await this.gitService.deleteRemoteBranch(remote!, remoteBranch);
         break;
       }
-      case 'merge':
-        await this.gitService.merge(node.kind === 'branch' ? branchName : hash);
+      case 'merge': {
+        const ref = node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash;
+        const mergeStrategy = args?.mergeStrategy as 'ff' | 'no-ff' | 'ff-only' | undefined;
+        await this.gitService.merge(ref, mergeStrategy);
         break;
+      }
       case 'rebase':
-        await this.gitService.rebase(node.kind === 'branch' ? branchName : hash);
+        await this.gitService.rebase(node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash);
         break;
       case 'cherry-pick':
         await this.gitService.cherryPick(hash);

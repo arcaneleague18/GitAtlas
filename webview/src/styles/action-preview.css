@@ -23,6 +23,8 @@
   padding: var(--space-4);
   width: 400px;
   max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
   border-radius: var(--radius-lg);
   background: rgba(20, 22, 28, 0.95);
   backdrop-filter: blur(24px);
