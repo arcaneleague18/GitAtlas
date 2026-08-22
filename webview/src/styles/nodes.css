@@ -622,7 +622,8 @@
 }
 
 /* ── File History Search Popup ────────────────────────────── */
-.file-search-popup {
+.file-search-popup,
+.toolbar-popover {
   position: absolute;
   top: 100%;
   right: 0;

@@ -13,7 +13,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { postMessage } from './vscode';
-import AiAssistantIcon from '../../resources/icons/bloub-nuage-attentif-gris-anime.svg';
+import { AiAssistantIcon, AiAgentIcon, AiChatIcon, userIcon } from '../../resources/icons';
 
 interface ChatMessage {
   id: string;
@@ -335,7 +335,7 @@ export function AiAssistantApp() {
       <div className="ai-messages">
         {messages.length === 0 ? (
           <div className="ai-welcome">
-            <div className="ai-welcome-icon">🧭</div>
+            <div className="ai-welcome-icon"><img src={AiAgentIcon} style={{ width: '3em', height: '3em' }} alt="AI Assistant" /></div>
             <div className="ai-welcome-title">Git Atlas AI</div>
             <div className="ai-welcome-subtitle">
               I can answer questions <strong>and execute actions</strong> on your repository
@@ -378,9 +378,9 @@ export function AiAssistantApp() {
                 key={msg.id}
                 className={`ai-message ${msg.role}`}
               >
-                <div className={`chat-bubble-avatar ${msg.role === 'user' ? 'user' : 'assistant'}`}>
-                  {msg.role === 'user' ? '👤' : (
-                    <img src={AiAssistantIcon} style={{ width: '1em', height: '1em' }} alt="AI Assistant" />
+                <div className={`ai-message-avatar ${msg.role === 'user' ? 'user' : 'assistant'}`}>
+                  {msg.role === 'user' ? (<img src={userIcon} style={{ width: '1.2em', height: '1.2em' }} alt="User"/>) : (
+                    <img src={AiChatIcon} style={{ width: '1.5em', height: '1.5em' }} alt="AI Assistant" />
                   )}
                 </div>
                 <div className="ai-message-content">

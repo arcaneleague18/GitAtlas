@@ -10,11 +10,7 @@ import { useReactFlow } from '@xyflow/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { postMessage } from '../vscode';
 import { useGraphStore } from '../store/graph.store';
-import SearchIcon from '../../../resources/icons/searchicon.svg';
-import GlobeIcon from '../../../resources/icons/globe.svg';
-import DeleteIcon from '../../../resources/icons/delete.svg';
-import EditIcon from '../../../resources/icons/edit.svg';
-import CopyIcon from '../../../resources/icons/copy.svg';
+import { SearchIcon, GlobeIcon, DeleteIcon, EditIcon, CopyIcon } from '../../../resources/icons';
 
 
 interface FileSearchCommit {
@@ -219,7 +215,7 @@ function ToolbarComponent() {
                 className="file-search-popup"
               >
                 <div className="file-search-header">
-                  <span className="file-search-title"><img src={SearchIcon} style={{ width: '1.2em', height: '1.2em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />Search File in History</span>
+                  <span className="file-search-title"><img src={SearchIcon} style={{ width: '1.5em', height: '1.5em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />Search File in History</span>
                 </div>
                 <div className="file-search-input-row">
                   <input

@@ -106,8 +106,6 @@ export class SidebarProvider
         return this.getStateItems();
       case 'section-branches':
         return this.getBranchItems();
-      case 'section-commits':
-        return this.getCommitItems();
       case 'section-working-directory':
         return this.getWorkingDirectoryItems();
       case 'section-stashes':
@@ -143,8 +141,16 @@ export class SidebarProvider
       }
     }
 
+    const commitCount = this.countNodesByKind('commit');
+    const commitItem = new SidebarTreeItem(
+      `Commits: ${commitCount}`,
+      vscode.TreeItemCollapsibleState.None,
+      'info-commits'
+    );
+    commitItem.iconPath = new vscode.ThemeIcon('git-commit');
+    
     items.push(
-      new SidebarTreeItem('Recent Commits', vscode.TreeItemCollapsibleState.Collapsed, 'section-commits'),
+      commitItem,
       new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Collapsed, 'section-working-directory')
     );
 
@@ -311,48 +317,6 @@ export class SidebarProvider
     return items;
   }
 
-  // ── Commits ─────────────────────────────────────────────────
-
-  private getCommitItems(): SidebarTreeItem[] {
-    if (!this.graph) return [];
-
-    const commits = this.getNodesByKind('commit').slice(0, MAX_SIDEBAR_COMMITS);
-    return commits.map((node) => {
-      const data = node.data as CommitNodeData;
-      const item = new SidebarTreeItem(
-        data.message.length > 60
-          ? data.message.substring(0, 57) + '...'
-          : data.message,
-        vscode.TreeItemCollapsibleState.None,
-        'commit',
-        node.id
-      );
-
-      item.description = data.shortHash;
-      item.iconPath = new vscode.ThemeIcon(
-        node.isHead ? 'circle-filled' : 'circle-outline'
-      );
-      item.tooltip = [
-        `${data.hash}`,
-        `Author: ${data.author}`,
-        `Date: ${new Date(data.timestamp * 1000).toLocaleString()}`,
-        ``,
-        data.message,
-        data.branches.length > 0 ? `\nBranches: ${data.branches.join(', ')}` : '',
-        data.tags.length > 0 ? `Tags: ${data.tags.join(', ')}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
-
-      item.command = {
-        command: 'gitTreeExplorer.selectNode',
-        title: 'Select Node',
-        arguments: [node.id],
-      };
-
-      return item;
-    });
-  }
 
   // ── Working Directory ───────────────────────────────────────
 

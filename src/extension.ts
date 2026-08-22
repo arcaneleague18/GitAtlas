@@ -12,6 +12,7 @@
  */
 
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { GitService } from './services/git.service.js';
 import { RepositoryStateEngine } from './engine/state-engine.js';
 import { SidebarProvider } from './providers/sidebar.provider.js';
@@ -86,6 +87,13 @@ export async function activate(
     treeDataProvider: sidebarProvider,
     showCollapseAll: true,
   });
+  
+  // Set the TreeView title to the repository name
+  const repoRoot = await gitService.getRepositoryRoot();
+  if (repoRoot) {
+    treeView.title = path.basename(repoRoot);
+  }
+  
   context.subscriptions.push(treeView);
 
   // Create graph panel provider
