@@ -542,6 +542,17 @@ export function NodeInspector() {
                         ✓ Commit to {currentBranch ?? 'HEAD'} ({stagedCount > 0 ? `${stagedCount} staged` : `${totalCount} all`})
                       </button>
 
+                      {/* Amend Commit Button */}
+                      <button
+                        className="secondary-commit-btn"
+                        disabled={stagedCount === 0}
+                        onClick={() => {
+                          postMessage({ type: 'amend-commit' });
+                        }}
+                      >
+                        Include with previous commit ({stagedCount} staged)
+                      </button>
+
                       {/* Conflicted Files Section */}
                       {conflictedFiles.length > 0 && (
                         <div className="changes-section conflicted-section">

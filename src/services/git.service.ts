@@ -904,6 +904,10 @@ export class GitService {
     await this.exec(['commit', '-m', message]);
   }
 
+  async amendCommit(): Promise<void> {
+    await this.exec(['commit', '--amend', '--no-edit']);
+  }
+
   async stageFile(relativePath: string): Promise<void> {
     await this.exec(['add', relativePath]);
   }

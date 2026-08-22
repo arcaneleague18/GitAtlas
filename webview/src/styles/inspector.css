@@ -603,6 +603,35 @@
   cursor: not-allowed;
 }
 
+.secondary-commit-btn {
+  width: 100%;
+  padding: 6px var(--space-4);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.secondary-commit-btn:hover:not(:disabled) {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.secondary-commit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Changes Section ─────────────────────────────────────────── */
 .changes-section {
   display: flex;

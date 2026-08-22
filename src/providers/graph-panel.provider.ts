@@ -442,6 +442,55 @@ export class GraphPanelProvider extends DisposableBase {
         break;
       }
 
+      case 'amend-commit': {
+        const graph = this.stateEngine.graph;
+        if (!graph || !graph.headHash) break;
+        
+        let wasPushed = false;
+        try {
+          wasPushed = await this.gitService.isCommitPushed(graph.headHash);
+        } catch {
+          // Ignore
+        }
+
+        try {
+          await this.gitService.amendCommit();
+          await this.stateEngine.buildGraph();
+          if (this.stateEngine.graph?.nodes.has('working-directory')) {
+            await this.handleNodeSelected('working-directory');
+          }
+
+          if (wasPushed && graph.currentBranch) {
+            const forcePush = 'Force Push (--force-with-lease)';
+            const choice = await vscode.window.showWarningMessage(
+              `Git Atlas: Staged changes included. The previous commit was already pushed to the remote. ` +
+              `You need to force-push to update the remote branch "${graph.currentBranch}".`,
+              { modal: false },
+              forcePush
+            );
+            if (choice === forcePush) {
+              try {
+                await this.gitService.forcePushWithLease(graph.currentBranch);
+                await this.stateEngine.buildGraph();
+                vscode.window.showInformationMessage(
+                  `Git Atlas: Force-pushed "${graph.currentBranch}" to remote with --force-with-lease.`
+                );
+              } catch (pushErr: any) {
+                const pushErrMsg = pushErr.stderr?.trim() || pushErr.message || 'Unknown error';
+                vscode.window.showErrorMessage(
+                  `Git Atlas: Force-push failed — ${pushErrMsg}`
+                );
+              }
+            }
+          } else {
+            vscode.window.showInformationMessage('Git Atlas: Staged changes included with previous commit.');
+          }
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Git Atlas: Failed to amend commit — ${err.message}`);
+        }
+        break;
+      }
+
       case 'search-file-in-history': {
         const commits = await this.gitService.searchFileInHistory(message.filePath);
         this.postMessage({ type: 'file-search-results', filePath: message.filePath, commits });

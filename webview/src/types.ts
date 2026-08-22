@@ -278,6 +278,7 @@ export type WebviewToExtensionMessage =
   | { type: 'discard-file'; path: string }
   | { type: 'generate-commit-message' }
   | { type: 'commit-staged'; message: string }
+  | { type: 'amend-commit' }
   | { type: 'search-file-in-history'; filePath: string }
   | { type: 'purge-file-from-history'; filePath: string }
   | { type: 'check-mergeability'; nodeId: string; ref: string };
