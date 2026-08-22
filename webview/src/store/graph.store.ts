@@ -386,7 +386,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
-          type: 'smoothstep',
+          type: 'dagre',
           animated: isMerge,
           className: isMerge ? 'merge-edge' : '',
           style: {
@@ -406,7 +406,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
-          type: 'smoothstep',
+          type: 'dagre',
           animated: false,
           className: 'stash-edge',
           style: {
@@ -430,7 +430,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
         id: 'wd->head',
         source: 'working-directory',
         target: graph.headHash,
-        type: 'smoothstep',
+        type: 'dagre',
         animated: true,
         className: 'wd-edge',
         style: {
@@ -442,15 +442,15 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       });
     }
 
-    // Compute layout positions
-    const layoutedNodes = computeLayout(flowNodes, flowEdges);
+    // Compute layout positions and edge routing
+    const { nodes: layoutedNodes, edges: layoutedEdges } = computeLayout(flowNodes, flowEdges);
 
     const currentSelectedId = get().selectedNodeId;
     const isSelectedNodeDeleted = currentSelectedId && !graphNodeMap.has(currentSelectedId);
 
     set({
       nodes: layoutedNodes,
-      edges: flowEdges,
+      edges: layoutedEdges,
       headHash: graph.headHash,
       currentBranch: graph.currentBranch,
       repositoryState: graph.state,

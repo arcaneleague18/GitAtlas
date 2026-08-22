@@ -82,6 +82,7 @@ function CommitNodeComponent({ id, data }: NodeProps) {
           border: 'none',
           width: 1,
           height: 1,
+          left: 26,
         }}
       />
 
@@ -166,6 +167,7 @@ function CommitNodeComponent({ id, data }: NodeProps) {
           border: 'none',
           width: 1,
           height: 1,
+          left: 26,
         }}
       />
 

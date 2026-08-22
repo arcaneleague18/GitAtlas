@@ -11,12 +11,12 @@ import dagre from 'dagre';
 import type { Node, Edge } from '@xyflow/react';
 
 /** Node dimensions for layout calculation. */
-const NODE_WIDTH = 320;
-const NODE_HEIGHT = 100;
+const NODE_WIDTH = 52; // Width of the circle + padding
+const NODE_HEIGHT = 60; // Approximate height of a node
 
 /** Spacing between nodes. */
-const NODE_SEP = 40;
-const RANK_SEP = 80;
+const NODE_SEP = 280;
+const RANK_SEP = 60;
 const EDGE_SEP = 20;
 
 /**
@@ -26,8 +26,8 @@ const EDGE_SEP = 20;
  * @param edges - React Flow edges defining the graph topology.
  * @returns New array of nodes with computed positions.
  */
-export function computeLayout(nodes: Node[], edges: Edge[]): Node[] {
-  if (nodes.length === 0) return [];
+export function computeLayout(nodes: Node[], edges: Edge[]): { nodes: Node[], edges: Edge[] } {
+  if (nodes.length === 0) return { nodes: [], edges: [] };
 
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
@@ -62,19 +62,40 @@ export function computeLayout(nodes: Node[], edges: Edge[]): Node[] {
   dagre.layout(g);
 
   // Apply positions to nodes
-  return nodes.map((node) => {
+  const layoutedNodes = nodes.map((node) => {
     const nodeWithPosition = g.node(node.id);
     if (!nodeWithPosition) return node;
 
     return {
       ...node,
       position: {
-        // Center the node on the dagre position
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+        // Center the 52px layout box on the React Flow node's left circle (26px center)
+        x: nodeWithPosition.x - 26,
+        y: nodeWithPosition.y - 30, // NODE_HEIGHT / 2
       },
     };
   });
+
+  const layoutedEdges = edges.map((edge) => {
+    const dagreEdge = g.edge(edge.source, edge.target);
+    if (!dagreEdge || !dagreEdge.points) return edge;
+
+    const points = dagreEdge.points.map((p: { x: number, y: number }) => ({
+      x: p.x,
+      y: p.y
+    }));
+
+    return {
+      ...edge,
+      type: 'dagre',
+      data: {
+        ...edge.data,
+        points,
+      }
+    };
+  });
+
+  return { nodes: layoutedNodes, edges: layoutedEdges };
 }
 
 /**

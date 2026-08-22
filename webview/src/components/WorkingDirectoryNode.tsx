@@ -56,6 +56,7 @@ function WorkingDirectoryNodeComponent({ data }: NodeProps) {
           border: 'none',
           width: 1,
           height: 1,
+          left: 36,
         }}
       />
 
@@ -107,6 +108,7 @@ function WorkingDirectoryNodeComponent({ data }: NodeProps) {
           border: 'none',
           width: 1,
           height: 1,
+          left: 36,
         }}
       />
 

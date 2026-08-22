@@ -35,6 +35,7 @@ import { WorkingDirectoryNode } from './WorkingDirectoryNode';
 import { StashNode } from './StashNode';
 import { Toolbar } from './Toolbar';
 import { NodeInspector } from './NodeInspector';
+import { DagreEdge } from './DagreEdge';
 
 /** Custom node types registered with React Flow. */
 const nodeTypes = {
@@ -42,6 +43,10 @@ const nodeTypes = {
   'branch-label': BranchLabel,
   'working-directory': WorkingDirectoryNode,
   stash: StashNode,
+};
+
+const edgeTypes = {
+  dagre: DagreEdge,
 };
 
 export function GraphView() {
@@ -148,7 +153,7 @@ export function GraphView() {
   // Default edge options
   const defaultEdgeOptions = useMemo(
     () => ({
-      type: 'smoothstep' as const,
+      type: 'dagre' as const,
       style: { strokeWidth: 2 },
     }),
     []
@@ -186,11 +191,12 @@ export function GraphView() {
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
-          nodeTypes={nodeTypes}
           defaultEdgeOptions={defaultEdgeOptions}
           fitView
           fitViewOptions={{ padding: 0.15, maxZoom: 1.5 }}
