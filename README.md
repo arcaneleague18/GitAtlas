@@ -1,12 +1,9 @@
 <div align="center">
   <p align="center">
-   <img src="./resources/for_readme/icon.svg" width="20%" />&nbsp;&nbsp;&nbsp;&nbsp;
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./resources/for_readme/name-banner.svg">
-      <source media="(prefers-color-scheme: light)" srcset="./resources/for_readme/name-banner.svg">
-      <img alt="Git Atlas" src="./resources/for_readme/name-banner.svg" width="65%">
-    </picture>
+   <img src="./resources/for_readme/main_icon.png" width="20%" />
   </p>
+
+  <h1>Git Atlas</h1>
 
   <p><strong>Transform Git into an interactive visual graph and explore your repository.</strong></p>
 
