@@ -1,13 +1,13 @@
 {
-  "name": "git-tree-explorer",
+  "name": "git-atlas",
   "displayName": "Git Atlas",
   "description": "Transform Git into an interactive visual state machine graph. Understand Git through visualization, not commands.",
   "version": "0.1.0",
-  "publisher": "git-tree-explorer",
+  "publisher": "varunkarli",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/arcaneleague18/GitAtlas-alt"
+    "url": "https://github.com/arcaneleague18/GitAtlas"
   },
   "engines": {
     "vscode": "^1.90.0"
