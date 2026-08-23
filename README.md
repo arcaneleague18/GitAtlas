@@ -37,32 +37,32 @@ The UI makes Git feel like navigating a flowchart instead of wrestling with a te
 > ### Interactive Graph & Commit Panel
 Visualize your entire commit history as a Directed Acyclic Graph (DAG). View uncommitted changes in the Working Directory node, and easily commit, amend, or stash files using the dedicated commit panel.
 <p align="center">
-  <video autoplay loop muted playsinline src="./resources/for_readme/committing-and-pushing.mp4" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/99dd27d3-b7c3-4255-bbbc-e082e3a0938b" width="100%"></video>
 </p>
 
 
 >  ### AI-Powered Git Agent
 Ask questions, get repository-aware answers, and instruct the built-in AI agent to perform multi-step Git operations. It supports GitHub Copilot and open-source models!
 <p align="center">
-  <video autoplay loop muted playsinline src="./resources/for_readme/AI-agent.mp4" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/2fbb6c17-83c3-4186-85d6-a65df9d44437" width="100%"></video>
 </p>
 
 > ### Backdating Commits
 Need to backdate a commit? Easily set a custom commit date right from the commit panel. The date picker automatically constrains your choices so you can't pick a date older than the previous commit or in the future!
 <p align="center">
-  <video autoplay loop muted playsinline src="./resources/for_readme/backdating.mp4" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/d3447fa8-1e01-4562-b179-d88914a81601" width="100%"></video>
 </p>
 
 > ### Editing Commit Messages
 Click any commit to edit its message. Git Atlas automatically handles `git commit --amend` for HEAD and guides you through rewriting history.
 <p align="center">
-  <video autoplay loop muted playsinline src="./resources/for_readme/editing-commit-msg.mp4" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/c4dd79e4-5c27-44a9-8cab-3452a277652e" width="100%"></video>
 </p>
 
 > ### Purging Sensitive Files
 Accidentally committed an `.env` file? Search for a file across your entire history and permanently purge it from all commits with a single click.
 <p align="center">
-  <video autoplay loop muted playsinline src="./resources/for_readme/purging-files.mp4" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/c6a655d6-0343-4086-9b09-af3778d86079" width="100%"></video>
 </p>
 
 > ### Sensitive File Detection
