@@ -111,7 +111,7 @@ export class GraphPanelProvider extends DisposableBase {
     this.panel.iconPath = vscode.Uri.joinPath(
       this.extensionUri,
       'resources',
-      'icon.svg'
+      'icons/main_icon.svg'
     );
   }
 
@@ -445,7 +445,7 @@ export class GraphPanelProvider extends DisposableBase {
       case 'amend-commit': {
         const graph = this.stateEngine.graph;
         if (!graph || !graph.headHash) break;
-        
+
         let wasPushed = false;
         try {
           wasPushed = await this.gitService.isCommitPushed(graph.headHash);
