@@ -118,7 +118,8 @@ export class GitService {
    */
   private async exec(
     args: string[],
-    cwd?: string
+    cwd?: string,
+    extraEnv?: Record<string, string>
   ): Promise<string> {
     const cmd = `git ${args.join(' ')}`;
     this.outputChannel.appendLine(`[GitService] > ${cmd}`);
@@ -128,7 +129,7 @@ export class GitService {
         cwd: cwd ?? this.workspaceRoot,
         maxBuffer: MAX_BUFFER,
         windowsHide: true,
-        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+        env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', ...extraEnv },
       });
       if (stdout.trim().length > 0) {
         this.outputChannel.appendLine(stdout.trim());
@@ -895,13 +896,18 @@ export class GitService {
     return stdout;
   }
 
-  async createCommit(message: string): Promise<void> {
+  async createCommit(message: string, date?: string): Promise<void> {
     const status = await this.getStatus();
     // If nothing is staged yet, stage everything before committing
     if (status.staged.length === 0) {
       await this.exec(['add', '-A']);
     }
-    await this.exec(['commit', '-m', message]);
+    const extraEnv: Record<string, string> = {};
+    if (date) {
+      extraEnv.GIT_AUTHOR_DATE = date;
+      extraEnv.GIT_COMMITTER_DATE = date;
+    }
+    await this.exec(['commit', '-m', message], undefined, extraEnv);
   }
 
   async amendCommit(): Promise<void> {

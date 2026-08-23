@@ -574,6 +574,65 @@
   cursor: not-allowed;
 }
 
+/* ── Backdate Picker ─────────────────────────────────────────── */
+.backdate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backdate-toggle-btn {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.backdate-toggle-btn:hover {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.backdate-toggle-btn.active {
+  background: rgba(9, 105, 218, 0.12);
+  color: var(--text-accent);
+  border-color: var(--text-accent);
+}
+
+.backdate-input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.backdate-input:focus {
+  border-color: var(--text-accent);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.backdate-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
 .primary-commit-btn {
   width: 100%;
   padding: 8px var(--space-4);

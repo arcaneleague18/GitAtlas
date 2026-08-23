@@ -436,7 +436,7 @@ export class GraphPanelProvider extends DisposableBase {
           // If "Continue Anyway" — fall through and commit
         }
 
-        await this.gitService.createCommit(message.message);
+        await this.gitService.createCommit(message.message, message.date);
         await this.stateEngine.buildGraph();
         vscode.window.showInformationMessage('Git Atlas: Changes committed successfully.');
         break;

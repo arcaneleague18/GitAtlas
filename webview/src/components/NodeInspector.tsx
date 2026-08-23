@@ -31,6 +31,7 @@ export function NodeInspector() {
     githubContext,
     headHash,
     currentBranch,
+    graphNodes,
   } = useGraphStore();
 
   // Pending action for preview panel
@@ -54,6 +55,10 @@ export function NodeInspector() {
   // Commit message & AI generation state for working directory
   const [commitInputMessage, setCommitInputMessage] = useState('');
   const [isGeneratingMessage, setIsGeneratingMessage] = useState(false);
+
+  // Backdate commit state
+  const [backdateEnabled, setBackdateEnabled] = useState(false);
+  const [backdateValue, setBackdateValue] = useState('');
 
   // Listen for generated commit message and mergeability results from extension host
   useEffect(() => {
@@ -508,8 +513,14 @@ export function NodeInspector() {
                             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                               e.preventDefault();
                               if (commitInputMessage.trim()) {
-                                postMessage({ type: 'commit-staged', message: commitInputMessage.trim() });
+                                postMessage({
+                                  type: 'commit-staged',
+                                  message: commitInputMessage.trim(),
+                                  date: backdateEnabled && backdateValue ? backdateValue : undefined,
+                                });
                                 setCommitInputMessage('');
+                                setBackdateEnabled(false);
+                                setBackdateValue('');
                               }
                             }
                           }}
@@ -528,14 +539,76 @@ export function NodeInspector() {
                         </button>
                       </div>
 
+                      {/* Backdate Picker */}
+                      {(() => {
+                        const headNode = headHash ? graphNodes.get(headHash) : undefined;
+                        const headTimestamp = headNode && headNode.kind === 'commit'
+                          ? (headNode.data as unknown as CommitNodeData).timestamp
+                          : undefined;
+
+                        const toLocalDatetime = (ts: number) => {
+                          const d = new Date(ts * 1000);
+                          const pad = (n: number) => n.toString().padStart(2, '0');
+                          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                        };
+
+                        const minDate = headTimestamp ? toLocalDatetime(headTimestamp) : undefined;
+                        const maxDate = toLocalDatetime(Math.floor(Date.now() / 1000));
+
+                        const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+                          let val = e.target.value;
+                          // Clamp: don't allow older than previous commit
+                          if (minDate && val < minDate) val = minDate;
+                          // Clamp: don't allow future
+                          if (val > maxDate) val = maxDate;
+                          setBackdateValue(val);
+                        };
+
+                        return (
+                          <div className="backdate-row">
+                            <button
+                              className={`backdate-toggle-btn ${backdateEnabled ? 'active' : ''}`}
+                              onClick={() => {
+                                if (!backdateEnabled) {
+                                  setBackdateEnabled(true);
+                                  setBackdateValue(maxDate);
+                                } else {
+                                  setBackdateEnabled(false);
+                                  setBackdateValue('');
+                                }
+                              }}
+                              title="Set a custom commit date"
+                            >
+                              📅 {backdateEnabled ? 'Date:' : 'Set date'}
+                            </button>
+                            {backdateEnabled && (
+                              <input
+                                type="datetime-local"
+                                className="backdate-input"
+                                value={backdateValue}
+                                min={minDate}
+                                max={maxDate}
+                                onChange={handleDateChange}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {/* Primary Commit Button */}
                       <button
                         className="primary-commit-btn"
                         disabled={!commitInputMessage.trim() || totalCount === 0}
                         onClick={() => {
                           if (commitInputMessage.trim()) {
-                            postMessage({ type: 'commit-staged', message: commitInputMessage.trim() });
+                            postMessage({
+                              type: 'commit-staged',
+                              message: commitInputMessage.trim(),
+                              date: backdateEnabled && backdateValue ? backdateValue : undefined,
+                            });
                             setCommitInputMessage('');
+                            setBackdateEnabled(false);
+                            setBackdateValue('');
                           }
                         }}
                       >
