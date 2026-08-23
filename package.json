@@ -16,7 +16,7 @@
     "SCM Providers",
     "Visualization"
   ],
-  "icon": "resources/icons/main_icon.svg",
+  "icon": "resources/icons/main_icon.png",
   "keywords": [
     "git",
     "graph",
@@ -35,7 +35,7 @@
         {
           "id": "gitTreeExplorer",
           "title": "Git Atlas",
-          "icon": "resources/icons/main_icon.svg"
+          "icon": "resources/icons/main_icon.png"
         }
       ]
     },

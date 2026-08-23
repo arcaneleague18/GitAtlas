@@ -111,7 +111,7 @@ export class GraphPanelProvider extends DisposableBase {
     this.panel.iconPath = vscode.Uri.joinPath(
       this.extensionUri,
       'resources',
-      'icons/main_icon.svg'
+      'icons/main_icon.png'
     );
   }
 

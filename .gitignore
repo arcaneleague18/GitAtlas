@@ -4,4 +4,3 @@ dist/
 .vscode-test/
 webview/node_modules/
 webview/dist/
-resources/icons/
