@@ -8,11 +8,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: marketplace
-    permissions:
-      contents: read
-      id-token: write # Required for OIDC and Microsoft Entra ID workload identity
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,9 +24,8 @@ jobs:
       - name: Install webview dependencies
         run: cd webview && npm ci
         
-      - name: Package extension (Verify build)
-        run: npm run package
+      - name: Build extension (Verify build)
+        run: npm run build
 
-      # Authenticate via OIDC to Azure/VS Code Marketplace
       - name: Publish to Visual Studio Marketplace
-        run: npx @vscode/vsce publish --oidc
+        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }}
