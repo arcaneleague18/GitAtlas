@@ -332,21 +332,38 @@ export type ExtensionToWebviewMessage =
   | { type: 'valid-actions'; nodeId: string; actions: ValidAction[] }
   | { type: 'preview-action'; preview: PreviewData }
   | { type: 'clear-preview' }
-  | { type: 'github-context'; context: GitHubContext };
+  | { type: 'github-context'; context: GitHubContext }
+  | { type: 'commit-message-generated'; message: string }
+  | { type: 'file-search-results'; filePath: string; commits: { hash: string; shortHash: string; message: string; author: string; date: string }[] }
+  | { type: 'file-purge-result'; filePath: string; success: boolean; message: string }
+  | { type: 'mergeability-result'; nodeId: string; canMerge: boolean; status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error'; conflictFiles: string[]; aheadBehind: { ahead: number; behind: number }; message: string };
 
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'node-selected'; nodeId: string }
   | { type: 'request-details'; nodeId: string }
-  | { type: 'action-requested'; action: EdgeKind; nodeId: string }
+  | { type: 'action-requested'; action: EdgeKind; nodeId: string; args?: any }
   | { type: 'open-file'; path: string }
   | { type: 'show-diff'; commitHash: string; filePath: string }
   | { type: 'refresh' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
   | { type: 'load-more' }
   | { type: 'edit-remote-url' }
-  | { type: 'remove-remote-url' };
+  | { type: 'remove-remote-url' }
+  | { type: 'reword-commit'; hash: string; newMessage: string }
+  | { type: 'stage-file'; path: string }
+  | { type: 'unstage-file'; path: string }
+  | { type: 'stage-all' }
+  | { type: 'unstage-all' }
+  | { type: 'discard-all' }
+  | { type: 'discard-file'; path: string }
+  | { type: 'generate-commit-message' }
+  | { type: 'commit-staged'; message: string; date?: string }
+  | { type: 'amend-commit' }
+  | { type: 'search-file-in-history'; filePath: string }
+  | { type: 'purge-file-from-history'; filePath: string }
+  | { type: 'check-mergeability'; nodeId: string; ref: string };
 
 /**
  * Serialized version of RepositoryGraph for postMessage transfer.

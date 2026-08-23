@@ -285,11 +285,11 @@ export class GraphPanelProvider extends DisposableBase {
 
             const newUrl = await vscode.window.showInputBox({
               prompt: `Edit remote URL for '${targetRemote.name}'`,
-              value: targetRemote.url,
+              value: targetRemote.fetchUrl,
               ignoreFocusOut: true,
             });
 
-            if (newUrl && newUrl !== targetRemote.url) {
+            if (newUrl && newUrl !== targetRemote.fetchUrl) {
               await this.gitService.exec(['remote', 'set-url', targetRemote.name, newUrl]);
               void vscode.window.showInformationMessage(`Remote '${targetRemote.name}' updated successfully.`);
               void this.stateEngine.buildGraph();
@@ -599,7 +599,7 @@ export class GraphPanelProvider extends DisposableBase {
         workingDirectoryStatus: {
           staged: wdData.staged,
           modified: wdData.modified,
-          untracked: wdData.untracked.map((p) => ({ path: p, status: 'untracked' })),
+          untracked: wdData.untracked,
           conflicted: wdData.conflicted,
         },
       };

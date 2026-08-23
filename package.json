@@ -5,6 +5,10 @@
   "version": "0.1.0",
   "publisher": "git-tree-explorer",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arcaneleague18/GitAtlas-alt"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },

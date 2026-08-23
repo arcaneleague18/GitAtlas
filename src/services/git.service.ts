@@ -116,7 +116,7 @@ export class GitService {
   /**
    * Execute a raw git command and return stdout.
    */
-  private async exec(
+  public async exec(
     args: string[],
     cwd?: string,
     extraEnv?: Record<string, string>
