@@ -86,6 +86,7 @@ Git Atlas integrates seamlessly with VS Code's internal language models (like Gi
 
 - **VS Code IDE**: No configuration needed! The extension will simply ask for permission to use **VS Code internal language models** and **GitHub access**.
 - **Antigravity IDE**: The default `vscode.lm` models are not available here. To use the AI features, you will need to configure a custom API key in the extension settings (`gitTreeExplorer.ai.apiKey`).
+  - **Tip/Trick:** If you have GitHub Copilot, you can use the [LM Proxy](https://marketplace.visualstudio.com/items?itemName=ryonakae.vscode-lm-proxy) extension from VS Code to expose it locally. Just select `lm-proxy` as your AI provider in the Git Atlas settings!
 
 ---
 

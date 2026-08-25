@@ -425,6 +425,9 @@ export class AiAssistantProvider
           let newBaseUrl = '';
 
           switch (provider) {
+            case 'lm-proxy':
+              newBaseUrl = 'http://localhost:4000/openai';
+              break;
             case 'openrouter':
               newBaseUrl = 'https://openrouter.ai/api/v1';
               break;
@@ -833,9 +836,10 @@ export class AiAssistantProvider
     const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
     const apiKey = config.get<string>('apiKey') || config.get<string>('openaiApiKey') || '';
     const model = config.get<string>('model') || config.get<string>('openaiModel') || 'gpt-4o-mini';
-    const baseUrl = config.get<string>('baseUrl') || config.get<string>('customBaseUrl') || config.get<string>('openaiBaseUrl') || 'https://api.openai.com/v1';
+    const rawBaseUrl = config.get<string>('baseUrl') || config.get<string>('customBaseUrl') || config.get<string>('openaiBaseUrl') || 'https://api.openai.com/v1';
+    const baseUrl = rawBaseUrl.replace(/\/+$/, '');
 
-    if (!apiKey && provider !== 'ollama') {
+    if (!apiKey && provider !== 'ollama' && provider !== 'lm-proxy') {
       this.postToWebview({
         type: 'chat-error',
         error:
