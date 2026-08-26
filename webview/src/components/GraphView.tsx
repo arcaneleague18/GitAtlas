@@ -179,6 +179,12 @@ export function GraphView() {
           This repository has no commits. Create your first commit to see the
           graph visualization.
         </div>
+        <button
+          className="graph-empty-button"
+          onClick={() => postMessage({ type: 'first-commit' })}
+        >
+          Create First Commit
+        </button>
       </div>
     );
   }

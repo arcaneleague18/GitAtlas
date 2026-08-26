@@ -142,15 +142,32 @@ export class SidebarProvider
     }
 
     const commitCount = this.countNodesByKind('commit');
-    const commitItem = new SidebarTreeItem(
-      `Commits: ${commitCount}`,
-      vscode.TreeItemCollapsibleState.None,
-      'info-commits'
-    );
-    commitItem.iconPath = new vscode.ThemeIcon('git-commit');
-    
+
+    if (commitCount === 0) {
+      // Show a clickable "Create First Commit" button
+      const firstCommitItem = new SidebarTreeItem(
+        'Create First Commit',
+        vscode.TreeItemCollapsibleState.None,
+        'first-commit'
+      );
+      firstCommitItem.iconPath = new vscode.ThemeIcon('check');
+      firstCommitItem.command = {
+        command: 'gitTreeExplorer.firstCommit',
+        title: 'Create First Commit',
+      };
+      firstCommitItem.tooltip = 'Stage all files and create your first commit';
+      items.push(firstCommitItem);
+    } else {
+      const commitItem = new SidebarTreeItem(
+        `Commits: ${commitCount}`,
+        vscode.TreeItemCollapsibleState.None,
+        'info-commits'
+      );
+      commitItem.iconPath = new vscode.ThemeIcon('git-commit');
+      items.push(commitItem);
+    }
+
     items.push(
-      commitItem,
       new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Collapsed, 'section-working-directory')
     );
 
@@ -167,6 +184,20 @@ export class SidebarProvider
     const remoteNodes = this.getRemoteNames();
     if (remoteNodes.length > 0) {
       items.push(new SidebarTreeItem(`Remotes (${remoteNodes.length})`, vscode.TreeItemCollapsibleState.Collapsed, 'section-remotes'));
+    } else if (commitCount > 0) {
+      // If there are commits but no remotes, show Publish to GitHub button
+      const publishItem = new SidebarTreeItem(
+        'Publish to GitHub',
+        vscode.TreeItemCollapsibleState.None,
+        'publish-github'
+      );
+      publishItem.iconPath = new vscode.ThemeIcon('github');
+      publishItem.command = {
+        command: 'gitTreeExplorer.publishToGitHub',
+        title: 'Publish to GitHub',
+      };
+      publishItem.tooltip = 'Create a GitHub repository and push this folder';
+      items.push(publishItem);
     }
 
     return items;

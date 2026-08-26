@@ -386,13 +386,29 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'reword_commit',
+      description: 'Change the commit message of an existing commit. Works for HEAD commits (via amend) and older commits (via interactive rebase). WARNING: This rewrites history.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hash: { type: 'string', description: 'Full or short commit hash to reword' },
+          new_message: { type: 'string', description: 'The new commit message' },
+          reason: { type: 'string', description: 'Brief explanation of why this action is needed' },
+        },
+        required: ['hash', 'new_message', 'reason'],
+      },
+    },
+  },
 ];
 
 /** Tool names that are read-only and safe to auto-approve */
 const READ_ONLY_TOOLS = new Set(['get_status', 'get_log', 'get_diff']);
 
 /** Tool names that are destructive and need extra warning */
-const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes', 'purge_file_from_history']);
+const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes', 'purge_file_from_history', 'reword_commit']);
 
 
 export class AiAssistantProvider
@@ -1220,6 +1236,13 @@ export class AiAssistantProvider
         case 'delete_commit': {
           await this.gitService.deleteCommit(args.hash);
           return { success: true, output: `Deleted commit ${args.hash.substring(0, 7)}.` };
+        }
+        case 'reword_commit': {
+          // Determine if the target commit is HEAD
+          const head = await this.gitService.getHead();
+          const isHead = head.hash.startsWith(args.hash) || args.hash.startsWith(head.hash.substring(0, 7));
+          await this.gitService.rewordCommitMessage(args.hash, args.new_message, isHead);
+          return { success: true, output: `Reworded commit ${args.hash.substring(0, 7)} to: "${args.new_message}".` };
         }
         case 'push': {
           await this.gitService.push(args.branch);

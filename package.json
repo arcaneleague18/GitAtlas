@@ -64,6 +64,24 @@
         "title": "Refresh",
         "category": "Git Atlas",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "gitTreeExplorer.initRepository",
+        "title": "Initialize Repository",
+        "category": "Git Atlas",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitTreeExplorer.publishToGitHub",
+        "title": "Publish to GitHub",
+        "category": "Git Atlas",
+        "icon": "$(github)"
+      },
+      {
+        "command": "gitTreeExplorer.firstCommit",
+        "title": "Create First Commit",
+        "category": "Git Atlas",
+        "icon": "$(check)"
       }
     ],
     "menus": {
@@ -141,7 +159,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.134.0",
     "esbuild": "^0.20.0",
     "typescript": "^5.3.0"
   }

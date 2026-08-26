@@ -156,6 +156,14 @@ export class GitService {
   }
 
   /**
+   * Initialize a new git repository in the workspace root.
+   */
+  async initRepository(): Promise<void> {
+    await this.exec(['init']);
+    this.outputChannel.appendLine('[GitService] Initialized new git repository.');
+  }
+
+  /**
    * Get the repository root path.
    */
   async getRepositoryRoot(): Promise<string> {

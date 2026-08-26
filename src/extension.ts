@@ -60,6 +60,44 @@ export async function activate(
   const gitContentProvider = new GitContentProvider(gitService);
   context.subscriptions.push(gitContentProvider);
 
+  // Register init repository command
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitTreeExplorer.initRepository', async () => {
+      try {
+        await gitService.initRepository();
+        vscode.window.showInformationMessage('Git Atlas: Repository initialized!');
+        // Reload the window so the extension re-activates with the new .git directory
+        await vscode.commands.executeCommand('workbench.action.reloadWindow');
+      } catch (err) {
+        vscode.window.showErrorMessage(
+          `Git Atlas: Failed to initialize repository — ${err instanceof Error ? err.message : err}`
+        );
+      }
+    })
+  );
+
+  // Register publish to GitHub command (delegates to VS Code's built-in git publish)
+  // Ensures the current branch is renamed to 'main' first, as requested.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitTreeExplorer.publishToGitHub', async () => {
+      try {
+        const head = await gitService.getHead();
+        if (head.branch && head.branch !== 'main') {
+          await gitService.exec(['branch', '-m', 'main']);
+        }
+      } catch (err) {
+        // Ignore errors (e.g. if there are no commits yet and branch rename fails)
+      }
+      try {
+        await vscode.commands.executeCommand('git.publish');
+      } catch {
+        vscode.window.showErrorMessage(
+          'Git Atlas: Could not publish to GitHub. Make sure the Git extension is enabled.'
+        );
+      }
+    })
+  );
+
   // Check if this is a git repository
   const isRepo = await gitService.isGitRepository();
   if (!isRepo) {
@@ -159,7 +197,7 @@ export async function activate(
     )
   );
 
-  // Internal command for webview → extension node selection
+   // Internal command for webview → extension node selection
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'gitTreeExplorer.nodeSelected',
@@ -167,6 +205,28 @@ export async function activate(
         // Phase 3: Open details panel, compute valid actions, etc.
       }
     )
+  );
+
+  // First commit command — stages all files and commits with a user-provided message
+  context.subscriptions.push(
+    vscode.commands.registerCommand('gitTreeExplorer.firstCommit', async () => {
+      const message = await vscode.window.showInputBox({
+        prompt: 'Enter your first commit message',
+        placeHolder: 'Initial commit',
+        value: 'Initial commit',
+      });
+      if (!message) return; // user cancelled
+
+      try {
+        await gitService.createCommit(message);
+        vscode.window.showInformationMessage(`Git Atlas: First commit created!`);
+        await stateEngine.buildGraph();
+      } catch (err) {
+        vscode.window.showErrorMessage(
+          `Git Atlas: Failed to create commit — ${err instanceof Error ? err.message : err}`
+        );
+      }
+    })
   );
 
   // Build initial graph
@@ -251,7 +311,8 @@ function getWorkspaceRoot(): string | undefined {
 }
 
 /**
- * Register a placeholder sidebar when no git repository is found.
+ * Register a placeholder sidebar when no git repository is found,
+ * with buttons to initialize a repository or publish to GitHub.
  */
 function registerPlaceholderSidebar(
   context: vscode.ExtensionContext
@@ -259,12 +320,18 @@ function registerPlaceholderSidebar(
   const placeholder: vscode.TreeDataProvider<vscode.TreeItem> = {
     getTreeItem: (element) => element,
     getChildren: () => {
-      const item = new vscode.TreeItem(
-        'Open a Git repository to get started',
+      const initItem = new vscode.TreeItem(
+        'Initialize Repository',
         vscode.TreeItemCollapsibleState.None
       );
-      item.iconPath = new vscode.ThemeIcon('info');
-      return [item];
+      initItem.iconPath = new vscode.ThemeIcon('add');
+      initItem.command = {
+        command: 'gitTreeExplorer.initRepository',
+        title: 'Initialize Repository',
+      };
+      initItem.tooltip = 'Create a new Git repository in this folder';
+
+      return [initItem];
     },
   };
 
@@ -273,4 +340,5 @@ function registerPlaceholderSidebar(
       treeDataProvider: placeholder,
     })
   );
+
 }

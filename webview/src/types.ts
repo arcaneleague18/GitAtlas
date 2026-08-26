@@ -281,4 +281,5 @@ export type WebviewToExtensionMessage =
   | { type: 'amend-commit' }
   | { type: 'search-file-in-history'; filePath: string }
   | { type: 'purge-file-from-history'; filePath: string }
-  | { type: 'check-mergeability'; nodeId: string; ref: string };
+  | { type: 'check-mergeability'; nodeId: string; ref: string }
+  | { type: 'first-commit' };

@@ -527,6 +527,10 @@ export class GraphPanelProvider extends DisposableBase {
         });
         break;
       }
+
+      case 'first-commit':
+        void vscode.commands.executeCommand('gitTreeExplorer.firstCommit');
+        break;
     }
   }
 
