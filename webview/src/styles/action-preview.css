@@ -104,6 +104,38 @@
   font-size: 0.9rem;
 }
 
+/* ── Commands ────────────────────────────────────────────────── */
+.action-preview-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.action-preview-command-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-preview-command-prompt {
+  color: #3fb950;
+  font-weight: 700;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.action-preview-command-line code {
+  color: #e6edf3;
+  word-break: break-all;
+}
+
 /* ── Warning ─────────────────────────────────────────────────── */
 .action-preview-warning {
   display: flex;

@@ -155,6 +155,19 @@ function ActionPreviewPanelComponent({
         </div>
       </div>
 
+      {/* Git Commands */}
+      <div className="action-preview-section">
+        <div className="action-preview-section-label">Commands</div>
+        <div className="action-preview-commands">
+          {getGitCommands(action.kind, nodeDetails, currentBranch, isMergeOnly ? mergeStrategy : undefined).map((cmd, i) => (
+            <div key={i} className="action-preview-command-line">
+              <span className="action-preview-command-prompt">$</span>
+              <code>{cmd}</code>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Danger Warning */}
       {action.isDangerous && (
         <div className="action-preview-warning">
@@ -352,6 +365,103 @@ function getGraphImpact(
       return [
         { icon: '⚡', text: `${kind} will be executed on ${details.label}` },
       ];
+  }
+}
+
+/**
+ * Returns the exact git commands that will be executed for a given action.
+ */
+function getGitCommands(
+  kind: EdgeKind,
+  details: NodeDetails,
+  currentBranch: string | null,
+  mergeStrategy?: 'ff' | 'no-ff' | 'ff-only'
+): string[] {
+  const shortHash = details.hash?.substring(0, 7) ?? details.label;
+  const label = details.label;
+  // For actions that accept either a branch name or a commit hash,
+  // use the branch name if the node is a branch, otherwise use the hash.
+  const isBranch = details.kind === 'branch' || details.kind === 'remote-branch';
+  const ref = isBranch ? label : shortHash;
+
+  switch (kind) {
+    case 'switch':
+      // Branches use `git switch`, commits use `git switch --detach`
+      return isBranch
+        ? [`git switch ${ref}`]
+        : [`git switch --detach ${ref}`];
+
+    case 'branch':
+      return [`git branch <name> ${shortHash}`];
+
+    case 'delete-branch':
+      return [`git branch -D ${label}`];
+
+    case 'delete-remote-branch': {
+      const parts = label.split('/');
+      const remote = parts[0];
+      const branch = parts.slice(1).join('/');
+      return [`git push ${remote} --delete ${branch}`];
+    }
+
+    case 'merge': {
+      const strategyFlag =
+        mergeStrategy === 'no-ff' ? ' --no-ff' :
+        mergeStrategy === 'ff-only' ? ' --ff-only' : '';
+      return [`git merge${strategyFlag} ${ref}`];
+    }
+
+    case 'rebase':
+      return [`git rebase ${ref}`];
+
+    case 'cherry-pick':
+      return [`git cherry-pick ${shortHash}`];
+
+    case 'revert':
+      return [`git revert ${shortHash}`];
+
+    case 'reset':
+      return [`git reset --hard ${shortHash}`];
+
+    case 'reset-soft':
+      return [`git reset --soft ${shortHash}`];
+
+    case 'reset-mixed':
+      return [`git reset --mixed ${shortHash}`];
+
+    case 'create-tag':
+      return [`git tag <name> ${shortHash}`];
+
+    case 'commit':
+      return [`git commit -m "<message>"`];
+
+    case 'stash':
+      return [`git stash push -m "<message>"`];
+
+    case 'apply-stash':
+      return [`git stash apply stash@{${(details as any).stashIndex ?? 0}}`];
+
+    case 'pop-stash':
+      return [`git stash pop stash@{${(details as any).stashIndex ?? 0}}`];
+
+    case 'stash-drop':
+      return [`git stash drop stash@{${(details as any).stashIndex ?? 0}}`];
+
+    case 'push':
+      return currentBranch
+        ? [`git push origin ${currentBranch}`]
+        : [`git push`];
+
+    case 'fetch':
+      return [`git fetch --all`];
+
+    case 'delete-commit':
+      return [
+        `git rebase --onto ${shortHash}^ ${shortHash}`,
+      ];
+
+    default:
+      return [`git ${kind} ${ref}`];
   }
 }
 

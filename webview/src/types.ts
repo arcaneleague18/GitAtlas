@@ -43,11 +43,14 @@ export type EdgeKind =
   | 'fetch'
   | 'branch'
   | 'delete-branch'
+  | 'delete-remote-branch'
+  | 'delete-commit'
   | 'tag'
   | 'create-tag'
   | 'stash'
   | 'apply-stash'
-  | 'pop-stash';
+  | 'pop-stash'
+  | 'stash-drop';
 
 export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'conflicted';
 
