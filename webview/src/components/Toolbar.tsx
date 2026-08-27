@@ -44,6 +44,7 @@ function ToolbarComponent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<{ filePath: string; commits: FileSearchCommit[] } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [isConfirmingPurge, setIsConfirmingPurge] = useState<string | null>(null);
   const [isPurging, setIsPurging] = useState<string | null>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const remotePopupRef = useRef<HTMLDivElement>(null);
@@ -59,6 +60,11 @@ function ToolbarComponent() {
       if (msg.type === 'file-search-results') {
         setSearchResults({ filePath: msg.filePath, commits: msg.commits });
         setIsSearching(false);
+      } else if (msg.type === 'file-purge-started') {
+        setIsConfirmingPurge(null);
+        setIsPurging(msg.filePath);
+      } else if (msg.type === 'file-purge-cancelled') {
+        setIsConfirmingPurge(null);
       } else if (msg.type === 'file-purge-result') {
         setIsPurging(null);
         if (msg.success) {
@@ -162,7 +168,7 @@ function ToolbarComponent() {
   }, [searchQuery]);
 
   const handlePurgeFile = useCallback((filePath: string) => {
-    setIsPurging(filePath);
+    setIsConfirmingPurge(filePath);
     postMessage({ type: 'purge-file-from-history', filePath });
   }, []);
 
@@ -255,12 +261,26 @@ function ToolbarComponent() {
                           <button
                             className="file-search-purge-btn danger"
                             onClick={() => handlePurgeFile(searchResults.filePath)}
-                            disabled={isPurging !== null}
+                            disabled={isPurging !== null || isConfirmingPurge !== null}
                             title="Permanently remove this file from all history"
                           >
-                            {isPurging === searchResults.filePath ? '⏳ Purging...' : <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><img src={DeleteIcon} style={{ width: '1.5em', height: '1.5em' }} alt="Delete" /> Purge from History</span>}
+                            {isPurging === searchResults.filePath ? '⏳ Purging...' : 
+                             isConfirmingPurge === searchResults.filePath ? '⏳ Confirming...' :
+                             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><img src={DeleteIcon} style={{ width: '1.5em', height: '1.5em' }} alt="Delete" /> Purge from History</span>}
                           </button>
                         </div>
+
+                        {/* Command Preview for Search */}
+                        <div className="file-search-commands">
+                          <div className="file-search-commands-label">Commands</div>
+                          <div className="file-search-commands-block">
+                            <div className="file-search-command-line">
+                              <span className="file-search-command-prompt">$</span>
+                              <code>git log --all --pretty=format:"%H %h %s %an %aI" -- {searchResults.filePath}</code>
+                            </div>
+                          </div>
+                        </div>
+
                         <div className="file-search-commit-list">
                           {searchResults.commits.map((c) => (
                             <div key={c.hash} className="file-search-commit">
@@ -455,6 +475,50 @@ function ToolbarComponent() {
           </div>
         )}
       </div>
+
+      {/* Full-Screen Purge Loading Overlay */}
+      <AnimatePresence>
+        {isPurging && (
+          <motion.div
+            className="file-purge-loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="file-purge-loading-container">
+              <div className="morphing-spinner" />
+              <div className="file-purge-status">Rewriting history...</div>
+              <div className="file-search-commands-block">
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
+                  <code>git stash push -u -m "auto-stash before purge"</code>
+                </div>
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
+                  <code>git filter-branch --force --index-filter "git rm --cached --ignore-unmatch {isPurging}" --prune-empty --tag-name-filter cat -- --all</code>
+                </div>
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
+                  <code>git stash pop</code>
+                </div>
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
+                  <code>git reflog expire --expire=now --all</code>
+                </div>
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
+                  <code>git gc --prune=now --aggressive</code>
+                </div>
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
+                  <code>git push origin &lt;branch&gt; --force</code>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

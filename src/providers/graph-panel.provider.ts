@@ -504,6 +504,7 @@ export class GraphPanelProvider extends DisposableBase {
           'Purge from History'
         );
         if (purgeChoice === 'Purge from History') {
+          this.postMessage({ type: 'file-purge-started', filePath: message.filePath });
           try {
             const result = await this.gitService.purgeFileFromHistory(message.filePath, true);
             this.postMessage({ type: 'file-purge-result', filePath: message.filePath, success: true, message: result });
@@ -514,6 +515,8 @@ export class GraphPanelProvider extends DisposableBase {
             this.postMessage({ type: 'file-purge-result', filePath: message.filePath, success: false, message: errMsg });
             vscode.window.showErrorMessage(`Git Atlas: Purge failed — ${errMsg}`);
           }
+        } else {
+          this.postMessage({ type: 'file-purge-cancelled', filePath: message.filePath });
         }
         break;
       }

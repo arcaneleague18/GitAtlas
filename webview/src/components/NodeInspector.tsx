@@ -316,6 +316,31 @@ export function NodeInspector() {
                               {' '}Are you sure?
                             </span>
                           </div>
+                          
+                          <div className="file-search-commands-block" style={{ margin: '0 14px 12px', width: 'auto' }}>
+                            {headHash === details.hash ? (
+                              <div className="file-search-command-line">
+                                <span className="file-search-command-prompt">$</span>
+                                <code>git commit --amend -m "&lt;new message&gt;"</code>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="file-search-command-line">
+                                  <span className="file-search-command-prompt">$</span>
+                                  <code>GIT_SEQUENCE_EDITOR="..." git rebase -i {details.hash?.substring(0, 7)}^</code>
+                                </div>
+                                <div className="file-search-command-line">
+                                  <span className="file-search-command-prompt">$</span>
+                                  <code>git commit --amend -m "&lt;new message&gt;"</code>
+                                </div>
+                                <div className="file-search-command-line">
+                                  <span className="file-search-command-prompt">$</span>
+                                  <code>git rebase --continue</code>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
                           <div className="inspector-edit-confirm-actions">
                             <button
                               className="inspector-edit-confirm-btn proceed"
@@ -598,7 +623,7 @@ export function NodeInspector() {
                       {/* Primary Commit Button */}
                       <button
                         className="primary-commit-btn"
-                        disabled={!commitInputMessage.trim() || totalCount === 0}
+                        disabled={!commitInputMessage.trim() || stagedCount === 0}
                         onClick={() => {
                           if (commitInputMessage.trim()) {
                             postMessage({
@@ -612,7 +637,7 @@ export function NodeInspector() {
                           }
                         }}
                       >
-                        ✓ Commit to {currentBranch ?? 'HEAD'} ({stagedCount > 0 ? `${stagedCount} staged` : `${totalCount} all`})
+                        ✓ Commit to {currentBranch ?? 'HEAD'} ({stagedCount} staged)
                       </button>
 
                       {/* Amend Commit Button */}

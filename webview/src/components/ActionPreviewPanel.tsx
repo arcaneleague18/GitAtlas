@@ -159,7 +159,7 @@ function ActionPreviewPanelComponent({
       <div className="action-preview-section">
         <div className="action-preview-section-label">Commands</div>
         <div className="action-preview-commands">
-          {getGitCommands(action.kind, nodeDetails, currentBranch, isMergeOnly ? mergeStrategy : undefined).map((cmd, i) => (
+          {getGitCommands(action.kind, nodeDetails, currentBranch, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
               <span className="action-preview-command-prompt">$</span>
               <code>{cmd}</code>
@@ -375,7 +375,8 @@ function getGitCommands(
   kind: EdgeKind,
   details: NodeDetails,
   currentBranch: string | null,
-  mergeStrategy?: 'ff' | 'no-ff' | 'ff-only'
+  mergeStrategy?: 'ff' | 'no-ff' | 'ff-only',
+  pushMode?: string
 ): string[] {
   const shortHash = details.hash?.substring(0, 7) ?? details.label;
   const label = details.label;
@@ -447,10 +448,12 @@ function getGitCommands(
     case 'stash-drop':
       return [`git stash drop stash@{${(details as any).stashIndex ?? 0}}`];
 
-    case 'push':
+    case 'push': {
+      const pushFlag = pushMode === 'force' ? ' --force' : pushMode === 'force-with-lease' ? ' --force-with-lease' : '';
       return currentBranch
-        ? [`git push origin ${currentBranch}`]
-        : [`git push`];
+        ? [`git push origin ${currentBranch}${pushFlag}`]
+        : [`git push${pushFlag}`];
+    }
 
     case 'fetch':
       return [`git fetch --all`];

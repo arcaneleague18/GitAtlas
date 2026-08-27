@@ -335,6 +335,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'github-context'; context: GitHubContext }
   | { type: 'commit-message-generated'; message: string }
   | { type: 'file-search-results'; filePath: string; commits: { hash: string; shortHash: string; message: string; author: string; date: string }[] }
+  | { type: 'file-purge-started'; filePath: string }
+  | { type: 'file-purge-cancelled'; filePath: string }
   | { type: 'file-purge-result'; filePath: string; success: boolean; message: string }
   | { type: 'mergeability-result'; nodeId: string; canMerge: boolean; status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error'; conflictFiles: string[]; aheadBehind: { ahead: number; behind: number }; message: string };
 

@@ -797,6 +797,129 @@
   color: var(--text-primary);
 }
 
+/* ── File Search Command Previews ────────────────────────── */
+.file-search-commands {
+  padding: 8px 14px;
+}
+
+.file-search-commands-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.file-search-commands-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.file-search-command-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.file-search-command-prompt {
+  color: #3fb950;
+  font-weight: 700;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.file-search-command-line code {
+  color: #e6edf3;
+  word-break: break-all;
+}
+
+/* ── Morphing Spinner ────────────────────────────────────── */
+@keyframes smoothMorph {
+  0% {
+    transform: scale(1) rotate(0deg);
+    border-radius: 50%;
+  }
+  20% {
+    transform: scale(0.9) rotate(72deg);
+    border-radius: 35%;
+  }
+  40% {
+    transform: scale(1.1) rotate(144deg);
+    border-radius: 15%;
+  }
+  60% {
+    transform: scale(0.85) rotate(216deg);
+    border-radius: 8%;
+  }
+  80% {
+    transform: scale(1.05) rotate(288deg);
+    border-radius: 25%;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    border-radius: 50%;
+  }
+}
+
+.morphing-spinner {
+  width: 32px;
+  height: 32px;
+  background: var(--branch-blue);
+  animation: smoothMorph 3s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+/* ── Purge Loading Overlay ───────────────────────────────── */
+.file-purge-loading {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+}
+
+.file-purge-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 40px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  max-width: 90vw;
+  width: 600px;
+}
+
+.file-purge-status {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+
+.file-purge-loading .file-search-commands-block {
+  width: 100%;
+}
+
 /* ── Mergeability Banner ──────────────────────────────────── */
 .mergeability-banner {
   display: flex;
