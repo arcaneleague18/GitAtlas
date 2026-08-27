@@ -327,7 +327,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
     const wdGraphNode = graph.nodes.find(
       ([, node]) => node.kind === 'working-directory'
     );
-    if (wdGraphNode && graph.headHash) {
+    if (wdGraphNode) {
       const [wdId, wdNode] = wdGraphNode;
       const wdData = wdNode.data as WorkingDirectoryNodeData;
       const totalChanges =

@@ -169,22 +169,17 @@ export function GraphView() {
     );
   }
 
-  // Empty state
-  if (commitCount === 0) {
+  // Empty state — only when there are truly no nodes at all
+  // (if there's a working directory node with changes, show the graph instead)
+  if (commitCount === 0 && storeNodes.length === 0) {
     return (
       <div className="graph-empty">
         <div className="graph-empty-icon">⎇</div>
         <div className="graph-empty-title">No commits yet</div>
         <div className="graph-empty-message">
-          This repository has no commits. Create your first commit to see the
-          graph visualization.
+          This repository has no commits and no changes. Add some files to get
+          started.
         </div>
-        <button
-          className="graph-empty-button"
-          onClick={() => postMessage({ type: 'first-commit' })}
-        >
-          Create First Commit
-        </button>
       </div>
     );
   }

@@ -142,33 +142,16 @@ export class SidebarProvider
     }
 
     const commitCount = this.countNodesByKind('commit');
-
-    if (commitCount === 0) {
-      // Show a clickable "Create First Commit" button
-      const firstCommitItem = new SidebarTreeItem(
-        'Create First Commit',
-        vscode.TreeItemCollapsibleState.None,
-        'first-commit'
-      );
-      firstCommitItem.iconPath = new vscode.ThemeIcon('check');
-      firstCommitItem.command = {
-        command: 'gitTreeExplorer.firstCommit',
-        title: 'Create First Commit',
-      };
-      firstCommitItem.tooltip = 'Stage all files and create your first commit';
-      items.push(firstCommitItem);
-    } else {
-      const commitItem = new SidebarTreeItem(
-        `Commits: ${commitCount}`,
-        vscode.TreeItemCollapsibleState.None,
-        'info-commits'
-      );
-      commitItem.iconPath = new vscode.ThemeIcon('git-commit');
-      items.push(commitItem);
-    }
+    const commitItem = new SidebarTreeItem(
+      `Commits: ${commitCount}`,
+      vscode.TreeItemCollapsibleState.None,
+      'info-commits'
+    );
+    commitItem.iconPath = new vscode.ThemeIcon('git-commit');
+    items.push(commitItem);
 
     items.push(
-      new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Collapsed, 'section-working-directory')
+      new SidebarTreeItem('Working Directory', vscode.TreeItemCollapsibleState.Expanded, 'section-working-directory')
     );
 
     const stashCount = this.countNodesByKind('stash');
