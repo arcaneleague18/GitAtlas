@@ -21,15 +21,13 @@ import { DisposableBase } from '../utils/disposable.js';
 import type {
   RepositoryGraph,
   GraphNode,
-  CommitNodeData,
   BranchNodeData,
   TagNodeData,
   StashNodeData,
   WorkingDirectoryNodeData,
 } from '../engine/types.js';
 
-/** Maximum number of recent commits to show in the sidebar. */
-const MAX_SIDEBAR_COMMITS = 50;
+
 
 /**
  * A single item in the sidebar tree.
@@ -57,7 +55,7 @@ export class SidebarProvider
   private graph: RepositoryGraph | null = null;
 
   constructor(
-    private readonly stateEngine: RepositoryStateEngine,
+    stateEngine: RepositoryStateEngine,
     private readonly githubIntegration?: GithubIntegrationEngine
   ) {
     super();
