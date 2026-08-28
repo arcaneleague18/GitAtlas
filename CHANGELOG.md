@@ -2,6 +2,14 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.1.3] - 2026-08-29
+### Added
+- **Command Previews:** View the exact Git commands that will be executed for actions like Push, Force Push, Merge, and Commit Rewording before confirming. Now one can also learn commands while using this.
+
+### Fixed
+- Fixed an issue where cancelling a destructive history action (like Purge from History) would block the button from being used again.
+- **Commit Guardrails:** The primary commit button in the working directory view is now disabled if 0 files are staged, preventing accidental commits.
+
 ## [0.1.2] - 2026-08-26
 ### Added
 - Added native support for the `lm-proxy` AI provider.

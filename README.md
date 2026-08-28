@@ -25,7 +25,7 @@
 - **What can I do from here?** View valid Git actions based on your current node context.
 - **What will happen if I do it?** Preview changes before executing them with dynamic visual highlighting.
 
-The UI makes Git feel like navigating a flowchart instead of wrestling with a terminal.
+The UI makes Git feel like navigating a flowchart instead of wrestling with a terminal. Now one can also learn new Git commands interactively while using this.
 
 ---
 
@@ -56,7 +56,7 @@ Click any commit to edit its message. Git Atlas automatically handles `git commi
 
 Accidentally committed an `.env` file? Search for a file across your entire history and permanently purge it from all commits with a single click.
 <p align="center">
-  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/c6a655d6-0343-4086-9b09-af3778d86079" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/950a4c9b-6c98-4740-bb23-ca97d65fa934" width="100%"></video>
 </p>
 
 > ### Sensitive File Detection
@@ -92,7 +92,7 @@ Git Atlas integrates seamlessly with VS Code's internal language models (like Gi
 
 ## Additional Features
 
-- **Action Previews** — Before executing any action, a centered modal previews what will happen, with clear danger warnings for destructive operations.
+- **Action Previews with Git Commands** — Before executing any action, a centered modal previews what will happen. It now displays the exact Git commands (e.g. `git push --force-with-lease` vs `git push --force`) that will run behind the scenes, alongside clear danger warnings for destructive operations. 
 - **GitHub Integration** — Detects your remote and fetches Pull Requests, Issues, and CI/CD Action statuses. See CI badges and PR links directly on commits.
 - **Time-Travel (Reflog)** — Visually recover lost commits using `--reflog` visualization. Orphaned commits are distinctly styled.
 

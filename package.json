@@ -2,7 +2,7 @@
   "name": "git-atlas",
   "displayName": "Git Atlas",
   "description": "Transform Git into an interactive visual state machine graph. Understand Git through visualization, not commands.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "varunkarli",
   "license": "MIT",
   "repository": {
