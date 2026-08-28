@@ -812,7 +812,7 @@ export class AiAssistantProvider
         } else {
           const toolMsg: ChatMessage = {
             role: 'tool',
-            content: 'User denied permission to execute this action.',
+            content: 'USER DENIED PERMISSION: The user explicitly rejected this action. Do NOT retry this action. Acknowledge their decision and ask what they would like to do instead.',
             tool_call_id: tcp.callId,
             name: tcp.name,
           };
@@ -1095,11 +1095,11 @@ export class AiAssistantProvider
           const argLines = Object.entries(args)
             .filter(([k]) => k !== 'reason')
             .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
-            .join('\\n');
+            .join('\n');
           
-          let modalMsg = `Git Atlas AI wants to execute: ${tc.function.name}\\n\\nReason: ${reason}`;
+          let modalMsg = `Git Atlas AI wants to execute: ${tc.function.name}\n\nReason: ${reason}`;
           if (argLines) {
-            modalMsg += `\\n\\nParameters:\\n${argLines}`;
+            modalMsg += `\n\nParameters:\n${argLines}`;
           }
 
           // Wait for user approval via native modal
@@ -1156,7 +1156,7 @@ export class AiAssistantProvider
           // User rejected — send rejection as tool result
           const toolMsg: ChatMessage = {
             role: 'tool',
-            content: 'User denied permission to execute this action.',
+            content: 'USER DENIED PERMISSION: The user explicitly rejected this action. Do NOT retry this action. Acknowledge their decision and ask what they would like to do instead.',
             tool_call_id: tc.id,
             name: tc.function.name,
           };
@@ -1471,9 +1471,10 @@ IMPORTANT RULES:
 8. Always reference the actual repo state (provided as context) when answering questions.
 9. If you need more information before acting, use get_status or get_log first.
 10. NEVER invent a branch name on your own. If the user asks you to create a branch but doesn't provide a name, ask them for a name before executing the create_branch tool.
-11. When a tool call FAILS, do NOT stop and ask the user what to do. Instead, autonomously diagnose the problem (use get_status, get_log, or get_diff), adjust your approach, and retry with a corrected strategy. Only stop if you've exhausted all reasonable approaches.
+11. When a tool call FAILS due to a GIT ERROR, do NOT stop and ask the user what to do. Instead, autonomously diagnose the problem (use get_status, get_log, or get_diff), adjust your approach, and retry with a corrected strategy. Only stop if you've exhausted all reasonable approaches.
 12. If a commit fails because there is nothing to commit, check the status first to understand why, then adjust (e.g. stage files first, or skip the commit if the goal was already achieved).
 13. When using purge_file_from_history: ALWAYS set force_push=true if the file has been pushed to a remote. After purging, NEVER use reset, merge, pull, fetch, or any action that would sync with the un-purged remote history — doing so would undo the purge entirely. The tool handles everything including the force push.
+14. When a tool call returns "User denied permission" or "Action cancelled by user", the user has EXPLICITLY rejected that action. You MUST stop, acknowledge their decision, and ask what they would like to do instead. NEVER retry the same action or a similar action without the user explicitly asking you to.
 
 Style:
 - Be concise but thorough
