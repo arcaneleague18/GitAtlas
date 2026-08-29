@@ -32,6 +32,7 @@ export function NodeInspector() {
     headHash,
     currentBranch,
     graphNodes,
+    commitCount,
   } = useGraphStore();
 
   // Pending action for preview panel
@@ -643,7 +644,7 @@ export function NodeInspector() {
                       {/* Amend Commit Button */}
                       <button
                         className="secondary-commit-btn"
-                        disabled={stagedCount === 0}
+                        disabled={stagedCount === 0 || commitCount === 0}
                         onClick={() => {
                           postMessage({ type: 'amend-commit' });
                         }}
