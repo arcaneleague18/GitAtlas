@@ -51,6 +51,7 @@ const ACTION_ICONS: Record<string, string> = {
   stash: '📦',
   'apply-stash': '📤',
   'pop-stash': '📤',
+  'reword': '✏️',
 };
 
 function ActionPreviewPanelComponent({
@@ -159,7 +160,7 @@ function ActionPreviewPanelComponent({
       <div className="action-preview-section">
         <div className="action-preview-section-label">Commands</div>
         <div className="action-preview-commands">
-          {getGitCommands(action.kind, nodeDetails, currentBranch, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode).map((cmd, i) => (
+          {getGitCommands(action.kind, nodeDetails, currentBranch, headHash, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
               <span className="action-preview-command-prompt">$</span>
               <code>{cmd}</code>
@@ -361,6 +362,20 @@ function getGraphImpact(
         { icon: '●', text: `It will become the new HEAD on ${branchDisplay}` },
       ];
 
+    case 'delete-commit':
+      return [
+        { icon: '✕', text: `Commit ${targetShort} will be removed from history` },
+        { icon: '●', text: 'Subsequent commits will be rebased' },
+        { icon: '⚠', text: 'Force push may be needed if already pushed' },
+      ];
+
+    case 'reword':
+      return [
+        { icon: '✏️', text: `The message of commit ${targetShort} will be rewritten` },
+        { icon: '●', text: 'Commit hash will change (history rewrite)' },
+        { icon: '⚠', text: 'Force push may be needed if already pushed' },
+      ];
+
     default:
       return [
         { icon: '⚡', text: `${kind} will be executed on ${details.label}` },
@@ -375,6 +390,7 @@ function getGitCommands(
   kind: EdgeKind,
   details: NodeDetails,
   currentBranch: string | null,
+  headHash: string,
   mergeStrategy?: 'ff' | 'no-ff' | 'ff-only',
   pushMode?: string
 ): string[] {
@@ -461,6 +477,19 @@ function getGitCommands(
     case 'delete-commit':
       return [
         `git rebase --onto ${shortHash}^ ${shortHash}`,
+      ];
+
+    case 'reword':
+      // HEAD commit: simple amend; non-HEAD: interactive rebase
+      if (details.hash && details.hash === headHash) {
+        return [
+          `git commit --amend -m "<new message>"`,
+        ];
+      }
+      return [
+        `GIT_SEQUENCE_EDITOR="sed -i 's/^pick ${shortHash}/reword ${shortHash}/'" git rebase -i ${shortHash}^`,
+        `git commit --amend -m "<new message>"`,
+        `git rebase --continue`,
       ];
 
     default:

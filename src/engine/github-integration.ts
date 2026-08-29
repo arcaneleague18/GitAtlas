@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { GithubService, GitHubIssue, GitHubPullRequest, GitHubCommitStatus } from '../services/github.service.js';
+import { GithubService } from '../services/github.service.js';
 import { RepositoryStateEngine } from './state-engine.js';
 import { DisposableBase } from '../utils/disposable.js';
 import type { GitHubContext } from './types.js';
@@ -65,7 +65,7 @@ export class GithubIntegrationEngine extends DisposableBase {
       const commitHashesToFetch = new Set<string>();
 
       const head = graph.nodes.get('HEAD');
-      if (head && head.data.hash) {
+      if (head && 'hash' in head.data && typeof head.data.hash === 'string') {
         commitHashesToFetch.add(head.data.hash);
       }
 
@@ -75,7 +75,7 @@ export class GithubIntegrationEngine extends DisposableBase {
           const branchName = node.label.replace('origin/', '');
           if (this.currentContext.pullRequests[branchName]) {
             // Find the target commit hash for this branch
-            const commitEdge = graph.edges.find(e => e.source === nodeId && e.kind === 'pointer');
+            const commitEdge = graph.edges.find(e => e.source === nodeId && e.kind === 'branch-tip');
             if (commitEdge) {
               commitHashesToFetch.add(commitEdge.target);
             }

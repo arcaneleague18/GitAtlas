@@ -41,9 +41,9 @@ export class GithubService {
     await this.detectRepository();
     if (!this.owner || !this.repo) return false;
 
-    this.session = await vscode.authentication.getSession('github', ['repo'], {
+    this.session = (await vscode.authentication.getSession('github', ['repo'], {
       createIfNone: promptForAuth,
-    });
+    })) ?? null;
 
     return !!this.session;
   }

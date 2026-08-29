@@ -167,7 +167,8 @@ export type EdgeKind =
   | 'stash-pop'
   | 'stash-drop'
   | 'apply-stash'
-  | 'pop-stash';
+  | 'pop-stash'
+  | 'reword';
 
 /** An edge in the repository graph. */
 export interface GraphEdge {
@@ -421,6 +422,7 @@ export interface RawStash {
   message: string;
   hash: string;
   timestamp: number;
+  parentHash: string;
 }
 
 export interface RawRemote {

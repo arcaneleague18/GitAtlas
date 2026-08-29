@@ -139,8 +139,7 @@ export async function activate(
     context.extensionUri,
     stateEngine,
     gitService,
-    actionExecutor,
-    githubIntegration
+    actionExecutor
   );
   context.subscriptions.push(graphPanel);
 

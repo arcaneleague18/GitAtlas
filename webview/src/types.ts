@@ -50,7 +50,8 @@ export type EdgeKind =
   | 'stash'
   | 'apply-stash'
   | 'pop-stash'
-  | 'stash-drop';
+  | 'stash-drop'
+  | 'reword';
 
 export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'conflicted';
 

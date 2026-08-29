@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import type { GitService } from '../services/git.service.js';
-import * as path from 'path';
 
 /**
  * Provides read-only documents for Git files at specific commits.

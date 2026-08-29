@@ -65,7 +65,6 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
 
   const isHead = node.id === graph.headHash;
   const isOnCurrentBranch = node.isCurrentBranch;
-  const hasBranches = data.branches.length > 0;
   const hasTags = data.tags.length > 0;
   const isMergeCommit = data.parentHashes.length > 1;
   const isInSpecialState = graph.state === 'merging' || graph.state === 'rebasing' || graph.state === 'cherry-picking';
@@ -249,9 +248,7 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
   }
 
   // If this commit has branches with an upstream, offer push
-  const pushableBranches = data.branches.filter(
-    (b) => !b.includes('/') && b !== graph.currentBranch
-  );
+  // (Previously evaluated pushableBranches here, removed as it was unused)
   // Also offer push for current branch at HEAD
   if (isHead && graph.currentBranch) {
     actions.push({
@@ -491,13 +488,6 @@ function getStashActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction
 function getWorkingDirectoryActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
   return [
     {
-      kind: 'commit',
-      label: 'Commit',
-      description: 'Create a new commit from staged changes',
-      enabled: true,
-      isDangerous: false,
-    },
-    {
       kind: 'stash',
       label: 'Stash',
       description: 'Save your changes temporarily',
@@ -510,15 +500,7 @@ function getWorkingDirectoryActions(_node: GraphNode, _graph: RepositoryGraph): 
 // ── Index Actions ──────────────────────────────────────────────
 
 function getIndexActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
-  return [
-    {
-      kind: 'commit',
-      label: 'Commit',
-      description: 'Create a new commit from staged changes',
-      enabled: true,
-      isDangerous: false,
-    },
-  ];
+  return [];
 }
 
 // ── Detached Head Actions ──────────────────────────────────────

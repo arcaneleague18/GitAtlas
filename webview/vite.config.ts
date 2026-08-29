@@ -9,6 +9,7 @@ export default defineConfig({
     outDir: resolve(__dirname, '..', 'dist', 'webview'),
     emptyOutDir: true,
     sourcemap: false,
+    chunkSizeWarningLimit: 700,
     // Single chunk for CSP compatibility in VS Code webviews
     rollupOptions: {
       output: {

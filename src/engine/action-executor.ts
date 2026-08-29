@@ -65,7 +65,7 @@ export class ActionExecutor {
           cancellable: false,
         },
         async () => {
-          if (action === 'delete-commit') {
+          if (action === 'delete-commit' || action === 'reword') {
             const hash = (node.data as any).hash || node.id;
             try {
               wasPushed = await this.gitService.isCommitPushed(hash);
@@ -78,10 +78,11 @@ export class ActionExecutor {
       );
 
       // 4. Success Notification
-      if (action === 'delete-commit' && wasPushed && graph.currentBranch) {
+      if ((action === 'delete-commit' || action === 'reword') && wasPushed && graph.currentBranch) {
+        const actionLabel = action === 'reword' ? 'Commit message changed' : 'Commit deleted';
         const forcePush = 'Force Push (--force-with-lease)';
         const choice = await vscode.window.showWarningMessage(
-          `Git Atlas: Commit deleted. This commit was already pushed to the remote. ` +
+          `Git Atlas: ${actionLabel}. This commit was already pushed to the remote. ` +
           `You need to force-push to update the remote branch "${graph.currentBranch}".`,
           { modal: false },
           forcePush
@@ -229,6 +230,18 @@ export class ActionExecutor {
       return true;
     }
 
+    if (action === 'reword') {
+      const newMessage = await vscode.window.showInputBox({
+        prompt: 'Enter new commit message',
+        placeHolder: 'New commit message',
+        value: node.data?.message || '',
+        validateInput: (value) => (value.trim() ? null : 'Commit message cannot be empty'),
+      });
+      if (!newMessage || !newMessage.trim()) return false;
+      node._tempRewordMessage = newMessage.trim();
+      return true;
+    }
+
     // All other actions are already confirmed by the webview preview panel
     return true;
   }
@@ -313,6 +326,11 @@ export class ActionExecutor {
       case 'delete-commit':
         await this.gitService.deleteCommit(hash);
         break;
+      case 'reword': {
+        const isHead = hash === this.stateEngine.graph?.headHash;
+        await this.gitService.rewordCommitMessage(hash, node._tempRewordMessage, isHead);
+        break;
+      }
       default:
         throw new Error(`Action ${action} is not yet implemented.`);
     }
@@ -341,6 +359,7 @@ export class ActionExecutor {
       push: 'Pushing',
       pull: 'Pulling',
       fetch: 'Fetching',
+      reword: 'Rewording commit',
     };
     return verbs[action] || 'Executing';
   }

@@ -40,13 +40,7 @@ interface ToolCall {
   };
 }
 
-interface PendingToolCall {
-  id: string;
-  name: string;
-  args: Record<string, any>;
-  reason: string;
-  isDangerous: boolean;
-}
+
 
 // ── Tool Definitions ─────────────────────────────────────────────
 
@@ -408,7 +402,7 @@ const TOOL_DEFINITIONS = [
 const READ_ONLY_TOOLS = new Set(['get_status', 'get_log', 'get_diff']);
 
 /** Tool names that are destructive and need extra warning */
-const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes', 'purge_file_from_history', 'reword_commit']);
+const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discard_changes', 'purge_file_from_history']);
 
 
 export class AiAssistantProvider
@@ -525,7 +519,7 @@ export class AiAssistantProvider
       if (provider !== 'vscode-lm') {
         await this.handleCompatibleRequest(provider, context, userMessage);
       } else {
-        await this.handleVsCodeLmRequest(context, userMessage);
+        await this.handleVsCodeLmRequest(context);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -541,8 +535,7 @@ export class AiAssistantProvider
    * Supports full agentic tool calling via vscode.lm's LanguageModelChatTool API.
    */
   private async handleVsCodeLmRequest(
-    context: string,
-    userMessage: string
+    context: string
   ): Promise<void> {
     // Select an available model
     const models = await vscode.lm.selectChatModels({

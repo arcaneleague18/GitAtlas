@@ -223,7 +223,6 @@ export class GraphPanelProvider extends DisposableBase {
             const parentRef = `${message.commitHash}~1`;
             const shortHash = message.commitHash.substring(0, 7);
             const fileName = message.filePath.split('/').pop() ?? message.filePath;
-            const repoPath = vscode.Uri.joinPath(workspaceFolder.uri, message.filePath).fsPath;
 
             // Use our custom gitvis scheme that reads using git show directly
             const leftUri = vscode.Uri.from({
