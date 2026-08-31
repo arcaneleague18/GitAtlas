@@ -56,7 +56,7 @@ Click any commit to edit its message. Git Atlas automatically handles `git commi
 
 Accidentally committed an `.env` file? Search for a file across your entire history and permanently purge it from all commits with a single click.
 <p align="center">
-  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/950a4c9b-6c98-4740-bb23-ca97d65fa934" width="100%"></video>
+  <video autoplay loop muted playsinline src="https://github.com/user-attachments/assets/96e35d4a-c0c5-4cca-b154-4ab851b8078a" width="100%"></video>
 </p>
 
 > ### Sensitive File Detection
