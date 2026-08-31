@@ -2,14 +2,17 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
-## [0.1.3] - 2026-08-29
+## [0.1.3] - 2026-08-31
 ### Added
 - **Command Previews:** View the exact Git commands that will be executed for actions like Push, Force Push, Merge, and Commit Rewording before confirming. Now one can also learn commands while using this.
+- **Disabled Reason Tooltips:** Added contextual tooltips explaining why a button is disabled when hovering over grayed-out buttons across the interface (Toolbar, Node Inspector, Action Menu).
+- **Custom Merge Messages:** Added the ability to specify a custom commit message when performing a Merge action via the Action Preview panel.
 
 ### Fixed
 - Fixed an issue where cancelling a destructive history action (like Purge from History) would block the button from being used again.
 - Fixed denial looping for AI assistant.
 - **Commit Guardrails:** The primary commit button in the working directory view is now disabled if 0 files are staged, preventing accidental commits.
+- Fixed an issue where diff stats and file lists were not displaying for merge commits (updated `diff-tree` to use `--first-parent`).
 
 ## [0.1.2] - 2026-08-26
 ### Added
