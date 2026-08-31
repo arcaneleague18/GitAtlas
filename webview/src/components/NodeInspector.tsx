@@ -379,6 +379,7 @@ export function NodeInspector() {
                             <button
                               className="inspector-edit-confirm-btn proceed"
                               disabled={!editedMessage.trim() || editedMessage === details.message}
+                              title={!editedMessage.trim() ? 'Enter a new commit message' : editedMessage === details.message ? 'Message is unchanged' : 'Save new commit message'}
                               onClick={() => {
                                 postMessage({
                                   type: 'reword-commit',
@@ -559,7 +560,7 @@ export function NodeInspector() {
                             setIsGeneratingMessage(true);
                             postMessage({ type: 'generate-commit-message' });
                           }}
-                          title="Generate commit message using AI"
+                          title={isGeneratingMessage ? 'Generating...' : totalCount === 0 ? 'No changes to generate a message for' : 'Generate commit message using AI'}
                         >
                           {isGeneratingMessage ? 'Generating...' : 'Generate 🪄'}
                         </button>
@@ -625,6 +626,7 @@ export function NodeInspector() {
                       <button
                         className="primary-commit-btn"
                         disabled={!commitInputMessage.trim() || stagedCount === 0}
+                        title={stagedCount === 0 ? 'Stage files before committing' : !commitInputMessage.trim() ? 'Enter a commit message' : `Commit ${stagedCount} staged file${stagedCount !== 1 ? 's' : ''}`}
                         onClick={() => {
                           if (commitInputMessage.trim()) {
                             postMessage({
@@ -645,6 +647,7 @@ export function NodeInspector() {
                       <button
                         className="secondary-commit-btn"
                         disabled={stagedCount === 0 || commitCount === 0}
+                        title={commitCount === 0 ? 'No previous commit to amend' : stagedCount === 0 ? 'Stage files before amending' : `Amend previous commit with ${stagedCount} staged file${stagedCount !== 1 ? 's' : ''}`}
                         onClick={() => {
                           postMessage({ type: 'amend-commit' });
                         }}

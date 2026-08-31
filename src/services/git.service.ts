@@ -654,11 +654,17 @@ export class GitService {
   async getDiffStats(commitHash: string): Promise<DiffFileStat[]> {
     try {
       // --numstat outputs: insertions deletions path
+      // -m is needed for merge commits (which have multiple parents);
+      // without it, diff-tree silently produces no output for merges.
+      // --first-parent diffs against the first parent only (the branch
+      // being merged *into*), which is the most intuitive view.
       const output = await this.exec([
         'diff-tree',
         '--no-commit-id',
         '--numstat',
         '--root',
+        '-m',
+        '--first-parent',
         '-r',
         commitHash,
       ]);
@@ -717,7 +723,7 @@ export class GitService {
     await this.exec(['push', remote, '--delete', branch]);
   }
 
-  async merge(ref: string, strategy?: 'ff' | 'no-ff' | 'ff-only'): Promise<void> {
+  async merge(ref: string, strategy?: 'ff' | 'no-ff' | 'ff-only', message?: string): Promise<void> {
     const args = ['merge'];
     if (strategy === 'no-ff') {
       args.push('--no-ff');
@@ -725,6 +731,9 @@ export class GitService {
       args.push('--ff-only');
     }
     // Default ('ff') uses git's default behavior (fast-forward when possible)
+    if (message?.trim()) {
+      args.push('-m', message.trim());
+    }
     args.push(ref);
     await this.exec(args);
   }

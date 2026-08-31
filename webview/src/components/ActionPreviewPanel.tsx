@@ -72,6 +72,7 @@ function ActionPreviewPanelComponent({
 
   // Merge strategy state
   const [mergeStrategy, setMergeStrategy] = useState<'ff' | 'no-ff' | 'ff-only'>('ff');
+  const [mergeMessage, setMergeMessage] = useState('');
 
   const graphImpact = useMemo(
     () => getGraphImpact(action.kind, nodeDetails, shortHead, currentBranch, targetShort),
@@ -160,7 +161,7 @@ function ActionPreviewPanelComponent({
       <div className="action-preview-section">
         <div className="action-preview-section-label">Commands</div>
         <div className="action-preview-commands">
-          {getGitCommands(action.kind, nodeDetails, currentBranch, headHash, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode).map((cmd, i) => (
+          {getGitCommands(action.kind, nodeDetails, currentBranch, headHash, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode, isMergeOnly ? mergeMessage : undefined).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
               <span className="action-preview-command-prompt">$</span>
               <code>{cmd}</code>
@@ -222,6 +223,17 @@ function ActionPreviewPanelComponent({
               </div>
             </label>
           </div>
+          {mergeStrategy !== 'ff-only' && (
+            <div className="merge-message-input-container" style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="action-preview-section-label" style={{ margin: 0 }}>Custom Merge Message (optional)</div>
+              <textarea
+                className="inspector-message-editor"
+                placeholder="Leave blank for default Git merge message..."
+                value={mergeMessage}
+                onChange={(e) => setMergeMessage(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -237,7 +249,9 @@ function ActionPreviewPanelComponent({
           className={`action-preview-btn action-preview-btn-proceed ${
             action.isDangerous ? 'danger' : ''
           }`}
-          onClick={() => onProceed(isMergeOnly ? { mergeStrategy } : undefined)}
+          onClick={() => onProceed(isMergeOnly ? { mergeStrategy, mergeMessage } : undefined)}
+          disabled={!!(isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge)))}
+          title={isMergeAction && isCheckingMerge ? 'Checking mergeability...' : isMergeAction && mergeability && !mergeability.canMerge ? 'Cannot merge due to conflicts' : undefined}
         >
           {action.isDangerous ? '⚠ Proceed' : 'Proceed'}
         </button>
@@ -392,7 +406,8 @@ function getGitCommands(
   currentBranch: string | null,
   headHash: string,
   mergeStrategy?: 'ff' | 'no-ff' | 'ff-only',
-  pushMode?: string
+  pushMode?: string,
+  mergeMessage?: string
 ): string[] {
   const shortHash = details.hash?.substring(0, 7) ?? details.label;
   const label = details.label;
@@ -425,7 +440,8 @@ function getGitCommands(
       const strategyFlag =
         mergeStrategy === 'no-ff' ? ' --no-ff' :
         mergeStrategy === 'ff-only' ? ' --ff-only' : '';
-      return [`git merge${strategyFlag} ${ref}`];
+      const msgFlag = mergeMessage?.trim() ? ` -m "${mergeMessage.trim().replace(/"/g, '\\"')}"` : '';
+      return [`git merge${strategyFlag}${msgFlag} ${ref}`];
     }
 
     case 'rebase':

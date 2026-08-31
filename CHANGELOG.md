@@ -8,6 +8,7 @@ All notable changes to the "git-atlas" extension will be documented in this file
 
 ### Fixed
 - Fixed an issue where cancelling a destructive history action (like Purge from History) would block the button from being used again.
+- Fixed denial looping for AI assistant.
 - **Commit Guardrails:** The primary commit button in the working directory view is now disabled if 0 files are staged, preventing accidental commits.
 
 ## [0.1.2] - 2026-08-26

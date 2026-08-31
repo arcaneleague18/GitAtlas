@@ -278,7 +278,8 @@ export class ActionExecutor {
       case 'merge': {
         const ref = node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash;
         const mergeStrategy = args?.mergeStrategy as 'ff' | 'no-ff' | 'ff-only' | undefined;
-        await this.gitService.merge(ref, mergeStrategy);
+        const mergeMessage = args?.mergeMessage as string | undefined;
+        await this.gitService.merge(ref, mergeStrategy, mergeMessage);
         break;
       }
       case 'rebase':

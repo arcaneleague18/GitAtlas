@@ -240,6 +240,7 @@ function ToolbarComponent() {
                     className="file-search-btn"
                     onClick={handleSearchSubmit}
                     disabled={isSearching || !searchQuery.trim()}
+                    title={isSearching ? 'Searching...' : !searchQuery.trim() ? 'Enter a file path to search' : 'Search for file in history'}
                   >
                     {isSearching ? '...' : 'Search'}
                   </button>
@@ -262,7 +263,7 @@ function ToolbarComponent() {
                             className="file-search-purge-btn danger"
                             onClick={() => handlePurgeFile(searchResults.filePath)}
                             disabled={isPurging !== null || isConfirmingPurge !== null}
-                            title="Permanently remove this file from all history"
+                            title={isPurging !== null ? 'Purge in progress...' : isConfirmingPurge !== null ? 'Waiting for confirmation...' : 'Permanently remove this file from all history'}
                           >
                             {isPurging === searchResults.filePath ? '⏳ Purging...' : 
                              isConfirmingPurge === searchResults.filePath ? '⏳ Confirming...' :

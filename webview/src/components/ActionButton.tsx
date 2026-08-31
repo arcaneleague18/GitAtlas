@@ -72,18 +72,23 @@ function ActionButtonComponent({ action, onAction }: ActionButtonProps) {
   const icon = ACTION_ICONS[action.kind] ?? '⚡';
 
   return (
-    <div className="action-button-wrapper" style={{ position: 'relative' }} ref={dropdownRef}>
+    <div
+      className="action-button-wrapper"
+      style={{ position: 'relative' }}
+      ref={dropdownRef}
+      title={
+        action.enabled
+          ? action.description
+          : action.disabledReason ?? 'Not available'
+      }
+    >
       <motion.button
         className={`action-button ${action.isDangerous ? 'danger' : ''} ${
           !action.enabled ? 'disabled' : ''
         } ${showDropdown ? 'active' : ''}`}
         onClick={handleClick}
         disabled={!action.enabled}
-        title={
-          action.enabled
-            ? action.description
-            : action.disabledReason ?? 'Not available'
-        }
+        style={!action.enabled ? { pointerEvents: 'none' } : {}}
         whileHover={action.enabled && !showDropdown ? { y: -2, scale: 1.02 } : {}}
         whileTap={action.enabled ? { scale: 0.97 } : {}}
         transition={{ duration: 0.15 }}
