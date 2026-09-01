@@ -1081,8 +1081,10 @@ export class GitService {
       // If stash fails, try to proceed anyway
     }
 
-    // Step 2: Rewrite entire history to remove the file from all commits
-    const filterCmd = `git rm --cached --ignore-unmatch ${filePath}`;
+    // Step 2: Rewrite entire history to remove the file/folder from all commits
+    // We must properly quote the file path so the shell eval inside filter-branch doesn't split it on spaces
+    const escapedFilePath = filePath.replace(/'/g, "'\\''");
+    const filterCmd = `git rm -r --cached --ignore-unmatch '${escapedFilePath}'`;
     try {
       await execFileAsync(this.gitPath, [
         'filter-branch',

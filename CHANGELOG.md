@@ -2,6 +2,13 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.1.4] - 2026-09-01
+### Added
+- **Directory Purging:** The "Purge from History" feature now recursively supports entire folders/directories, completely removing them from all commits in the repository.
+
+### Fixed
+- Fixed a bug where purging files or folders with spaces in their names (e.g. `uml diagrams`) would silently fail and spin indefinitely because the path wasn't quoted correctly in the underlying `filter-branch` command.
+
 ## [0.1.3] - 2026-08-31
 ### Added
 - **Command Previews:** View the exact Git commands that will be executed for actions like Push, Force Push, Merge, and Commit Rewording before confirming. Now one can also learn commands while using this.

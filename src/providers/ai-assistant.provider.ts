@@ -368,11 +368,11 @@ const TOOL_DEFINITIONS = [
     type: 'function' as const,
     function: {
       name: 'purge_file_from_history',
-      description: 'Permanently remove a file from the ENTIRE Git history. This rewrites all commits using filter-branch so the file never existed. Use when a sensitive file (.env, secrets, credentials, API keys) was accidentally committed. WARNING: This rewrites history. Set force_push to true to automatically sync with the remote. CRITICAL: After this tool runs, do NOT reset, merge, pull, or fetch from origin — that would undo the purge.',
+      description: 'Permanently remove a file/folder from the ENTIRE Git history. This rewrites all commits using filter-branch so the file/folder never existed. Use when a sensitive file (.env, secrets, credentials, API keys) or folder was accidentally committed. WARNING: This rewrites history. Set force_push to true to automatically sync with the remote. CRITICAL: After this tool runs, do NOT reset, merge, pull, or fetch from origin — that would undo the purge.',
       parameters: {
         type: 'object',
         properties: {
-          file: { type: 'string', description: 'File path to purge from history (e.g. ".env", "config/secrets.json")' },
+          file: { type: 'string', description: 'File/folder path to purge from history (e.g. ".env", "config/secrets.json", "node_modules/")' },
           force_push: { type: 'boolean', description: 'If true, automatically force-push to origin after purging. Recommended when the file has already been pushed to a remote.' },
           reason: { type: 'string', description: 'Brief explanation of why this file needs to be purged from history' },
         },

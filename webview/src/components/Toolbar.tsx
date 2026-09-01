@@ -205,7 +205,7 @@ function ToolbarComponent() {
           <button
             className={`toolbar-button ${isSearchOpen ? 'active' : ''}`}
             onClick={handleToggleSearch}
-            title="Search File in History"
+            title="Search File/Folder in History"
             style={{ fontSize: '14px' }}
           >
             <img src={SearchIcon} style={{ width: '1.5em', height: '1.5em' }} alt="Search" />
@@ -221,7 +221,7 @@ function ToolbarComponent() {
                 className="file-search-popup"
               >
                 <div className="file-search-header">
-                  <span className="file-search-title"><img src={SearchIcon} style={{ width: '1.5em', height: '1.5em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />Search File in History</span>
+                  <span className="file-search-title"><img src={SearchIcon} style={{ width: '1.5em', height: '1.5em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />Search File/Folder in History</span>
                 </div>
                 <div className="file-search-input-row">
                   <input
@@ -240,7 +240,7 @@ function ToolbarComponent() {
                     className="file-search-btn"
                     onClick={handleSearchSubmit}
                     disabled={isSearching || !searchQuery.trim()}
-                    title={isSearching ? 'Searching...' : !searchQuery.trim() ? 'Enter a file path to search' : 'Search for file in history'}
+                    title={isSearching ? 'Searching...' : !searchQuery.trim() ? 'Enter a file/folder path to search' : 'Search for file/folder in history'}
                   >
                     {isSearching ? '...' : 'Search'}
                   </button>
@@ -263,7 +263,7 @@ function ToolbarComponent() {
                             className="file-search-purge-btn danger"
                             onClick={() => handlePurgeFile(searchResults.filePath)}
                             disabled={isPurging !== null || isConfirmingPurge !== null}
-                            title={isPurging !== null ? 'Purge in progress...' : isConfirmingPurge !== null ? 'Waiting for confirmation...' : 'Permanently remove this file from all history'}
+                            title={isPurging !== null ? 'Purge in progress...' : isConfirmingPurge !== null ? 'Waiting for confirmation...' : 'Permanently remove this file/folder from all history'}
                           >
                             {isPurging === searchResults.filePath ? '⏳ Purging...' : 
                              isConfirmingPurge === searchResults.filePath ? '⏳ Confirming...' :
@@ -497,7 +497,7 @@ function ToolbarComponent() {
                 </div>
                 <div className="file-search-command-line">
                   <span className="file-search-command-prompt">$</span>
-                  <code>git filter-branch --force --index-filter "git rm --cached --ignore-unmatch {isPurging}" --prune-empty --tag-name-filter cat -- --all</code>
+                  <code>git filter-branch --force --index-filter "git rm -r --cached --ignore-unmatch '{isPurging}'" --prune-empty --tag-name-filter cat -- --all</code>
                 </div>
                 <div className="file-search-command-line">
                   <span className="file-search-command-prompt">$</span>
