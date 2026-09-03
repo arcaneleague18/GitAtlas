@@ -908,6 +908,17 @@ export class GitService {
     await this.exec(args);
   }
 
+  async pull(remote?: string, branch?: string): Promise<void> {
+    const args = ['pull'];
+    if (remote) {
+      args.push(remote);
+      if (branch) {
+        args.push(branch);
+      }
+    }
+    await this.exec(args);
+  }
+
   async show(ref: string, relativePath: string): Promise<string> {
     const stdout = await this.exec(['show', `${ref}:${relativePath}`]);
     return stdout;

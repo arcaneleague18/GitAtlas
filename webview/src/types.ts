@@ -269,6 +269,7 @@ export type WebviewToExtensionMessage =
   | { type: 'open-file'; path: string }
   | { type: 'show-diff'; commitHash: string; filePath: string }
   | { type: 'refresh' }
+  | { type: 'pull' }
   | { type: 'toggle-lost-commits'; enabled: boolean }
   | { type: 'load-more' }
   | { type: 'edit-remote-url' }

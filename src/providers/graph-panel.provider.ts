@@ -205,6 +205,27 @@ export class GraphPanelProvider extends DisposableBase {
         );
         break;
 
+      case 'pull':
+        void vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.SourceControl,
+            title: 'Git Atlas: Pulling...',
+          },
+          async () => {
+            try {
+              this.postMessage({ type: 'loading', loading: true });
+              await this.gitService.pull();
+              await this.stateEngine.buildGraph();
+            } catch (err) {
+              console.error('Git Atlas: Pull failed', err);
+              vscode.window.showErrorMessage('Git Atlas: Failed to pull from remote.');
+            } finally {
+              this.postMessage({ type: 'loading', loading: false });
+            }
+          }
+        );
+        break;
+
       case 'open-file': {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (workspaceFolder) {

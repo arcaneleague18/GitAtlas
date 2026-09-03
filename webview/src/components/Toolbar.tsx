@@ -128,7 +128,11 @@ function ToolbarComponent() {
 
   const handleRefresh = useCallback(() => {
     postMessage({ type: 'refresh' });
-  }, []);
+  }, [postMessage]);
+
+  const handlePull = useCallback(() => {
+    postMessage({ type: 'pull' });
+  }, [postMessage]);
 
   const handleToggleLostCommits = useCallback(() => {
     const newValue = !showLostCommits;
@@ -373,8 +377,15 @@ function ToolbarComponent() {
         <div className="toolbar-separator" />
         <button
           className="toolbar-button"
+          onClick={handlePull}
+          title="Pull from Remote"
+        >
+          ↓
+        </button>
+        <button
+          className="toolbar-button"
           onClick={handleRefresh}
-          title="Refresh Graph"
+          title="Fetch from remote"
         >
           ⟳
         </button>

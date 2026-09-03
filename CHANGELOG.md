@@ -2,6 +2,10 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.1.5] - 2026-09-04
+### Added
+- **Pull Button:** Added a dedicated pull from remote button in the toolbar to pull changes from the remote repository.
+
 ## [0.1.4] - 2026-09-01
 ### Added
 - **Directory Purging:** The "Purge from History" feature now recursively supports entire folders/directories, completely removing them from all commits in the repository.
