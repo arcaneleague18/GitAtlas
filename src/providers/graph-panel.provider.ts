@@ -72,7 +72,7 @@ export class GraphPanelProvider extends DisposableBase {
 
     // Create new panel
     this.panel = vscode.window.createWebviewPanel(
-      'gitTreeExplorer.graphView',
+      'gitAtlas.graphView',
       'Git Atlas Graph',
       vscode.ViewColumn.One,
       {
@@ -173,7 +173,7 @@ export class GraphPanelProvider extends DisposableBase {
       case 'node-selected':
         // Fire a command that other parts of the extension can listen to
         void vscode.commands.executeCommand(
-          'gitTreeExplorer.nodeSelected',
+          'gitAtlas.nodeSelected',
           message.nodeId
         );
         // Fetch and send details + valid actions for the inspector
@@ -552,7 +552,7 @@ export class GraphPanelProvider extends DisposableBase {
       }
 
       case 'first-commit':
-        void vscode.commands.executeCommand('gitTreeExplorer.firstCommit');
+        void vscode.commands.executeCommand('gitAtlas.firstCommit');
         break;
     }
   }

@@ -174,7 +174,7 @@ export class SidebarProvider
       );
       publishItem.iconPath = new vscode.ThemeIcon('github');
       publishItem.command = {
-        command: 'gitTreeExplorer.publishToGitHub',
+        command: 'gitAtlas.publishToGitHub',
         title: 'Publish to GitHub',
       };
       publishItem.tooltip = 'Create a GitHub repository and push this folder';
@@ -297,7 +297,7 @@ export class SidebarProvider
 
       item.tooltip = `Branch: ${data.name}${data.upstream ? `\nUpstream: ${data.upstream}` : ''}`;
       item.command = {
-        command: 'gitTreeExplorer.selectNode',
+        command: 'gitAtlas.selectNode',
         title: 'Select Node',
         arguments: [node.id],
       };
@@ -319,7 +319,7 @@ export class SidebarProvider
       );
       item.iconPath = new vscode.ThemeIcon('cloud');
       item.command = {
-        command: 'gitTreeExplorer.selectNode',
+        command: 'gitAtlas.selectNode',
         title: 'Select Node',
         arguments: [node.id],
       };
@@ -414,7 +414,7 @@ export class SidebarProvider
       item.description = `stash@{${data.index}}`;
       item.iconPath = new vscode.ThemeIcon('archive');
       item.command = {
-        command: 'gitTreeExplorer.selectNode',
+        command: 'gitAtlas.selectNode',
         title: 'Select Node',
         arguments: [node.id],
       };
@@ -441,7 +441,7 @@ export class SidebarProvider
         item.tooltip = data.message;
       }
       item.command = {
-        command: 'gitTreeExplorer.selectNode',
+        command: 'gitAtlas.selectNode',
         title: 'Select Node',
         arguments: [node.id],
       };

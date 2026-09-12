@@ -408,7 +408,7 @@ const DANGEROUS_TOOLS = new Set(['reset', 'delete_branch', 'delete_tag', 'discar
 export class AiAssistantProvider
   extends DisposableBase
   implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'gitTreeExplorer.aiAssistant';
+  public static readonly viewType = 'gitAtlas.aiAssistant';
 
   private view: vscode.WebviewView | null = null;
   private chatHistory: ChatMessage[] = [];
@@ -429,8 +429,8 @@ export class AiAssistantProvider
     // Listen for provider configuration changes to automatically fill the base URL
     this.register(
       vscode.workspace.onDidChangeConfiguration((e) => {
-        if (e.affectsConfiguration('gitTreeExplorer.ai.provider')) {
-          const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
+        if (e.affectsConfiguration('gitAtlas.ai.provider')) {
+          const config = vscode.workspace.getConfiguration('gitAtlas.ai');
           const provider = config.get<string>('provider');
           let newBaseUrl = '';
 
@@ -512,7 +512,7 @@ export class AiAssistantProvider
     const context = this.buildRepositoryContext();
 
     // Determine provider
-    const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
+    const config = vscode.workspace.getConfiguration('gitAtlas.ai');
     const provider = config.get<string>('provider', 'vscode-lm');
 
     try {
@@ -555,7 +555,7 @@ export class AiAssistantProvider
       this.postToWebview({
         type: 'chat-error',
         error:
-          'No language model available. Please install GitHub Copilot or configure a custom API key in settings (gitTreeExplorer.ai.provider → openai).',
+          'No language model available. Please install GitHub Copilot or configure a custom API key in settings (gitAtlas.ai.provider → openai).',
       });
       return;
     }
@@ -842,7 +842,7 @@ export class AiAssistantProvider
     context: string,
     _userMessage: string
   ): Promise<void> {
-    const config = vscode.workspace.getConfiguration('gitTreeExplorer.ai');
+    const config = vscode.workspace.getConfiguration('gitAtlas.ai');
     const apiKey = config.get<string>('apiKey') || config.get<string>('openaiApiKey') || '';
     const model = config.get<string>('model') || config.get<string>('openaiModel') || 'gpt-4o-mini';
     const rawBaseUrl = config.get<string>('baseUrl') || config.get<string>('customBaseUrl') || config.get<string>('openaiBaseUrl') || 'https://api.openai.com/v1';

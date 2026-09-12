@@ -60,7 +60,7 @@ export class RepositoryStateEngine extends DisposableBase {
   constructor(private readonly gitService: GitService) {
     super();
     this.register(this._onDidChangeGraph);
-    const config = vscode.workspace.getConfiguration('gitTreeExplorer');
+    const config = vscode.workspace.getConfiguration('gitAtlas');
     this._currentMaxCount = config.get<number>('maxCommits', 500);
     this._showLostCommits = config.get<boolean>('showLostCommits', false);
   }

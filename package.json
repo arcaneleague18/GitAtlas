@@ -9,12 +9,17 @@
     "type": "git",
     "url": "https://github.com/arcaneleague18/GitAtlas"
   },
+  "sponsor": {
+    "url": "https://www.buymeacoffee.com/varunkarli"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
     "SCM Providers",
-    "Visualization"
+    "Visualization",
+    "AI",
+    "Chat"
   ],
   "icon": "resources/icons/main_icon.png",
   "keywords": [
@@ -33,21 +38,21 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "gitTreeExplorer",
+          "id": "gitAtlas",
           "title": "Git Atlas",
           "icon": "resources/icons/main_icon.png"
         }
       ]
     },
     "views": {
-      "gitTreeExplorer": [
+      "gitAtlas": [
         {
-          "id": "gitTreeExplorer.sidebar",
+          "id": "gitAtlas.sidebar",
           "name": "Repository",
           "icon": "resources/icons/main_icon.png"
         },
         {
-          "id": "gitTreeExplorer.aiAssistant",
+          "id": "gitAtlas.aiAssistant",
           "name": "AI Assistant",
           "type": "webview",
           "icon": "resources/icons/main_icon.png"
@@ -56,31 +61,31 @@
     },
     "commands": [
       {
-        "command": "gitTreeExplorer.openGraph",
+        "command": "gitAtlas.openGraph",
         "title": "Open Commit Graph",
         "category": "Git Atlas",
         "icon": "$(graph)"
       },
       {
-        "command": "gitTreeExplorer.refresh",
+        "command": "gitAtlas.refresh",
         "title": "Refresh",
         "category": "Git Atlas",
         "icon": "$(refresh)"
       },
       {
-        "command": "gitTreeExplorer.initRepository",
+        "command": "gitAtlas.initRepository",
         "title": "Initialize Repository",
         "category": "Git Atlas",
         "icon": "$(add)"
       },
       {
-        "command": "gitTreeExplorer.publishToGitHub",
+        "command": "gitAtlas.publishToGitHub",
         "title": "Publish to GitHub",
         "category": "Git Atlas",
         "icon": "$(github)"
       },
       {
-        "command": "gitTreeExplorer.firstCommit",
+        "command": "gitAtlas.firstCommit",
         "title": "Create First Commit",
         "category": "Git Atlas",
         "icon": "$(check)"
@@ -89,13 +94,13 @@
     "menus": {
       "view/title": [
         {
-          "command": "gitTreeExplorer.openGraph",
-          "when": "view == gitTreeExplorer.sidebar",
+          "command": "gitAtlas.openGraph",
+          "when": "view == gitAtlas.sidebar",
           "group": "navigation@1"
         },
         {
-          "command": "gitTreeExplorer.refresh",
-          "when": "view == gitTreeExplorer.sidebar",
+          "command": "gitAtlas.refresh",
+          "when": "view == gitAtlas.sidebar",
           "group": "navigation@2"
         }
       ]
@@ -103,7 +108,7 @@
     "configuration": {
       "title": "Git Atlas",
       "properties": {
-        "gitTreeExplorer.ai.provider": {
+        "gitAtlas.ai.provider": {
           "type": "string",
           "order": 1,
           "enum": [
@@ -119,30 +124,30 @@
           "default": "vscode-lm",
           "description": "AI provider to use. 'vscode-lm' uses your installed VS Code language model (e.g., GitHub Copilot). Other options use compatible API keys."
         },
-        "gitTreeExplorer.ai.model": {
+        "gitAtlas.ai.model": {
           "type": "string",
           "order": 2,
           "default": "gpt-4o-mini",
           "description": "Model ID to use (e.g., gpt-4o-mini, llama3-8b-8192, etc.)."
         },
-        "gitTreeExplorer.ai.apiKey": {
+        "gitAtlas.ai.apiKey": {
           "type": "string",
           "order": 3,
           "default": "",
           "description": "Your API key for the selected AI provider (not needed for vscode-lm or ollama)."
         },
-        "gitTreeExplorer.ai.baseUrl": {
+        "gitAtlas.ai.baseUrl": {
           "type": "string",
           "order": 4,
           "default": "https://api.openai.com/v1",
           "description": "Base URL for OpenAI-compatible API. This auto-updates when you change the AI provider, but you can override it."
         },
-        "gitTreeExplorer.showLostCommits": {
+        "gitAtlas.showLostCommits": {
           "type": "boolean",
           "default": false,
           "description": "Show orphaned commits from the reflog (commits no longer referenced by any branch). Enables time-travel recovery."
         },
-        "gitTreeExplorer.maxCommits": {
+        "gitAtlas.maxCommits": {
           "type": "number",
           "default": 500,
           "minimum": 50,

@@ -62,7 +62,7 @@ export async function activate(
 
   // Register init repository command
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitTreeExplorer.initRepository', async () => {
+    vscode.commands.registerCommand('gitAtlas.initRepository', async () => {
       try {
         await gitService.initRepository();
         vscode.window.showInformationMessage('Git Atlas: Repository initialized!');
@@ -79,7 +79,7 @@ export async function activate(
   // Register publish to GitHub command (delegates to VS Code's built-in git publish)
   // Ensures the current branch is renamed to 'main' first, as requested.
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitTreeExplorer.publishToGitHub', async () => {
+    vscode.commands.registerCommand('gitAtlas.publishToGitHub', async () => {
       try {
         const head = await gitService.getHead();
         if (head.branch && head.branch !== 'main') {
@@ -121,7 +121,7 @@ export async function activate(
   const sidebarProvider = new SidebarProvider(stateEngine, githubIntegration);
   context.subscriptions.push(sidebarProvider);
 
-  const treeView = vscode.window.createTreeView('gitTreeExplorer.sidebar', {
+  const treeView = vscode.window.createTreeView('gitAtlas.sidebar', {
     treeDataProvider: sidebarProvider,
     showCollapseAll: true,
   });
@@ -161,13 +161,13 @@ export async function activate(
 
   // Register commands
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitTreeExplorer.openGraph', () => {
+    vscode.commands.registerCommand('gitAtlas.openGraph', () => {
       graphPanel.createOrShow();
     })
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitTreeExplorer.refresh', async () => {
+    vscode.commands.registerCommand('gitAtlas.refresh', async () => {
       await vscode.window.withProgress(
         {
           location: vscode.ProgressLocation.SourceControl,
@@ -189,7 +189,7 @@ export async function activate(
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'gitTreeExplorer.selectNode',
+      'gitAtlas.selectNode',
       (nodeId: string) => {
         graphPanel.focusNode(nodeId);
       }
@@ -199,7 +199,7 @@ export async function activate(
    // Internal command for webview → extension node selection
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'gitTreeExplorer.nodeSelected',
+      'gitAtlas.nodeSelected',
       (_nodeId: string) => {
         // Phase 3: Open details panel, compute valid actions, etc.
       }
@@ -208,7 +208,7 @@ export async function activate(
 
   // First commit command — stages all files and commits with a user-provided message
   context.subscriptions.push(
-    vscode.commands.registerCommand('gitTreeExplorer.firstCommit', async () => {
+    vscode.commands.registerCommand('gitAtlas.firstCommit', async () => {
       const message = await vscode.window.showInputBox({
         prompt: 'Enter your first commit message',
         placeHolder: 'Initial commit',
@@ -325,7 +325,7 @@ function registerPlaceholderSidebar(
       );
       initItem.iconPath = new vscode.ThemeIcon('add');
       initItem.command = {
-        command: 'gitTreeExplorer.initRepository',
+        command: 'gitAtlas.initRepository',
         title: 'Initialize Repository',
       };
       initItem.tooltip = 'Create a new Git repository in this folder';
@@ -335,7 +335,7 @@ function registerPlaceholderSidebar(
   };
 
   context.subscriptions.push(
-    vscode.window.createTreeView('gitTreeExplorer.sidebar', {
+    vscode.window.createTreeView('gitAtlas.sidebar', {
       treeDataProvider: placeholder,
     })
   );
