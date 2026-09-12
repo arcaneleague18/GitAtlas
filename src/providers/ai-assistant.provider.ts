@@ -412,11 +412,8 @@ export class AiAssistantProvider
 
   private view: vscode.WebviewView | null = null;
   private chatHistory: ChatMessage[] = [];
-
-  /**
-   * When the AI makes a tool call, we pause streaming, store the pending
-   * tool call context here, and wait for user approval  // Removed pendingToolContext since we will use native modals
-   */
+  /** The model ID selected by the user for vscode-lm provider */
+  private selectedVscodeLmModelId: string | null = null;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -483,7 +480,8 @@ export class AiAssistantProvider
       async (message: any) => {
         switch (message.type) {
           case 'ready':
-            // AI view is ready
+            // Send current model info to the webview
+            this.sendModelInfo();
             break;
           case 'chat-request':
             await this.handleChatRequest(message.text);
@@ -491,10 +489,32 @@ export class AiAssistantProvider
           case 'clear-chat':
             this.chatHistory = [];
             break;
+          case 'open-settings':
+            void vscode.commands.executeCommand(
+              'workbench.action.openSettings',
+              'gitAtlas.ai'
+            );
+            break;
+          case 'select-model':
+            this.selectedVscodeLmModelId = message.modelId;
+            this.sendModelInfo();
+            break;
         }
       },
       undefined,
       this.disposables
+    );
+
+    // Re-send model info whenever AI settings change
+    this.register(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (
+          e.affectsConfiguration('gitAtlas.ai.provider') ||
+          e.affectsConfiguration('gitAtlas.ai.model')
+        ) {
+          this.sendModelInfo();
+        }
+      })
     );
   }
 
@@ -537,17 +557,22 @@ export class AiAssistantProvider
   private async handleVsCodeLmRequest(
     context: string
   ): Promise<void> {
-    // Select an available model
-    const models = await vscode.lm.selectChatModels({
-      vendor: 'copilot',
-      family: 'gpt-4o',
+    // Get all available models (filter out meta/routing models like "Auto")
+    const allModels = (await vscode.lm.selectChatModels()).filter(m => {
+      const name = (m.name || m.id).toLowerCase();
+      const family = (m.family || '').toLowerCase();
+      return name !== 'auto' && family !== 'auto';
     });
 
-    let model = models[0];
+    let model: vscode.LanguageModelChat | undefined;
+
+    // Use the user-selected model if available
+    if (this.selectedVscodeLmModelId) {
+      model = allModels.find(m => m.id === this.selectedVscodeLmModelId);
+    }
 
     // Fallback: try any available model
     if (!model) {
-      const allModels = await vscode.lm.selectChatModels();
       model = allModels[0];
     }
 
@@ -768,14 +793,12 @@ export class AiAssistantProvider
 
         if (approved) {
           // Mark session as approved for future non-dangerous actions
-          if (!userApprovedSession) {
-            userApprovedSession = true;
-            // Send executing state (auto-approve path already sent it)
-            this.postToWebview({
-              type: 'tool-call-executing',
-              toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
-            });
-          }
+          userApprovedSession = true;
+          // Always send executing state so the UI card transitions properly
+          this.postToWebview({
+            type: 'tool-call-executing',
+            toolCall: { id: tcp.callId, name: tcp.name, args, reason, isDangerous },
+          });
 
           const result = await this.executeTool(tcp.name, args);
 
@@ -1108,20 +1131,18 @@ export class AiAssistantProvider
 
         if (approved) {
           // Mark session as approved for future non-dangerous actions
-          if (!userApprovedSession) {
-            userApprovedSession = true;
-            // Send executing state (auto-approve path already sent it)
-            this.postToWebview({
-              type: 'tool-call-executing',
-              toolCall: {
-                id: tc.id,
-                name: tc.function.name,
-                args,
-                reason,
-                isDangerous,
-              },
-            });
-          }
+          userApprovedSession = true;
+          // Always send executing state so the UI card transitions properly
+          this.postToWebview({
+            type: 'tool-call-executing',
+            toolCall: {
+              id: tc.id,
+              name: tc.function.name,
+              args,
+              reason,
+              isDangerous,
+            },
+          });
 
           const result = await this.executeTool(tc.function.name, args);
 
@@ -1477,6 +1498,85 @@ Style:
 - After executing actions, summarize what was done
 
 You have access to the user's current repository state which is provided below as context.`;
+  }
+
+  /**
+   * Send current model/provider info to the webview.
+   * For vscode-lm, enumerates all available Language Models so the user can pick one.
+   */
+  private async sendModelInfo(): Promise<void> {
+    const config = vscode.workspace.getConfiguration('gitAtlas.ai');
+    const provider = config.get<string>('provider', 'vscode-lm');
+    const model = config.get<string>('model', 'gpt-4o-mini');
+
+    const providerLabels: Record<string, string> = {
+      'vscode-lm': 'VS Code LM',
+      'openai': 'OpenAI',
+      'lm-proxy': 'LM Proxy',
+      'openrouter': 'OpenRouter',
+      'groq': 'Groq',
+      'nvidia': 'NVIDIA',
+      'ollama': 'Ollama',
+      'custom': 'Custom',
+    };
+
+    const providerLabel = providerLabels[provider] || provider;
+
+    if (provider === 'vscode-lm') {
+      // Enumerate all available VS Code Language Models
+      const allModels = await vscode.lm.selectChatModels();
+
+      // Deduplicate models by display name (same model can appear through different internal IDs)
+      // and completely filter out meta/routing models (like "Auto") since they don't support tools
+      const seen = new Set<string>();
+      const uniqueModels = allModels.filter(m => {
+        const name = (m.name || m.id).toLowerCase();
+        const family = (m.family || '').toLowerCase();
+        if (name === 'auto' || family === 'auto') return false;
+        
+        const displayName = m.name || m.id;
+        if (seen.has(displayName)) return false;
+        seen.add(displayName);
+        return true;
+      });
+
+      const modelList = uniqueModels.map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        vendor: m.vendor || '',
+        family: m.family || '',
+      }));
+
+      // Auto-select a sensible default if none is selected yet
+      if (!this.selectedVscodeLmModelId && modelList.length > 0) {
+        const preferred = modelList.find(m =>
+          m.family.toLowerCase().includes('gpt-4o')
+        );
+        this.selectedVscodeLmModelId = (preferred || modelList[0]).id;
+      }
+
+      // Verify selected model still exists (might have been uninstalled)
+      if (this.selectedVscodeLmModelId && !modelList.find(m => m.id === this.selectedVscodeLmModelId)) {
+        this.selectedVscodeLmModelId = modelList.length > 0 ? modelList[0].id : null;
+      }
+
+      const selectedModel = modelList.find(m => m.id === this.selectedVscodeLmModelId);
+
+      this.postToWebview({
+        type: 'model-info',
+        provider: providerLabel,
+        model: selectedModel?.name || 'No models available',
+        selectedModelId: this.selectedVscodeLmModelId,
+        availableModels: modelList,
+      });
+    } else {
+      this.postToWebview({
+        type: 'model-info',
+        provider: providerLabel,
+        model,
+        availableModels: [],
+      });
+    }
   }
 
   /**

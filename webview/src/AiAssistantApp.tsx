@@ -44,6 +44,8 @@ const TOOL_LABELS: Record<string, string> = {
   reset: 'Reset',
   create_tag: 'Create Tag',
   delete_tag: 'Delete Tag',
+  delete_commit: 'Delete Commit',
+  reword_commit: 'Reword Commit',
   push: 'Push',
   fetch_remote: 'Fetch',
   commit: 'Commit',
@@ -52,6 +54,9 @@ const TOOL_LABELS: Record<string, string> = {
   discard_changes: 'Discard Changes',
   purge_file_from_history: 'Purge File from History',
   create_stash: 'Stash',
+  apply_stash: 'Apply Stash',
+  pop_stash: 'Pop Stash',
+  drop_stash: 'Drop Stash',
   get_status: 'Get Status',
   get_log: 'Get Log',
   get_diff: 'Get Diff',
@@ -68,6 +73,8 @@ const TOOL_ICONS: Record<string, string> = {
   reset: '⚠️',
   create_tag: '🏷️',
   delete_tag: '🗑️',
+  delete_commit: '💀',
+  reword_commit: '✏️',
   push: '⬆️',
   fetch_remote: '⬇️',
   commit: '💾',
@@ -76,6 +83,9 @@ const TOOL_ICONS: Record<string, string> = {
   discard_changes: '🚮',
   purge_file_from_history: '🛡️',
   create_stash: '📦',
+  apply_stash: '📤',
+  pop_stash: '📤',
+  drop_stash: '🗑️',
   get_status: '📊',
   get_log: '📜',
   get_diff: '📝',
@@ -118,6 +128,13 @@ export function AiAssistantApp() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [modelInfo, setModelInfo] = useState<{
+    provider: string;
+    model: string;
+    selectedModelId?: string;
+    availableModels?: { id: string; name: string; vendor: string; family: string }[];
+  } | null>(null);
+  const [showModelPicker, setShowModelPicker] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef('');
@@ -188,9 +205,11 @@ export function AiAssistantApp() {
 
         case 'dismiss-streaming': {
           // Remove the empty streaming placeholder when AI only returned tool calls
+          // NOTE: Do NOT set isLoading(false) here — the agentic loop is still running
+          // (processing tool calls, then calling the API again). isLoading is set to false
+          // only when the final chat-response-chunk arrives with done:true.
           streamBufferRef.current = '';
           setMessages((prev) => prev.filter((m) => !(m.isStreaming && !m.content)));
-          setIsLoading(false);
           break;
         }
 
@@ -255,6 +274,16 @@ export function AiAssistantApp() {
             ];
           });
           setIsLoading(false);
+          break;
+        }
+
+        case 'model-info': {
+          setModelInfo({
+            provider: message.provider,
+            model: message.model,
+            selectedModelId: message.selectedModelId,
+            availableModels: message.availableModels,
+          });
           break;
         }
       }
@@ -411,28 +440,74 @@ export function AiAssistantApp() {
 
       {/* Input */}
       <div className="ai-input-area">
-        <textarea
-          ref={inputRef}
-          className="ai-input"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={isLoading ? 'Thinking...' : 'Ask or command your repository...'}
-          disabled={isLoading}
-          rows={1}
-        />
-        <button
-          className="ai-send-btn"
-          onClick={handleSubmit}
-          disabled={!input.trim() || isLoading}
-          title="Send message"
-        >
-          {isLoading ? (
-            <span className="ai-send-spinner" />
-          ) : (
-            '→'
+        {/* Model picker dropdown (opens upward) */}
+        {showModelPicker && modelInfo?.availableModels && modelInfo.availableModels.length > 0 && (
+          <div className="ai-model-picker">
+            <div className="ai-model-picker-header">Model</div>
+            {modelInfo.availableModels.map((m) => (
+              <button
+                key={m.id}
+                className={`ai-model-picker-item ${m.id === modelInfo.selectedModelId ? 'selected' : ''}`}
+                onClick={() => {
+                  postMessage({ type: 'select-model', modelId: m.id } as any);
+                  setShowModelPicker(false);
+                }}
+              >
+                <span className="ai-model-picker-name">{m.name}</span>
+                {m.id === modelInfo.selectedModelId && <span className="ai-model-picker-check">✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Model selector bar */}
+        <div className="ai-input-toolbar">
+          {modelInfo && (
+            <button
+              className="ai-model-chip"
+              onClick={() => {
+                if (modelInfo.availableModels && modelInfo.availableModels.length > 0) {
+                  setShowModelPicker(!showModelPicker);
+                } else {
+                  postMessage({ type: 'open-settings' } as any);
+                }
+              }}
+              title={`Provider: ${modelInfo.provider}\nModel: ${modelInfo.model}\nClick to change`}
+            >
+              <span className="ai-model-dot" />
+              {modelInfo.model}
+              {modelInfo.availableModels && modelInfo.availableModels.length > 0 && (
+                <span className="ai-model-caret">{showModelPicker ? '▾' : '▴'}</span>
+              )}
+            </button>
           )}
-        </button>
+        </div>
+
+        {/* Text input + send */}
+        <div className="ai-input-row">
+          <textarea
+            ref={inputRef}
+            className="ai-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isLoading ? 'Thinking...' : 'Ask or command your repository...'}
+            disabled={isLoading}
+            rows={1}
+          />
+          <button
+            className="ai-send-btn"
+            onClick={handleSubmit}
+            disabled={!input.trim() || isLoading}
+            title="Send message"
+          >
+            {isLoading ? (
+              <span className="ai-send-spinner" />
+            ) : (
+              '→'
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
