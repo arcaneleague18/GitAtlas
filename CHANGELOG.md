@@ -2,17 +2,16 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
-## [0.1.6] - Unpublished
+## [0.1.6] - 2026-09-13
 ### Added
-- **Project Renamed:** The extension has been officially renamed from Git Tree Explorer to **Git Atlas**.
+- **Eager Copilot Authorization:** The extension now asks for GitHub Copilot language model permissions as soon as you open a repository, ensuring a smoother initial AI chat experience without interruptions.
 - **Model Selector UI:** The AI model selector has been seamlessly integrated into the chat input box. It now automatically lists available LLMs, deduplicates entries, and filters out incompatible routing models (like VS Code's `Auto` router) to ensure agentic workflows run flawlessly.
-- **Sponsorship:** Added Buy Me a Coffee support to the extension panel for users who want to support the project.
 
 ### Fixed
 - **AI Tool Re-approval:** Fixed a bug where a rejected tool call wouldn't correctly transition back to an executing state if the user manually re-approved it later.
 - **Agentic Loop Streaming:** Prevented the chat input field from prematurely re-enabling itself while the AI agent is still actively streaming a multi-step tool execution.
 - **Tool Icons:** Added missing descriptive labels and icons for stash operations (`apply`, `pop`, `drop`) and commit modification (`reword`, `delete`) in the AI chat UI.
-- Updated the "refresh graph" button tooltip to explicitly read "Fetch from remote" for better clarity.
+- **Reflog Robustness:** Hardened the time-travel (Lost Commits) feature by batching reflog queries (preventing OS command-line overflow crashes on large graphs) and deduplicating queries for much faster load times.
 
 
 ## [0.1.5] - 2026-09-04

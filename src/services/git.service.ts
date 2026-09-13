@@ -251,7 +251,7 @@ export class GitService {
     // If reflog is requested, find orphaned commits and merge them in
     if (includeReflog) {
       const knownHashes = new Set(commits.map((c) => c.hash));
-      const reflogCommits = await this.getReflogCommits(maxCount, format);
+      const reflogCommits = await this.getReflogCommits(maxCount, format, knownHashes);
       for (const rc of reflogCommits) {
         if (!knownHashes.has(rc.hash)) {
           commits.push(rc);
@@ -267,8 +267,15 @@ export class GitService {
    * Fetch commits reachable only via the reflog.
    * Uses `git reflog` to get hashes, then `git log` to get full data
    * for any that aren't already in the normal `--all` output.
+   *
+   * @param knownHashes Hashes already in the main log — skip these to avoid
+   *   redundant git queries.
    */
-  private async getReflogCommits(maxCount: number, format: string): Promise<RawCommit[]> {
+  private async getReflogCommits(
+    maxCount: number,
+    format: string,
+    knownHashes: Set<string>
+  ): Promise<RawCommit[]> {
     let reflogOutput: string;
     try {
       reflogOutput = await this.exec([
@@ -280,41 +287,59 @@ export class GitService {
       return [];
     }
 
-    const reflogHashes = reflogOutput.trim().split('\n').filter(Boolean);
-    if (reflogHashes.length === 0) return [];
+    // Deduplicate and filter out hashes already in the main log
+    const allHashes = reflogOutput.trim().split('\n').filter(Boolean);
+    const uniqueNewHashes: string[] = [];
+    const seen = new Set<string>();
+    for (const h of allHashes) {
+      if (!seen.has(h) && !knownHashes.has(h)) {
+        seen.add(h);
+        uniqueNewHashes.push(h);
+      }
+    }
+    if (uniqueNewHashes.length === 0) return [];
 
-    // Get full commit data for reflog-only hashes
-    let stdout: string;
-    try {
-      stdout = await this.exec([
-        'log',
-        `--max-count=${maxCount}`,
-        `--format=${RECORD_SEP}${format}`,
-        '--no-walk',
-        ...reflogHashes,
-      ]);
-    } catch {
-      return [];
+    // Batch hashes to avoid exceeding OS command-line argument limits
+    // (Windows ~32K chars; each hash is 40 chars + space = ~41 chars)
+    const BATCH_SIZE = 100;
+    const results: RawCommit[] = [];
+
+    for (let i = 0; i < uniqueNewHashes.length; i += BATCH_SIZE) {
+      const batch = uniqueNewHashes.slice(i, i + BATCH_SIZE);
+      let stdout: string;
+      try {
+        stdout = await this.exec([
+          'log',
+          `--max-count=${batch.length}`,
+          `--format=${RECORD_SEP}${format}`,
+          '--no-walk',
+          ...batch,
+        ]);
+      } catch {
+        continue; // Skip failed batches (some hashes may have been gc'd)
+      }
+
+      const records = stdout
+        .split(RECORD_SEP)
+        .map((r) => r.trim())
+        .filter(Boolean);
+
+      for (const record of records) {
+        const fields = record.split(FIELD_SEP);
+        results.push({
+          hash: fields[0] ?? '',
+          shortHash: fields[1] ?? '',
+          parentHashes: (fields[2] ?? '').split(' ').filter(Boolean),
+          author: fields[3] ?? '',
+          authorEmail: fields[4] ?? '',
+          timestamp: parseInt(fields[5] ?? '0', 10),
+          message: fields[6] ?? '',
+          refs: fields[7] ?? '',
+        });
+      }
     }
 
-    const records = stdout
-      .split(RECORD_SEP)
-      .map((r) => r.trim())
-      .filter(Boolean);
-
-    return records.map((record) => {
-      const fields = record.split(FIELD_SEP);
-      return {
-        hash: fields[0] ?? '',
-        shortHash: fields[1] ?? '',
-        parentHashes: (fields[2] ?? '').split(' ').filter(Boolean),
-        author: fields[3] ?? '',
-        authorEmail: fields[4] ?? '',
-        timestamp: parseInt(fields[5] ?? '0', 10),
-        message: fields[6] ?? '',
-        refs: fields[7] ?? '',
-      };
-    });
+    return results;
   }
 
   /**

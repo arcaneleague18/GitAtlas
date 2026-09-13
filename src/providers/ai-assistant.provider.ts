@@ -592,10 +592,11 @@ export class AiAssistantProvider
       inputSchema: td.function.parameters as any,
     }));
 
-    // Build messages
+    // Build messages — track context mutably so we can refresh after tool execution
+    let currentContext = context;
     const messages: vscode.LanguageModelChatMessage[] = [
       vscode.LanguageModelChatMessage.User(
-        this.getSystemPrompt() + '\n\n' + context
+        this.getSystemPrompt() + '\n\n' + currentContext
       ),
     ];
 
@@ -712,6 +713,9 @@ export class AiAssistantProvider
       }
       messages.push(vscode.LanguageModelChatMessage.Assistant(assistantParts));
 
+      // Track whether any write operations happened so we can refresh context
+      let hadWriteOps = false;
+
       // Process each tool call sequentially
       for (const tcp of toolCallParts) {
         const args = (tcp.input as Record<string, any>) ?? {};
@@ -809,6 +813,7 @@ export class AiAssistantProvider
             output: result.output,
           });
 
+          hadWriteOps = true;
           try { await this.stateEngine.buildGraph(); } catch { /* ignore */ }
 
           const toolMsg: ChatMessage = {
@@ -850,6 +855,15 @@ export class AiAssistantProvider
         }
       }
 
+      // After tool execution, refresh the repository context in the system message
+      // so the model sees the UPDATED state (e.g., branch no longer exists after deletion)
+      if (hadWriteOps) {
+        currentContext = this.buildRepositoryContext();
+        messages[0] = vscode.LanguageModelChatMessage.User(
+          this.getSystemPrompt() + '\n\n' + currentContext
+        );
+      }
+
       // After processing all tool calls, add a new streaming placeholder
       this.postToWebview({ type: 'chat-response-new' });
 
@@ -881,8 +895,11 @@ export class AiAssistantProvider
     }
 
     // Build messages for OpenAI format
+    // Keep a mutable reference to the current context so we can refresh it after tool calls
+    let currentContext = context;
+
     const messages: ChatMessage[] = [
-      { role: 'system', content: this.getSystemPrompt() + '\n\n' + context },
+      { role: 'system', content: this.getSystemPrompt() + '\n\n' + currentContext },
     ];
 
     const recentHistory = this.chatHistory.slice(-20);
@@ -909,7 +926,11 @@ export class AiAssistantProvider
           model,
           messages: messages.map(m => {
             const msg: any = { role: m.role, content: m.content };
-            if (m.tool_calls) msg.tool_calls = m.tool_calls;
+            if (m.tool_calls) {
+              msg.tool_calls = m.tool_calls;
+              // OpenAI spec: content must be null (not '') for tool-call-only assistant messages
+              if (!m.content) msg.content = null;
+            }
             if (m.tool_call_id) msg.tool_call_id = m.tool_call_id;
             if (m.name) msg.name = m.name;
             return msg;
@@ -1030,6 +1051,9 @@ export class AiAssistantProvider
       };
       this.chatHistory.push(assistantMsg);
       messages.push(assistantMsg);
+
+      // Track whether any write operations happened so we can refresh context
+      let hadWriteOps = false;
 
       // Process each tool call sequentially
       for (const tc of toolCalls) {
@@ -1154,6 +1178,7 @@ export class AiAssistantProvider
           });
 
           // Refresh the graph after write operations
+          hadWriteOps = true;
           try {
             await this.stateEngine.buildGraph();
           } catch { /* ignore */ }
@@ -1184,6 +1209,13 @@ export class AiAssistantProvider
             output: 'Action cancelled by user.',
           });
         }
+      }
+
+      // After tool execution, refresh the repository context in the system message
+      // so the model sees the UPDATED state (e.g., branch no longer exists after deletion)
+      if (hadWriteOps) {
+        currentContext = this.buildRepositoryContext();
+        messages[0] = { role: 'system', content: this.getSystemPrompt() + '\n\n' + currentContext };
       }
 
       // After processing all tool calls, add a new streaming assistant placeholder

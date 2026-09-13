@@ -235,6 +235,14 @@ export async function activate(
     console.error('Git Atlas: Failed to build initial graph', err);
   }
 
+  // Eagerly request language model access so first-time users see the
+  // Copilot permission prompt immediately instead of on first AI chat use.
+  try {
+    void vscode.lm.selectChatModels();
+  } catch {
+    // Language model API may not be available — ignore silently
+  }
+
   let isBuildingGraph = false;
   let lastGraphBuildEndTime = 0;
 
