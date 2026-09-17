@@ -182,6 +182,7 @@ export interface NodeDetails {
   readonly hash?: string;
   readonly author?: string;
   readonly authorEmail?: string;
+  readonly coAuthors?: readonly { readonly name: string; readonly email: string }[];
   readonly timestamp?: number;
   readonly message?: string;
   readonly parentHashes?: readonly string[];

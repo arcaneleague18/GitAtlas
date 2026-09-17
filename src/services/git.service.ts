@@ -674,6 +674,31 @@ export class GitService {
   }
 
   /**
+   * Extract co-authors from a commit's body (the `Co-authored-by:` trailers).
+   * Returns an empty array when there are none.
+   */
+  async getCoAuthors(commitHash: string): Promise<{ name: string; email: string }[]> {
+    try {
+      const body = await this.exec([
+        'log',
+        '-1',
+        '--format=%b',
+        commitHash,
+      ]);
+
+      const coAuthors: { name: string; email: string }[] = [];
+      const regex = /Co-authored-by:\s*(.+?)\s*<([^>]+)>/gi;
+      let match: RegExpExecArray | null;
+      while ((match = regex.exec(body)) !== null) {
+        coAuthors.push({ name: match[1]!.trim(), email: match[2]!.trim() });
+      }
+      return coAuthors;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Get the diff statistics for a specific commit compared to its parent.
    */
   async getDiffStats(commitHash: string): Promise<DiffFileStat[]> {

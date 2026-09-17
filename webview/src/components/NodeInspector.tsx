@@ -238,6 +238,31 @@ export function NodeInspector() {
                       </div>
                     )}
 
+                    {details.coAuthors && details.coAuthors.length > 0 && (
+                      <div className="inspector-field">
+                        <span className="inspector-field-label">
+                          Co-author{details.coAuthors.length > 1 ? 's' : ''}
+                        </span>
+                        <div className="inspector-coauthors">
+                          {details.coAuthors.map((ca, i) => (
+                            <div className="inspector-author inspector-coauthor" key={i}>
+                              <div className="inspector-avatar inspector-avatar-sm">
+                                {ca.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="inspector-author-info">
+                                <span className="inspector-author-name">
+                                  {ca.name}
+                                </span>
+                                <span className="inspector-author-email">
+                                  {ca.email}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {details.timestamp && (
                       <div className="inspector-field">
                         <span className="inspector-field-label">Date</span>

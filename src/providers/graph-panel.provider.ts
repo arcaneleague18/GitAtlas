@@ -580,8 +580,11 @@ export class GraphPanelProvider extends DisposableBase {
     if (node.data.kind === 'commit') {
       const commitData = node.data as CommitNodeData;
 
-      // Fetch diff stats asynchronously
-      const diffStats = await this.gitService.getDiffStats(commitData.hash);
+      // Fetch diff stats and co-authors in parallel
+      const [diffStats, coAuthors] = await Promise.all([
+        this.gitService.getDiffStats(commitData.hash),
+        this.gitService.getCoAuthors(commitData.hash),
+      ]);
       const totalInsertions = diffStats.reduce((sum, f) => sum + f.insertions, 0);
       const totalDeletions = diffStats.reduce((sum, f) => sum + f.deletions, 0);
 
@@ -590,6 +593,7 @@ export class GraphPanelProvider extends DisposableBase {
         hash: commitData.hash,
         author: commitData.author,
         authorEmail: commitData.authorEmail,
+        ...(coAuthors.length > 0 ? { coAuthors } : {}),
         timestamp: commitData.timestamp,
         message: commitData.message,
         parentHashes: [...commitData.parentHashes],
