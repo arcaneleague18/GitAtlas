@@ -27,6 +27,7 @@ import type {
   FileChangeStatus,
   RepositoryState,
   DiffFileStat,
+  PushStatusResult,
 } from '../engine/types.js';
 
 const execFileAsync = promisify(execFile);
@@ -119,7 +120,8 @@ export class GitService {
   public async exec(
     args: string[],
     cwd?: string,
-    extraEnv?: Record<string, string>
+    extraEnv?: Record<string, string>,
+    timeoutMs?: number
   ): Promise<string> {
     const cmd = `git ${args.join(' ')}`;
     this.outputChannel.appendLine(`[GitService] > ${cmd}`);
@@ -129,6 +131,7 @@ export class GitService {
         cwd: cwd ?? this.workspaceRoot,
         maxBuffer: MAX_BUFFER,
         windowsHide: true,
+        timeout: timeoutMs,
         env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', ...extraEnv },
       });
       if (stdout.trim().length > 0) {
@@ -902,6 +905,276 @@ export class GitService {
         conflictFiles: [],
         aheadBehind: { ahead: 0, behind: 0 },
         message: `Could not check mergeability: ${err.message || 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * Check whether the remote repository has been updated before pushing,
+   * determining if a push would succeed, be rejected, or cause conflicts.
+   */
+  async checkPushStatus(branchName?: string): Promise<PushStatusResult> {
+    try {
+      let branch = branchName?.trim();
+      if (!branch) {
+        const head = await this.getHead();
+        branch = head.branch ?? undefined;
+      }
+
+      if (!branch) {
+        return {
+          isRemoteUpdated: false,
+          status: 'error',
+          aheadBehind: { ahead: 0, behind: 0 },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: 'Cannot check remote status: HEAD is detached or no branch is selected.',
+        };
+      }
+
+      // Check configured remotes
+      let remotes: string[] = [];
+      try {
+        const remotesOutput = (await this.exec(['remote'])).trim();
+        remotes = remotesOutput.split(/\s+/).filter(Boolean);
+      } catch {
+        // ignore
+      }
+
+      if (remotes.length === 0) {
+        return {
+          isRemoteUpdated: false,
+          status: 'no-remote',
+          aheadBehind: { ahead: 0, behind: 0 },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: 'No remote repository configured.',
+        };
+      }
+
+      // 1. Resolve upstream or remote branch
+      let remote = '';
+      let remoteBranch = '';
+      let upstreamRef = '';
+
+      try {
+        upstreamRef = (await this.exec(['rev-parse', '--abbrev-ref', `${branch}@{upstream}`])).trim();
+        const slashIdx = upstreamRef.indexOf('/');
+        if (slashIdx > 0) {
+          remote = upstreamRef.substring(0, slashIdx);
+          remoteBranch = upstreamRef.substring(slashIdx + 1);
+        }
+      } catch {
+        // No upstream configured for this branch
+      }
+
+      if (!remote) {
+        // Default to origin if available, or first configured remote
+        remote = remotes.includes('origin') ? 'origin' : remotes[0];
+        remoteBranch = branch;
+        upstreamRef = `${remote}/${remoteBranch}`;
+
+        // Check if branch exists on remote
+        try {
+          const lsOut = (await this.exec(
+            ['ls-remote', '--heads', remote, remoteBranch],
+            undefined,
+            { GIT_TERMINAL_PROMPT: '0' },
+            7000
+          )).trim();
+
+          if (!lsOut) {
+            // Branch does not exist on remote yet (new branch)
+            return {
+              isRemoteUpdated: false,
+              status: 'new-branch',
+              aheadBehind: { ahead: 0, behind: 0 },
+              conflictFiles: [],
+              hasConflicts: false,
+              message: `New branch. Push will publish "${branch}" to "${remote}".`,
+              remoteBranch: upstreamRef,
+            };
+          }
+        } catch {
+          // ls-remote failed (offline or network error)
+          return {
+            isRemoteUpdated: false,
+            status: 'unreachable',
+            aheadBehind: { ahead: 0, behind: 0 },
+            conflictFiles: [],
+            hasConflicts: false,
+            message: 'Could not reach remote repository (offline or remote unreachable).',
+            remoteBranch: upstreamRef,
+          };
+        }
+      }
+
+      // 2. Fetch the latest remote state for this branch
+      let fetchSuccess = false;
+      try {
+        await this.exec(
+          ['fetch', remote, `+refs/heads/${remoteBranch}:refs/remotes/${remote}/${remoteBranch}`],
+          undefined,
+          { GIT_TERMINAL_PROMPT: '0' },
+          8000
+        );
+        fetchSuccess = true;
+      } catch {
+        try {
+          await this.exec(
+            ['fetch', remote],
+            undefined,
+            { GIT_TERMINAL_PROMPT: '0' },
+            8000
+          );
+          fetchSuccess = true;
+        } catch {
+          fetchSuccess = false;
+        }
+      }
+
+      // 3. Verify remote tracking ref exists
+      try {
+        await this.exec(['rev-parse', '--verify', upstreamRef]);
+      } catch {
+        return {
+          isRemoteUpdated: false,
+          status: fetchSuccess ? 'new-branch' : 'unreachable',
+          aheadBehind: { ahead: 0, behind: 0 },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: fetchSuccess
+            ? `New branch. Ready to publish "${branch}" to "${remote}".`
+            : 'Could not reach remote repository (offline or remote unreachable).',
+          remoteBranch: upstreamRef,
+        };
+      }
+
+      // 4. Calculate ahead/behind count
+      let ahead = 0;
+      let behind = 0;
+      try {
+        const revList = await this.exec(['rev-list', '--left-right', '--count', `${branch}...${upstreamRef}`]);
+        const parts = revList.trim().split(/\s+/);
+        ahead = parseInt(parts[0] ?? '0', 10) || 0;
+        behind = parseInt(parts[1] ?? '0', 10) || 0;
+      } catch (revErr: any) {
+        return {
+          isRemoteUpdated: false,
+          status: 'error',
+          aheadBehind: { ahead: 0, behind: 0 },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: `Could not compare branch with remote: ${revErr.message || 'Unknown error'}`,
+          remoteBranch: upstreamRef,
+        };
+      }
+
+      // 5. Evaluate state based on ahead/behind counts
+      if (behind === 0 && ahead === 0) {
+        return {
+          isRemoteUpdated: false,
+          status: 'up-to-date',
+          aheadBehind: { ahead: 0, behind: 0 },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: fetchSuccess
+            ? 'Remote repository is up to date with local branch. Nothing to push.'
+            : 'Up to date based on local tracking branch (remote unreachable).',
+          remoteBranch: upstreamRef,
+        };
+      }
+
+      if (behind === 0 && ahead > 0) {
+        return {
+          isRemoteUpdated: false,
+          status: 'up-to-date',
+          aheadBehind: { ahead, behind: 0 },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: fetchSuccess
+            ? `Remote is up to date. Ready to push ${ahead} commit${ahead !== 1 ? 's' : ''}.`
+            : `Ready to push ${ahead} commit${ahead !== 1 ? 's' : ''} (based on local tracking ref).`,
+          remoteBranch: upstreamRef,
+        };
+      }
+
+      // Remote has new commits! behind > 0
+      if (ahead === 0) {
+        return {
+          isRemoteUpdated: true,
+          status: 'behind',
+          aheadBehind: { ahead: 0, behind },
+          conflictFiles: [],
+          hasConflicts: false,
+          message: `Remote repository has been updated (${behind} commit${behind !== 1 ? 's' : ''} behind). Pull latest changes before pushing.`,
+          remoteBranch: upstreamRef,
+        };
+      }
+
+      // Diverged: ahead > 0 && behind > 0. Check for merge conflicts with merge-tree
+      const conflictFiles: string[] = [];
+      let hasConflicts = false;
+
+      try {
+        await this.exec(['merge-tree', '--write-tree', branch, upstreamRef]);
+        hasConflicts = false;
+      } catch (err: any) {
+        const combined = ((err.stdout || '') + '\n' + (err.stderr || '')).toString();
+        const lines = combined.split('\n');
+        for (const line of lines) {
+          const m1 = line.match(/CONFLICT\s+\([^)]+\):\s+Merge conflict in\s+(.+)/i);
+          if (m1 && m1[1]) {
+            conflictFiles.push(m1[1].trim());
+            continue;
+          }
+          const m2 = line.match(/CONFLICT\s+\([^)]+\):\s+([^\s]+)\s+/i);
+          if (m2 && m2[1]) {
+            conflictFiles.push(m2[1].trim());
+            continue;
+          }
+          const m3 = line.match(/CONFLICT\s+\([^)]+\):\s+.*in\s+(\S+)/i);
+          if (m3 && m3[1] && !conflictFiles.includes(m3[1].trim())) {
+            conflictFiles.push(m3[1].trim());
+            continue;
+          }
+        }
+        if (conflictFiles.length > 0 || combined.includes('CONFLICT')) {
+          hasConflicts = true;
+        }
+      }
+
+      if (hasConflicts) {
+        return {
+          isRemoteUpdated: true,
+          status: 'diverged',
+          aheadBehind: { ahead, behind },
+          conflictFiles,
+          hasConflicts: true,
+          message: conflictFiles.length > 0
+            ? `Remote was updated (${behind} behind, ${ahead} ahead). ${conflictFiles.length} file conflict${conflictFiles.length !== 1 ? 's' : ''} detected.`
+            : `Remote was updated (${behind} behind, ${ahead} ahead). Conflicts detected. Pull or rebase before pushing.`,
+          remoteBranch: upstreamRef,
+        };
+      }
+
+      return {
+        isRemoteUpdated: true,
+        status: 'diverged',
+        aheadBehind: { ahead, behind },
+        conflictFiles,
+        hasConflicts: false,
+        message: `Remote repository has new changes (${behind} commit${behind !== 1 ? 's' : ''} behind, ${ahead} ahead). Pull or rebase before pushing.`,
+        remoteBranch: upstreamRef,
+      };
+    } catch (err: any) {
+      return {
+        isRemoteUpdated: false,
+        status: 'error',
+        aheadBehind: { ahead: 0, behind: 0 },
+        conflictFiles: [],
+        hasConflicts: false,
+        message: `Could not check remote status: ${err.message || 'Unknown error'}`,
       };
     }
   }

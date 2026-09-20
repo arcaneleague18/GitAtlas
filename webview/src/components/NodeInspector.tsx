@@ -18,7 +18,7 @@ import { postMessage } from '../vscode';
 import { DiffStatBar } from './DiffStatBar';
 import { ActionButton } from './ActionButton';
 import { ActionPreviewPanel } from './ActionPreviewPanel';
-import type { EdgeKind, ValidAction, GitHubPullRequest, CommitNodeData } from '../types';
+import type { EdgeKind, ValidAction, GitHubPullRequest, CommitNodeData, PushStatusResult } from '../types';
 import GlobeIcon from '../../../resources/icons/globe.svg';
 import EditIcon from '../../../resources/icons/edit.svg';
 
@@ -48,6 +48,10 @@ export function NodeInspector() {
   } | null>(null);
   const [isCheckingMerge, setIsCheckingMerge] = useState(false);
 
+  // Push status check state
+  const [pushStatus, setPushStatus] = useState<PushStatusResult | null>(null);
+  const [isCheckingPush, setIsCheckingPush] = useState(false);
+
   // Commit message editing state
   const [isEditingMessage, setIsEditingMessage] = useState(false);
   const [editedMessage, setEditedMessage] = useState('');
@@ -61,7 +65,7 @@ export function NodeInspector() {
   const [backdateEnabled, setBackdateEnabled] = useState(false);
   const [backdateValue, setBackdateValue] = useState('');
 
-  // Listen for generated commit message and mergeability results from extension host
+  // Listen for generated commit message, mergeability results, and push status from extension host
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       const msg = e.data;
@@ -77,6 +81,17 @@ export function NodeInspector() {
           message: msg.message,
         });
         setIsCheckingMerge(false);
+      } else if (msg?.type === 'push-status-result') {
+        setPushStatus({
+          isRemoteUpdated: msg.isRemoteUpdated,
+          status: msg.status,
+          aheadBehind: msg.aheadBehind,
+          conflictFiles: msg.conflictFiles,
+          hasConflicts: msg.hasConflicts,
+          message: msg.message,
+          remoteBranch: msg.remoteBranch,
+        });
+        setIsCheckingPush(false);
       }
     };
     window.addEventListener('message', handleMessage);
@@ -88,6 +103,8 @@ export function NodeInspector() {
     setPendingAction(null);
     setMergeability(null);
     setIsCheckingMerge(false);
+    setPushStatus(null);
+    setIsCheckingPush(false);
     setIsEditingMessage(false);
     setEditedMessage('');
     setShowEditConfirm(false);
@@ -111,6 +128,29 @@ export function NodeInspector() {
   // Show preview panel instead of immediately executing
   const handleAction = useCallback(
     (kind: EdgeKind, args?: any) => {
+      // Direct commit from working directory
+      if (kind === 'commit' && selectedNodeDetails) {
+        const commitAction: ValidAction = {
+          kind: 'commit',
+          label: `Commit to "${currentBranch ?? 'HEAD'}"`,
+          description: args?.stagedCount
+            ? `Commit ${args.stagedCount} staged file${args.stagedCount !== 1 ? 's' : ''} to ${currentBranch ?? 'HEAD'}`
+            : `Commit changes to ${currentBranch ?? 'HEAD'}`,
+          enabled: true,
+          isDangerous: false,
+          args,
+        };
+        setPendingAction(commitAction);
+        setPushStatus(null);
+        setIsCheckingPush(true);
+        postMessage({
+          type: 'check-push-status',
+          nodeId: selectedNodeDetails.nodeId,
+          branch: currentBranch || undefined,
+        });
+        return;
+      }
+
       const action = validActions.find((a) => a.kind === kind);
       if (action) {
         setPendingAction({ ...action, args });
@@ -126,28 +166,54 @@ export function NodeInspector() {
             ref,
           });
         }
+        // Trigger push status check for push actions
+        if (kind === 'push' && selectedNodeDetails) {
+          setPushStatus(null);
+          setIsCheckingPush(true);
+          const branch = selectedNodeDetails.kind === 'branch'
+            ? selectedNodeDetails.label
+            : (currentBranch || undefined);
+          postMessage({
+            type: 'check-push-status',
+            nodeId: selectedNodeDetails.nodeId,
+            branch,
+          });
+        }
       }
     },
-    [validActions, selectedNodeDetails]
+    [validActions, selectedNodeDetails, currentBranch]
   );
 
   // Execute the pending action
   const handleProceed = useCallback((extraArgs?: Record<string, any>) => {
     if (pendingAction && selectedNodeDetails) {
-      postMessage({
-        type: 'action-requested',
-        action: pendingAction.kind,
-        nodeId: selectedNodeDetails.nodeId,
-        args: { ...pendingAction.args, ...extraArgs },
-      });
+      if (pendingAction.kind === 'commit') {
+        postMessage({
+          type: 'commit-staged',
+          message: pendingAction.args?.message,
+          date: pendingAction.args?.date,
+        });
+        setCommitInputMessage('');
+        setBackdateEnabled(false);
+        setBackdateValue('');
+      } else {
+        postMessage({
+          type: 'action-requested',
+          action: pendingAction.kind,
+          nodeId: selectedNodeDetails.nodeId,
+          args: { ...pendingAction.args, ...extraArgs },
+        });
+      }
       setPendingAction(null);
       setMergeability(null);
+      setPushStatus(null);
     }
   }, [pendingAction, selectedNodeDetails]);
 
   const handleCancel = useCallback(() => {
     setPendingAction(null);
     setMergeability(null);
+    setPushStatus(null);
   }, []);
 
   const details = selectedNodeDetails;
@@ -564,15 +630,12 @@ export function NodeInspector() {
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                               e.preventDefault();
-                              if (commitInputMessage.trim()) {
-                                postMessage({
-                                  type: 'commit-staged',
+                              if (commitInputMessage.trim() && stagedCount > 0) {
+                                handleAction('commit', {
                                   message: commitInputMessage.trim(),
                                   date: backdateEnabled && backdateValue ? backdateValue : undefined,
+                                  stagedCount,
                                 });
-                                setCommitInputMessage('');
-                                setBackdateEnabled(false);
-                                setBackdateValue('');
                               }
                             }
                           }}
@@ -653,15 +716,12 @@ export function NodeInspector() {
                         disabled={!commitInputMessage.trim() || stagedCount === 0}
                         title={stagedCount === 0 ? 'Stage files before committing' : !commitInputMessage.trim() ? 'Enter a commit message' : `Commit ${stagedCount} staged file${stagedCount !== 1 ? 's' : ''}`}
                         onClick={() => {
-                          if (commitInputMessage.trim()) {
-                            postMessage({
-                              type: 'commit-staged',
+                          if (commitInputMessage.trim() && stagedCount > 0) {
+                            handleAction('commit', {
                               message: commitInputMessage.trim(),
                               date: backdateEnabled && backdateValue ? backdateValue : undefined,
+                              stagedCount,
                             });
-                            setCommitInputMessage('');
-                            setBackdateEnabled(false);
-                            setBackdateValue('');
                           }
                         }}
                       >
@@ -880,6 +940,8 @@ export function NodeInspector() {
                           currentBranch={currentBranch}
                           mergeability={mergeability}
                           isCheckingMerge={isCheckingMerge}
+                          pushStatus={pushStatus}
+                          isCheckingPush={isCheckingPush}
                           onProceed={handleProceed}
                           onCancel={handleCancel}
                         />

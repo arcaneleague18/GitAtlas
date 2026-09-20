@@ -325,6 +325,16 @@ export interface GitHubContext {
   commitStatuses: Record<string, GitHubCommitStatus>; // keyed by commit hash
 }
 
+export interface PushStatusResult {
+  readonly isRemoteUpdated: boolean;
+  readonly status: 'up-to-date' | 'behind' | 'diverged' | 'new-branch' | 'no-remote' | 'unreachable' | 'error';
+  readonly aheadBehind: { readonly ahead: number; readonly behind: number };
+  readonly conflictFiles: readonly string[];
+  readonly hasConflicts: boolean;
+  readonly message: string;
+  readonly remoteBranch?: string;
+}
+
 export type ExtensionToWebviewMessage =
   | { type: 'graph-update'; graph: SerializedGraph }
   | { type: 'theme-change'; theme: 'dark' | 'light' | 'high-contrast' }
@@ -340,7 +350,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'file-purge-started'; filePath: string }
   | { type: 'file-purge-cancelled'; filePath: string }
   | { type: 'file-purge-result'; filePath: string; success: boolean; message: string }
-  | { type: 'mergeability-result'; nodeId: string; canMerge: boolean; status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error'; conflictFiles: string[]; aheadBehind: { ahead: number; behind: number }; message: string };
+  | { type: 'mergeability-result'; nodeId: string; canMerge: boolean; status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error'; conflictFiles: string[]; aheadBehind: { ahead: number; behind: number }; message: string }
+  | ({ type: 'push-status-result'; nodeId: string } & PushStatusResult);
 
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =
@@ -369,6 +380,7 @@ export type WebviewToExtensionMessage =
   | { type: 'search-file-in-history'; filePath: string }
   | { type: 'purge-file-from-history'; filePath: string }
   | { type: 'check-mergeability'; nodeId: string; ref: string }
+  | { type: 'check-push-status'; nodeId: string; branch?: string }
   | { type: 'first-commit' };
 
 /**

@@ -12,7 +12,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import type { ValidAction, EdgeKind, NodeDetails } from '../types';
+import type { ValidAction, EdgeKind, NodeDetails, PushStatusResult } from '../types';
 
 interface ActionPreviewPanelProps {
   action: ValidAction;
@@ -27,6 +27,8 @@ interface ActionPreviewPanelProps {
     message: string;
   } | null;
   isCheckingMerge?: boolean;
+  pushStatus?: PushStatusResult | null;
+  isCheckingPush?: boolean;
   onProceed: (extraArgs?: Record<string, any>) => void;
   onCancel: () => void;
 }
@@ -61,6 +63,8 @@ function ActionPreviewPanelComponent({
   currentBranch,
   mergeability,
   isCheckingMerge,
+  pushStatus,
+  isCheckingPush,
   onProceed,
   onCancel,
 }: ActionPreviewPanelProps) {
@@ -69,10 +73,21 @@ function ActionPreviewPanelComponent({
   const targetShort = nodeDetails.hash?.substring(0, 7) ?? nodeDetails.label;
   const isMergeAction = action.kind === 'merge' || action.kind === 'rebase';
   const isMergeOnly = action.kind === 'merge';
+  const isPushAction = action.kind === 'push';
+  const isCommitAction = action.kind === 'commit';
+  const isPushOrCommit = isPushAction || isCommitAction;
+  const pushMode = (action as any).args?.pushMode ?? 'normal';
+  const [allowDivergeCommit, setAllowDivergeCommit] = useState(false);
 
   // Merge strategy state
   const [mergeStrategy, setMergeStrategy] = useState<'ff' | 'no-ff' | 'ff-only'>('ff');
   const [mergeMessage, setMergeMessage] = useState('');
+
+  const isProceedDisabled = !!(
+    (isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge))) ||
+    (isPushAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease'))) ||
+    (isCommitAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit)))
+  );
 
   const graphImpact = useMemo(
     () => getGraphImpact(action.kind, nodeDetails, shortHead, currentBranch, targetShort),
@@ -138,10 +153,81 @@ function ActionPreviewPanelComponent({
         </div>
       )}
 
+      {/* Remote Status Banner (for Push and Commit actions) */}
+      {isPushOrCommit && (
+        <div className={`mergeability-banner ${
+          isCheckingPush ? 'checking' :
+          !pushStatus ? 'checking' :
+          pushStatus.isRemoteUpdated ? 'conflict' :
+          pushStatus.status === 'unreachable' || pushStatus.status === 'no-remote' || pushStatus.status === 'error' ? 'checking' :
+          'mergeable'
+        }`}>
+          {isCheckingPush || !pushStatus ? (
+            <>
+              <span className="mergeability-spinner" />
+              <span className="mergeability-text">Checking remote repository…</span>
+            </>
+          ) : (
+            <>
+              <span className="mergeability-icon">
+                {pushStatus.isRemoteUpdated ? '✕' :
+                 pushStatus.status === 'unreachable' || pushStatus.status === 'no-remote' || pushStatus.status === 'error' ? 'ℹ' :
+                 '✓'}
+              </span>
+              <span className="mergeability-text">
+                {isCommitAction && pushStatus.isRemoteUpdated
+                  ? `Remote repository has new changes (${pushStatus.aheadBehind.behind} commit${pushStatus.aheadBehind.behind !== 1 ? 's' : ''} behind). Committing now will diverge from remote.`
+                  : pushStatus.message}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Conflict file list */}
+      {isPushOrCommit && pushStatus && pushStatus.hasConflicts && pushStatus.conflictFiles.length > 0 && (
+        <div className="mergeability-conflicts">
+          <div className="mergeability-conflicts-title">Conflicting files with remote:</div>
+          {pushStatus.conflictFiles.map((f, i) => (
+            <div key={i} className="mergeability-conflict-file">
+              <span className="mergeability-conflict-icon">!</span>
+              <span>{f}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Allow Diverge Checkbox for Commit action */}
+      {isCommitAction && pushStatus && pushStatus.isRemoteUpdated && (
+        <div style={{
+          padding: '8px 16px',
+          background: 'rgba(239, 68, 68, 0.08)',
+          borderBottom: '1px solid var(--border-muted)',
+          fontSize: '11px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', userSelect: 'none', color: 'var(--text-primary)' }}>
+            <input
+              type="checkbox"
+              checked={allowDivergeCommit}
+              onChange={(e) => setAllowDivergeCommit(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            <span>Commit anyway (allow branch to diverge from remote)</span>
+          </label>
+        </div>
+      )}
+
       {/* Description */}
       <div className="action-preview-section">
         <div className="action-preview-section-label">What this does</div>
-        <div className="action-preview-description">{action.description}</div>
+        <div className="action-preview-description">
+          {isCommitAction && (action as any).args?.message
+            ? `Commit ${(action as any).args.stagedCount ? `${(action as any).args.stagedCount} ` : ''}staged file${(action as any).args.stagedCount !== 1 ? 's' : ''} with message: "${(action as any).args.message}"`
+            : action.description}
+        </div>
       </div>
 
       {/* Graph Impact */}
@@ -161,7 +247,7 @@ function ActionPreviewPanelComponent({
       <div className="action-preview-section">
         <div className="action-preview-section-label">Commands</div>
         <div className="action-preview-commands">
-          {getGitCommands(action.kind, nodeDetails, currentBranch, headHash, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode, isMergeOnly ? mergeMessage : undefined).map((cmd, i) => (
+          {getGitCommands(action.kind, nodeDetails, currentBranch, headHash, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode, isMergeOnly ? mergeMessage : undefined, (action as any).args).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
               <span className="action-preview-command-prompt">$</span>
               <code>{cmd}</code>
@@ -247,13 +333,30 @@ function ActionPreviewPanelComponent({
         </button>
         <button
           className={`action-preview-btn action-preview-btn-proceed ${
-            action.isDangerous ? 'danger' : ''
-          }`}
-          onClick={() => onProceed(isMergeOnly ? { mergeStrategy, mergeMessage } : undefined)}
-          disabled={!!(isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge)))}
-          title={isMergeAction && isCheckingMerge ? 'Checking mergeability...' : isMergeAction && mergeability && !mergeability.canMerge ? 'Cannot merge due to conflicts' : undefined}
+            action.isDangerous || (isCommitAction && pushStatus?.isRemoteUpdated) ? 'danger' : ''
+          } ${isProceedDisabled ? 'disabled' : ''}`}
+          onClick={() => {
+            if (!isProceedDisabled) {
+              onProceed(isMergeOnly ? { mergeStrategy, mergeMessage } : undefined);
+            }
+          }}
+          disabled={isProceedDisabled}
+          aria-disabled={isProceedDisabled}
+          title={
+            isMergeAction && isCheckingMerge ? 'Checking mergeability...' :
+            isMergeAction && mergeability && !mergeability.canMerge ? 'Cannot merge due to conflicts' :
+            isPushAction && isCheckingPush ? 'Checking remote repository...' :
+            isPushAction && pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease' ? 'Cannot push: remote has new changes. Pull or rebase first.' :
+            isCommitAction && isCheckingPush ? 'Checking remote repository...' :
+            isCommitAction && pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit ? 'Remote has new changes. Pull or rebase first, or check "Commit anyway".' :
+            undefined
+          }
         >
-          {action.isDangerous ? '⚠ Proceed' : 'Proceed'}
+          {isCommitAction
+            ? pushStatus?.isRemoteUpdated
+              ? 'Commit Anyway'
+              : 'Commit'
+            : 'Proceed'}
         </button>
       </div>
       </motion.div>
@@ -407,7 +510,8 @@ function getGitCommands(
   headHash: string,
   mergeStrategy?: 'ff' | 'no-ff' | 'ff-only',
   pushMode?: string,
-  mergeMessage?: string
+  mergeMessage?: string,
+  actionArgs?: any
 ): string[] {
   const shortHash = details.hash?.substring(0, 7) ?? details.label;
   const label = details.label;
@@ -465,8 +569,14 @@ function getGitCommands(
     case 'create-tag':
       return [`git tag <name> ${shortHash}`];
 
-    case 'commit':
-      return [`git commit -m "<message>"`];
+    case 'commit': {
+      const msg = actionArgs?.message ? actionArgs.message.replace(/"/g, '\\"') : '<message>';
+      const date = actionArgs?.date;
+      if (date) {
+        return [`git commit --date="${date}" -m "${msg}"`];
+      }
+      return [`git commit -m "${msg}"`];
+    }
 
     case 'stash':
       return [`git stash push -m "<message>"`];

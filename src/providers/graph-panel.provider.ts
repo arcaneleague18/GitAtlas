@@ -551,6 +551,16 @@ export class GraphPanelProvider extends DisposableBase {
         break;
       }
 
+      case 'check-push-status': {
+        const result = await this.gitService.checkPushStatus(message.branch);
+        this.postMessage({
+          type: 'push-status-result',
+          nodeId: message.nodeId,
+          ...result,
+        });
+        break;
+      }
+
       case 'first-commit':
         void vscode.commands.executeCommand('gitAtlas.firstCommit');
         break;
