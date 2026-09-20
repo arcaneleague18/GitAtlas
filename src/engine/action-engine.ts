@@ -403,7 +403,15 @@ function getRemoteBranchActions(node: GraphNode, graph: RepositoryGraph): ValidA
   actions.push({
     kind: 'switch',
     label: 'Switch',
-    description: 'Create a local branch tracking this remote branch',
+    description: 'Switch to this remote branch (detached HEAD)',
+    enabled: true,
+    isDangerous: false,
+  });
+
+  actions.push({
+    kind: 'create-tracking-branch',
+    label: 'Create Tracking Branch',
+    description: `Create a new local branch that tracks ${node.label}`,
     enabled: true,
     isDangerous: false,
   });

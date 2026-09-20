@@ -172,7 +172,8 @@ export type EdgeKind =
   | 'rebase-continue'
   | 'rebase-skip'
   | 'rebase-abort'
-  | 'rebase-interactive';
+  | 'rebase-interactive'
+  | 'create-tracking-branch';
 
 /** An edge in the repository graph. */
 export interface GraphEdge {

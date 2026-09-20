@@ -770,6 +770,22 @@ export class GitService {
     await this.exec(args);
   }
 
+  /**
+   * Create a new local branch tracking a remote branch.
+   * If shouldSwitch is true, switches to the newly created tracking branch.
+   */
+  async createTrackingBranch(localBranch: string, remoteBranch: string, shouldSwitch: boolean = true): Promise<void> {
+    if (shouldSwitch) {
+      try {
+        await this.exec(['switch', '-c', localBranch, '--track', remoteBranch]);
+      } catch {
+        await this.exec(['checkout', '-b', localBranch, '--track', remoteBranch]);
+      }
+    } else {
+      await this.exec(['branch', '--track', localBranch, remoteBranch]);
+    }
+  }
+
   async deleteBranch(name: string, force = false): Promise<void> {
     await this.exec(['branch', force ? '-D' : '-d', name]);
   }

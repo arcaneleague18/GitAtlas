@@ -55,7 +55,8 @@ export type EdgeKind =
   | 'rebase-continue'
   | 'rebase-skip'
   | 'rebase-abort'
-  | 'rebase-interactive';
+  | 'rebase-interactive'
+  | 'create-tracking-branch';
 
 export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'conflicted';
 

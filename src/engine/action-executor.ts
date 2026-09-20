@@ -100,6 +100,11 @@ export class ActionExecutor {
             );
           }
         }
+      } else if (action === 'create-tracking-branch') {
+        const targetBranchName = args?.branchName || (node as any)._tempBranchName || node.label.replace(/^[^/]+\//, '');
+        vscode.window.showInformationMessage(
+          `Git Atlas: Created local branch "${targetBranchName}" tracking "${node.label}".`
+        );
       } else {
         vscode.window.showInformationMessage(`Successfully completed ${action}.`);
       }
@@ -212,6 +217,19 @@ export class ActionExecutor {
       return true;
     }
 
+    if (action === 'create-tracking-branch') {
+      const defaultName = node.label.replace(/^[^/]+\//, '');
+      const name = await vscode.window.showInputBox({
+        prompt: `Enter local branch name to track "${node.label}"`,
+        value: defaultName,
+        placeHolder: defaultName,
+        validateInput: (value) => (value.trim() ? null : 'Branch name cannot be empty'),
+      });
+      if (!name || !name.trim()) return false;
+      node._tempBranchName = name.trim();
+      return true;
+    }
+
     if (action === 'create-tag') {
       const name = await vscode.window.showInputBox({
         prompt: 'Enter tag name',
@@ -279,6 +297,12 @@ export class ActionExecutor {
       case 'branch':
         await this.gitService.createBranch(node._tempBranchName, hash);
         break;
+      case 'create-tracking-branch': {
+        const targetBranchName = args?.branchName || node._tempBranchName || node.label.replace(/^[^/]+\//, '');
+        const shouldSwitch = args?.switch !== false;
+        await this.gitService.createTrackingBranch(targetBranchName, branchName, shouldSwitch);
+        break;
+      }
       case 'delete-branch':
         if (node.kind === 'tag') {
           await this.gitService.deleteTag(branchName);
@@ -377,6 +401,7 @@ export class ActionExecutor {
       'delete-branch': 'Deleting branch',
       'delete-commit': 'Deleting commit',
       'delete-remote-branch': 'Deleting remote branch',
+      'create-tracking-branch': 'Creating tracking branch',
       merge: 'Merging',
       rebase: 'Rebasing',
       'rebase-interactive': 'Starting interactive rebase',

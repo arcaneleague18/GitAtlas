@@ -37,6 +37,7 @@ const ACTION_ICONS: Record<string, string> = {
   'rebase-skip': '»',
   'rebase-abort': '✕',
   'rebase-interactive': '⚙',
+  'create-tracking-branch': '⎇',
 };
 
 function ActionButtonComponent({ action, onAction }: ActionButtonProps) {

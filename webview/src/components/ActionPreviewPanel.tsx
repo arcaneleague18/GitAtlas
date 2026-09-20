@@ -32,6 +32,7 @@ interface ActionPreviewPanelProps {
   onProceed: (extraArgs?: Record<string, any>) => void;
   onCancel: () => void;
   onSwitchToInteractive?: () => void;
+  existingBranches?: string[];
 }
 
 const ACTION_ICONS: Record<string, string> = {
@@ -59,6 +60,7 @@ const ACTION_ICONS: Record<string, string> = {
   'rebase-continue': '►',
   'rebase-skip': '»',
   'rebase-abort': '✕',
+  'create-tracking-branch': '⎇',
 };
 
 function ActionPreviewPanelComponent({
@@ -73,6 +75,7 @@ function ActionPreviewPanelComponent({
   onProceed,
   onCancel,
   onSwitchToInteractive,
+  existingBranches = [],
 }: ActionPreviewPanelProps) {
   const icon = ACTION_ICONS[action.kind] ?? '⚡';
   const shortHead = headHash?.substring(0, 7) ?? '???';
@@ -83,6 +86,7 @@ function ActionPreviewPanelComponent({
   const isPushAction = action.kind === 'push';
   const isCommitAction = action.kind === 'commit';
   const isPushOrCommit = isPushAction || isCommitAction;
+  const isTrackingBranchAction = action.kind === 'create-tracking-branch';
   const pushMode = (action as any).args?.pushMode ?? 'normal';
   const [allowDivergeCommit, setAllowDivergeCommit] = useState(false);
 
@@ -94,15 +98,31 @@ function ActionPreviewPanelComponent({
   const [autostash, setAutostash] = useState(true);
   const [rebaseMerges, setRebaseMerges] = useState(false);
 
+  // Tracking branch state
+  const defaultTrackingBranchName = useMemo(() => {
+    return nodeDetails.label.replace(/^[^/]+\//, '');
+  }, [nodeDetails.label]);
+  const [trackingBranchName, setTrackingBranchName] = useState(defaultTrackingBranchName);
+  const [switchAfterCreate, setSwitchAfterCreate] = useState(true);
+
+  const isBranchNameTaken = useMemo(() => {
+    if (!isTrackingBranchAction) return false;
+    const trimmed = trackingBranchName.trim();
+    return existingBranches.includes(trimmed);
+  }, [isTrackingBranchAction, existingBranches, trackingBranchName]);
+
+  const isTrackingBranchInvalid = isTrackingBranchAction && (!trackingBranchName.trim() || isBranchNameTaken);
+
   const isProceedDisabled = !!(
     (isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge))) ||
     (isPushAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease'))) ||
-    (isCommitAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit)))
+    (isCommitAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit))) ||
+    isTrackingBranchInvalid
   );
 
   const graphImpact = useMemo(
-    () => getGraphImpact(action.kind, nodeDetails, shortHead, currentBranch, targetShort),
-    [action.kind, nodeDetails, shortHead, currentBranch, targetShort]
+    () => getGraphImpact(action.kind, nodeDetails, shortHead, currentBranch, targetShort, trackingBranchName.trim(), switchAfterCreate),
+    [action.kind, nodeDetails, shortHead, currentBranch, targetShort, trackingBranchName, switchAfterCreate]
   );
 
   return (
@@ -266,7 +286,11 @@ function ActionPreviewPanelComponent({
             isMergeOnly ? mergeStrategy : undefined,
             (action as any).args?.pushMode,
             isMergeOnly ? mergeMessage : undefined,
-            isRebaseOnly ? { autostash, rebaseMerges, ...(action as any).args } : (action as any).args
+            isRebaseOnly
+              ? { autostash, rebaseMerges, ...(action as any).args }
+              : isTrackingBranchAction
+              ? { branchName: trackingBranchName.trim(), switch: switchAfterCreate }
+              : (action as any).args
           ).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
               <span className="action-preview-command-prompt">$</span>
@@ -409,6 +433,53 @@ function ActionPreviewPanelComponent({
         </div>
       )}
 
+      {/* Tracking Branch Options */}
+      {isTrackingBranchAction && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Local Branch Settings</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                New Local Branch Name:
+              </label>
+              <input
+                type="text"
+                value={trackingBranchName}
+                onChange={(e) => setTrackingBranchName(e.target.value)}
+                placeholder="Enter branch name..."
+                style={{
+                  padding: '6px 10px',
+                  background: 'var(--bg-input, rgba(255, 255, 255, 0.06))',
+                  border: isBranchNameTaken
+                    ? '1px solid #ef4444'
+                    : '1px solid var(--border-muted, rgba(255, 255, 255, 0.15))',
+                  borderRadius: '4px',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono, monospace)',
+                  outline: 'none',
+                }}
+              />
+              {isBranchNameTaken && (
+                <span style={{ fontSize: '11px', color: '#f87171' }}>
+                  A local branch named "{trackingBranchName.trim()}" already exists. Please choose a different name.
+                </span>
+              )}
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', userSelect: 'none', color: 'var(--text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={switchAfterCreate}
+                onChange={(e) => setSwitchAfterCreate(e.target.checked)}
+                style={{ cursor: 'pointer' }}
+              />
+              <span><strong>Switch to branch</strong> after creation</span>
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* Buttons */}
       <div className="action-preview-buttons">
         <button
@@ -428,6 +499,8 @@ function ActionPreviewPanelComponent({
                   ? { mergeStrategy, mergeMessage }
                   : isRebaseOnly
                   ? { autostash, rebaseMerges }
+                  : isTrackingBranchAction
+                  ? { branchName: trackingBranchName.trim(), switch: switchAfterCreate }
                   : undefined
               );
             }
@@ -441,6 +514,8 @@ function ActionPreviewPanelComponent({
             isPushAction && pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease' ? 'Cannot push: remote has new changes. Pull or rebase first.' :
             isCommitAction && isCheckingPush ? 'Checking remote repository...' :
             isCommitAction && pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit ? 'Remote has new changes. Pull or rebase first, or check "Commit anyway".' :
+            isTrackingBranchAction && !trackingBranchName.trim() ? 'Branch name cannot be empty' :
+            isTrackingBranchAction && isBranchNameTaken ? 'A local branch with this name already exists' :
             undefined
           }
         >
@@ -448,6 +523,8 @@ function ActionPreviewPanelComponent({
             ? pushStatus?.isRemoteUpdated
               ? 'Commit Anyway'
               : 'Commit'
+            : isTrackingBranchAction
+            ? (switchAfterCreate ? 'Create & Switch' : 'Create Branch')
             : 'Proceed'}
         </button>
       </div>
@@ -466,11 +543,21 @@ function getGraphImpact(
   details: NodeDetails,
   shortHead: string,
   currentBranch: string | null,
-  targetShort: string
+  targetShort: string,
+  extraName?: string,
+  shouldSwitch?: boolean
 ): ImpactLine[] {
   const branchDisplay = currentBranch ?? `detached at ${shortHead}`;
 
   switch (kind) {
+    case 'create-tracking-branch': {
+      const name = extraName || details.label.replace(/^[^/]+\//, '');
+      return [
+        { icon: '⎇', text: `A new local branch "${name}" will be created tracking ${details.label}` },
+        { icon: '●', text: `Upstream will be set to ${details.label} for push/pull synchronization` },
+        { icon: shouldSwitch ? '→' : '●', text: shouldSwitch ? `HEAD will switch to "${name}"` : `Current branch (${branchDisplay}) remains checked out` },
+      ];
+    }
     case 'switch':
       return [
         { icon: '→', text: `HEAD will move from ${branchDisplay} to ${details.label}` },
@@ -646,6 +733,14 @@ function getGitCommands(
 
     case 'branch':
       return [`git branch <name> ${shortHash}`];
+
+    case 'create-tracking-branch': {
+      const localName = actionArgs?.branchName || label.replace(/^[^/]+\//, '');
+      const shouldSwitch = actionArgs?.switch !== false;
+      return shouldSwitch
+        ? [`git switch -c ${localName} --track ${label}`]
+        : [`git branch --track ${localName} ${label}`];
+    }
 
     case 'delete-branch':
       return [`git branch -D ${label}`];

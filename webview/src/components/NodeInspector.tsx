@@ -10,7 +10,7 @@
  * - Close on Escape key
  */
 
-import { useEffect, useCallback, useState, ReactNode } from 'react';
+import { useEffect, useCallback, useState, useMemo, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGraphStore } from '../store/graph.store';
@@ -36,7 +36,12 @@ export function NodeInspector() {
     commitCount,
     repositoryState,
     rebaseProgress,
+    branchColors,
   } = useGraphStore();
+
+  const localBranches = useMemo(() => {
+    return (branchColors || []).filter((b) => !b.isRemote).map((b) => b.name);
+  }, [branchColors]);
 
   // Pending action for preview panel
   const [pendingAction, setPendingAction] = useState<ValidAction | null>(null);
@@ -1100,6 +1105,7 @@ export function NodeInspector() {
                           isCheckingPush={isCheckingPush}
                           onProceed={handleProceed}
                           onCancel={handleCancel}
+                          existingBranches={localBranches}
                           onSwitchToInteractive={
                             pendingAction.kind === 'rebase'
                               ? () => {
