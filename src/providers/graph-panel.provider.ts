@@ -542,12 +542,84 @@ export class GraphPanelProvider extends DisposableBase {
       }
 
       case 'check-mergeability': {
-        const result = await this.gitService.checkMergeability(message.ref);
+        const result = await this.gitService.checkMergeability(message.ref, message.action);
         this.postMessage({
           type: 'mergeability-result',
           nodeId: message.nodeId,
           ...result,
         });
+        break;
+      }
+
+      case 'rebase-continue':
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Git: Continuing rebase...' },
+          async () => {
+            try {
+              await this.gitService.rebaseContinue();
+              await this.stateEngine.buildGraph();
+              const state = this.stateEngine.graph?.state;
+              if (state === 'rebasing') {
+                vscode.window.showInformationMessage('Git Atlas: Continued to next rebase step.');
+                await this.handleNodeSelected('working-directory');
+              } else {
+                vscode.window.showInformationMessage('Git Atlas: Rebase completed successfully.');
+              }
+            } catch (err: any) {
+              const state = await this.gitService.getRepositoryState();
+              if (state === 'rebasing') {
+                vscode.window.showWarningMessage('Git Atlas: Rebase paused due to conflicts. Resolve conflicts and try again.');
+                await this.stateEngine.buildGraph();
+                await this.handleNodeSelected('working-directory');
+              } else {
+                vscode.window.showErrorMessage(`Git Atlas: Rebase continue failed — ${err.stderr || err.message}`);
+              }
+            }
+          }
+        );
+        break;
+
+      case 'rebase-skip':
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Git: Skipping rebase commit...' },
+          async () => {
+            try {
+              await this.gitService.rebaseSkip();
+              await this.stateEngine.buildGraph();
+              const state = this.stateEngine.graph?.state;
+              if (state === 'rebasing') {
+                vscode.window.showInformationMessage('Git Atlas: Skipped commit, moved to next step.');
+                await this.handleNodeSelected('working-directory');
+              } else {
+                vscode.window.showInformationMessage('Git Atlas: Rebase completed successfully.');
+              }
+            } catch (err: any) {
+              vscode.window.showErrorMessage(`Git Atlas: Rebase skip failed — ${err.stderr || err.message}`);
+            }
+          }
+        );
+        break;
+
+      case 'rebase-abort': {
+        const choice = await vscode.window.showWarningMessage(
+          'Are you sure you want to abort the rebase? All rebased commits will be discarded and the branch will return to its original state.',
+          { modal: true },
+          'Abort Rebase'
+        );
+        if (choice === 'Abort Rebase') {
+          await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: 'Git: Aborting rebase...' },
+            async () => {
+              try {
+                await this.gitService.rebaseAbort();
+                await this.stateEngine.buildGraph();
+                vscode.window.showInformationMessage('Git Atlas: Rebase aborted.');
+              } catch (err: any) {
+                vscode.window.showErrorMessage(`Git Atlas: Failed to abort rebase — ${err.stderr || err.message}`);
+              }
+            }
+          );
+        }
         break;
       }
 
@@ -560,6 +632,68 @@ export class GraphPanelProvider extends DisposableBase {
         });
         break;
       }
+
+      case 'get-rebase-commits': {
+        const commits = await this.gitService.getRebaseCommits(message.baseRef);
+        this.postMessage({
+          type: 'rebase-commits-result',
+          baseRef: message.baseRef,
+          commits,
+        });
+        break;
+      }
+
+      case 'execute-interactive-rebase':
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Git Atlas: Rebasing interactively...' },
+          async () => {
+            try {
+              this.postMessage({ type: 'loading', loading: true });
+              const result = await this.gitService.executeInteractiveRebase(
+                message.baseRef,
+                message.items,
+                message.options
+              );
+              await this.stateEngine.buildGraph();
+
+              if (result.paused) {
+                vscode.window.showWarningMessage(
+                  'Git Atlas: Interactive rebase paused. Resolve any conflicts or amendments, then click Continue Rebase.'
+                );
+                await this.handleNodeSelected('working-directory');
+                this.postMessage({
+                  type: 'interactive-rebase-result',
+                  success: true,
+                  paused: true,
+                });
+              } else if (result.success) {
+                vscode.window.showInformationMessage('Git Atlas: Interactive rebase completed successfully.');
+                this.postMessage({
+                  type: 'interactive-rebase-result',
+                  success: true,
+                });
+              } else {
+                vscode.window.showErrorMessage(`Git Atlas: Interactive rebase failed — ${result.error}`);
+                this.postMessage({
+                  type: 'interactive-rebase-result',
+                  success: false,
+                  error: result.error,
+                });
+              }
+            } catch (err: any) {
+              const errMsg = err.stderr || err.message || 'Unknown error';
+              vscode.window.showErrorMessage(`Git Atlas: Interactive rebase failed — ${errMsg}`);
+              this.postMessage({
+                type: 'interactive-rebase-result',
+                success: false,
+                error: errMsg,
+              });
+            } finally {
+              this.postMessage({ type: 'loading', loading: false });
+            }
+          }
+        );
+        break;
 
       case 'first-commit':
         void vscode.commands.executeCommand('gitAtlas.firstCommit');

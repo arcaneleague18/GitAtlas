@@ -28,6 +28,8 @@ import type {
   RepositoryState,
   DiffFileStat,
   PushStatusResult,
+  RebaseProgress,
+  RebaseCommitItem,
 } from '../engine/types.js';
 
 const execFileAsync = promisify(execFile);
@@ -792,11 +794,11 @@ export class GitService {
   }
 
   /**
-   * Check if a ref can be cleanly merged into the current branch.
+   * Check if a ref can be cleanly merged or rebased into/onto the current branch.
    * Uses `git merge-tree --write-tree` (Git 2.38+) for an in-memory merge check.
    * Falls back to `git merge-base` diff check for older Git versions.
    */
-  async checkMergeability(ref: string): Promise<{
+  async checkMergeability(ref: string, action: 'merge' | 'rebase' = 'merge'): Promise<{
     canMerge: boolean;
     status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error';
     conflictFiles: string[];
@@ -809,32 +811,57 @@ export class GitService {
       try {
         const revList = await this.exec(['rev-list', '--left-right', '--count', `HEAD...${ref}`]);
         const parts = revList.trim().split(/\s+/);
-        ahead = parseInt(parts[0] ?? '0', 10);
-        behind = parseInt(parts[1] ?? '0', 10);
+        ahead = parseInt(parts[0] ?? '0', 10) || 0;
+        behind = parseInt(parts[1] ?? '0', 10) || 0;
       } catch { /* ignore */ }
 
-      // Already up to date (nothing to merge)
-      if (behind === 0) {
-        return {
-          canMerge: true,
-          status: 'up-to-date',
-          conflictFiles: [],
-          aheadBehind: { ahead, behind },
-          message: 'Already up to date. Nothing to merge.',
-        };
-      }
+      // Check rebase-specific statuses
+      if (action === 'rebase') {
+        // In rebase: if behind === 0, ref is an ancestor of HEAD (already rebased/based on ref)
+        if (behind === 0) {
+          return {
+            canMerge: true,
+            status: 'up-to-date',
+            conflictFiles: [],
+            aheadBehind: { ahead, behind },
+            message: 'Current branch is already based on this ref. Nothing to rebase.',
+          };
+        }
 
-      // Check if fast-forward is possible
-      try {
-        await this.exec(['merge-base', '--is-ancestor', 'HEAD', ref]);
-        return {
-          canMerge: true,
-          status: 'fast-forward',
-          conflictFiles: [],
-          aheadBehind: { ahead, behind },
-          message: `Fast-forward merge possible. ${behind} commit${behind !== 1 ? 's' : ''} will be added.`,
-        };
-      } catch { /* not a fast-forward — need to try merge */ }
+        // If ahead === 0, HEAD is an ancestor of ref (fast-forward rebase)
+        if (ahead === 0) {
+          return {
+            canMerge: true,
+            status: 'fast-forward',
+            conflictFiles: [],
+            aheadBehind: { ahead, behind },
+            message: `Fast-forward rebase possible. Current branch will advance by ${behind} commit${behind !== 1 ? 's' : ''}.`,
+          };
+        }
+      } else {
+        // Standard merge: Already up to date (nothing to merge)
+        if (behind === 0) {
+          return {
+            canMerge: true,
+            status: 'up-to-date',
+            conflictFiles: [],
+            aheadBehind: { ahead, behind },
+            message: 'Already up to date. Nothing to merge.',
+          };
+        }
+
+        // Check if fast-forward is possible
+        try {
+          await this.exec(['merge-base', '--is-ancestor', 'HEAD', ref]);
+          return {
+            canMerge: true,
+            status: 'fast-forward',
+            conflictFiles: [],
+            aheadBehind: { ahead, behind },
+            message: `Fast-forward merge possible. ${behind} commit${behind !== 1 ? 's' : ''} will be added.`,
+          };
+        } catch { /* not a fast-forward — need to try merge */ }
+      }
 
       // Try in-memory merge with merge-tree (Git 2.38+)
       try {
@@ -845,7 +872,9 @@ export class GitService {
           status: 'clean',
           conflictFiles: [],
           aheadBehind: { ahead, behind },
-          message: `Able to merge. These branches can be automatically merged.`,
+          message: action === 'rebase'
+            ? `Able to rebase cleanly. ${ahead} commit${ahead !== 1 ? 's' : ''} will be replayed.`
+            : `Able to merge. These branches can be automatically merged.`,
         };
       } catch (err: any) {
         const stderr = (err.stderr || '').toString();
@@ -878,14 +907,15 @@ export class GitService {
         }
 
         if (conflictFiles.length > 0 || combined.includes('CONFLICT')) {
+          const verb = action === 'rebase' ? 'rebase' : 'merge';
           return {
             canMerge: false,
             status: 'conflicts',
             conflictFiles,
             aheadBehind: { ahead, behind },
             message: conflictFiles.length > 0
-              ? `Cannot merge automatically. ${conflictFiles.length} file${conflictFiles.length !== 1 ? 's have' : ' has'} merge conflicts.`
-              : 'Cannot merge automatically. There are merge conflicts.',
+              ? `Cannot ${verb} automatically. ${conflictFiles.length} file${conflictFiles.length !== 1 ? 's have' : ' has'} conflicts.`
+              : `Cannot ${verb} automatically. There are conflicts.`,
           };
         }
 
@@ -895,7 +925,7 @@ export class GitService {
           status: 'clean',
           conflictFiles: [],
           aheadBehind: { ahead, behind },
-          message: 'Merge check completed. Conflicts may still occur.',
+          message: `${action === 'rebase' ? 'Rebase' : 'Merge'} check completed. Conflicts may still occur.`,
         };
       }
     } catch (err: any) {
@@ -904,7 +934,7 @@ export class GitService {
         status: 'error',
         conflictFiles: [],
         aheadBehind: { ahead: 0, behind: 0 },
-        message: `Could not check mergeability: ${err.message || 'Unknown error'}`,
+        message: `Could not check ${action === 'rebase' ? 'rebase' : 'merge'} status: ${err.message || 'Unknown error'}`,
       };
     }
   }
@@ -1179,8 +1209,250 @@ export class GitService {
     }
   }
 
-  async rebase(ref: string): Promise<void> {
-    await this.exec(['rebase', ref]);
+  async rebase(ref: string, options?: { autostash?: boolean; rebaseMerges?: boolean }): Promise<void> {
+    const args = ['rebase'];
+    if (options?.autostash) {
+      args.push('--autostash');
+    }
+    if (options?.rebaseMerges) {
+      args.push('--rebase-merges');
+    }
+    args.push(ref);
+    await this.exec(args);
+  }
+
+  async rebaseContinue(): Promise<void> {
+    await this.exec(['rebase', '--continue'], undefined, { GIT_EDITOR: 'true' });
+  }
+
+  async rebaseSkip(): Promise<void> {
+    await this.exec(['rebase', '--skip']);
+  }
+
+  async rebaseAbort(): Promise<void> {
+    await this.exec(['rebase', '--abort']);
+  }
+
+  /**
+   * Reads rebase metadata from .git/rebase-merge or .git/rebase-apply
+   * to determine current step, total steps, onto commit, and branch being rebased.
+   */
+  async getRebaseProgress(): Promise<RebaseProgress | undefined> {
+    try {
+      const { readFile } = await import('fs/promises');
+      const { join } = await import('path');
+
+      let dir = '';
+      try {
+        const out = await this.exec(['rev-parse', '--git-path', 'rebase-merge']);
+        dir = out.trim();
+        const { stat } = await import('fs/promises');
+        await stat(dir);
+      } catch {
+        dir = '';
+      }
+
+      if (!dir) {
+        try {
+          const out = await this.exec(['rev-parse', '--git-path', 'rebase-apply']);
+          dir = out.trim();
+          const { stat } = await import('fs/promises');
+          await stat(dir);
+        } catch {
+          dir = '';
+        }
+      }
+
+      if (!dir) return undefined;
+
+      let currentStep = 1;
+      let totalSteps = 1;
+      let onto = '';
+      let branch = '';
+
+      try {
+        const msgnum = await readFile(join(dir, 'msgnum'), 'utf-8');
+        currentStep = parseInt(msgnum.trim(), 10) || 1;
+      } catch { /* ignore */ }
+
+      try {
+        const end = await readFile(join(dir, 'end'), 'utf-8');
+        totalSteps = parseInt(end.trim(), 10) || 1;
+      } catch { /* ignore */ }
+
+      try {
+        const ontoContent = await readFile(join(dir, 'onto'), 'utf-8');
+        onto = ontoContent.trim();
+      } catch { /* ignore */ }
+
+      try {
+        const headName = await readFile(join(dir, 'head-name'), 'utf-8');
+        branch = headName.trim().replace(/^refs\/heads\//, '');
+      } catch { /* ignore */ }
+
+      return {
+        currentStep,
+        totalSteps,
+        onto,
+        branch,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Fetch the list of commits that will be affected by an interactive rebase
+   * onto baseRef, in the chronological order Git rebase processes them (oldest to newest).
+   */
+  async getRebaseCommits(baseRef: string): Promise<RebaseCommitItem[]> {
+    try {
+      let range = `${baseRef}..HEAD`;
+      try {
+        await this.exec(['rev-parse', '--verify', `${baseRef}^`]);
+      } catch {
+        // Base commit has no parent (root commit)
+        range = `${baseRef}..HEAD`;
+      }
+
+      const out = await this.exec([
+        'log',
+        '--reverse',
+        '--format=%H\x1f%h\x1f%s\x1f%an\x1f%ae\x1f%at',
+        range,
+      ]);
+
+      const lines = out.trim().split('\n').filter(Boolean);
+      const items: RebaseCommitItem[] = [];
+
+      for (const line of lines) {
+        const parts = line.split('\x1f');
+        if (parts.length >= 6) {
+          items.push({
+            hash: parts[0]!.trim(),
+            shortHash: parts[1]!.trim(),
+            subject: parts[2]!.trim(),
+            author: parts[3]!.trim(),
+            authorEmail: parts[4]!.trim(),
+            timestamp: parseInt(parts[5]!.trim(), 10) || Math.floor(Date.now() / 1000),
+            action: 'pick',
+          });
+        }
+      }
+
+      return items;
+    } catch (err: any) {
+      this.outputChannel.appendLine(`[GitService] Failed to get rebase commits: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Execute an interactive rebase with customized commit items (order and actions: pick, reword, edit, squash, fixup, drop).
+   * Uses cross-platform script runners to inject the custom todo list into Git.
+   */
+  async executeInteractiveRebase(
+    baseRef: string,
+    items: RebaseCommitItem[],
+    options?: { autostash?: boolean; rebaseMerges?: boolean }
+  ): Promise<{ success: boolean; paused?: boolean; error?: string }> {
+    const { join } = await import('path');
+    const { writeFileSync, unlinkSync } = await import('fs');
+    const { tmpdir } = await import('os');
+
+    const timestamp = Date.now();
+    const tempTodoFile = join(tmpdir(), `git-atlas-todo-${timestamp}.txt`);
+    const tempSeqScript = join(tmpdir(), `git-atlas-seq-${timestamp}.js`);
+    const tempFiles: string[] = [tempTodoFile, tempSeqScript];
+
+    const toPosix = (p: string) => p.replace(/\\/g, '/');
+
+    try {
+      // 1. Build the customized todo list
+      const todoLines: string[] = [];
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]!;
+        if (item.action === 'drop') {
+          todoLines.push(`drop ${item.shortHash} ${item.subject}`);
+        } else if (item.action === 'reword' && item.newMessage && item.newMessage.trim() !== item.subject.trim()) {
+          const msgFile = join(tmpdir(), `git-atlas-msg-${item.shortHash}-${timestamp}.txt`);
+          tempFiles.push(msgFile);
+          writeFileSync(msgFile, item.newMessage.trim(), 'utf-8');
+          // Pick the commit, then exec git commit --amend using the temp file
+          todoLines.push(`pick ${item.shortHash} ${item.subject}`);
+          todoLines.push(`exec git commit --amend -F "${toPosix(msgFile)}"`);
+        } else {
+          // If first item is squash/fixup (which is invalid in git), fallback to pick
+          const action = (i === 0 && (item.action === 'squash' || item.action === 'fixup'))
+            ? 'pick'
+            : item.action;
+          todoLines.push(`${action} ${item.shortHash} ${item.subject}`);
+        }
+      }
+
+      writeFileSync(tempTodoFile, todoLines.join('\n') + '\n', 'utf-8');
+
+      // 2. Create the node runner script for GIT_SEQUENCE_EDITOR
+      // Git invokes: GIT_SEQUENCE_EDITOR <path-to-git-rebase-todo>
+      // The runner replaces the git-rebase-todo file with our prepared todo file.
+      const runnerCode = [
+        `const fs = require('fs');`,
+        `try {`,
+        `  fs.copyFileSync('${toPosix(tempTodoFile)}', process.argv[2]);`,
+        `} catch (e) {`,
+        `  console.error(e);`,
+        `  process.exit(1);`,
+        `}`,
+      ].join('\n');
+
+      writeFileSync(tempSeqScript, runnerCode, 'utf-8');
+
+      // 3. Assemble command arguments
+      const args = ['rebase', '-i'];
+      if (options?.autostash ?? true) {
+        args.push('--autostash');
+      }
+      if (options?.rebaseMerges) {
+        args.push('--rebase-merges');
+      }
+      args.push(baseRef);
+
+      this.outputChannel.appendLine(`[GitService] > git ${args.join(' ')} (interactive rebase)`);
+
+      const seqEditorCmd = `node "${toPosix(tempSeqScript)}"`;
+
+      await execFileAsync(this.gitPath, args, {
+        cwd: this.workspaceRoot,
+        maxBuffer: MAX_BUFFER,
+        windowsHide: true,
+        env: {
+          ...process.env,
+          GIT_SEQUENCE_EDITOR: seqEditorCmd,
+          GIT_EDITOR: 'true',
+        },
+      });
+
+      return { success: true };
+    } catch (err: any) {
+      const state = await this.getRepositoryState();
+      if (state === 'rebasing') {
+        // Paused due to conflicts or edit instruction
+        this.outputChannel.appendLine('[GitService] Interactive rebase paused (state: rebasing).');
+        return { success: true, paused: true };
+      }
+
+      const errMsg = err.stderr?.trim() || err.message || 'Unknown error during interactive rebase';
+      this.outputChannel.appendLine(`[GitService] Interactive rebase error: ${errMsg}`);
+      return { success: false, error: errMsg };
+    } finally {
+      // Clean up temp files
+      for (const file of tempFiles) {
+        try {
+          unlinkSync(file);
+        } catch { /* ignore */ }
+      }
+    }
   }
 
   async cherryPick(hash: string): Promise<void> {

@@ -18,7 +18,8 @@ import { postMessage } from '../vscode';
 import { DiffStatBar } from './DiffStatBar';
 import { ActionButton } from './ActionButton';
 import { ActionPreviewPanel } from './ActionPreviewPanel';
-import type { EdgeKind, ValidAction, GitHubPullRequest, CommitNodeData, PushStatusResult } from '../types';
+import { InteractiveRebaseModal } from './InteractiveRebaseModal';
+import type { EdgeKind, ValidAction, GitHubPullRequest, CommitNodeData, PushStatusResult, RebaseCommitItem } from '../types';
 import GlobeIcon from '../../../resources/icons/globe.svg';
 import EditIcon from '../../../resources/icons/edit.svg';
 
@@ -33,6 +34,8 @@ export function NodeInspector() {
     currentBranch,
     graphNodes,
     commitCount,
+    repositoryState,
+    rebaseProgress,
   } = useGraphStore();
 
   // Pending action for preview panel
@@ -65,7 +68,15 @@ export function NodeInspector() {
   const [backdateEnabled, setBackdateEnabled] = useState(false);
   const [backdateValue, setBackdateValue] = useState('');
 
-  // Listen for generated commit message, mergeability results, and push status from extension host
+  // Interactive rebase state
+  const [isInteractiveRebaseOpen, setIsInteractiveRebaseOpen] = useState(false);
+  const [interactiveRebaseBaseRef, setInteractiveRebaseBaseRef] = useState('');
+  const [interactiveRebaseTargetLabel, setInteractiveRebaseTargetLabel] = useState('');
+  const [interactiveRebaseCommits, setInteractiveRebaseCommits] = useState<RebaseCommitItem[]>([]);
+  const [isFetchingRebaseCommits, setIsFetchingRebaseCommits] = useState(false);
+  const [rebaseCommitsError, setRebaseCommitsError] = useState<string | undefined>(undefined);
+
+  // Listen for generated commit message, mergeability results, push status, and interactive rebase from extension host
   useEffect(() => {
     const handleMessage = (e: MessageEvent) => {
       const msg = e.data;
@@ -92,6 +103,17 @@ export function NodeInspector() {
           remoteBranch: msg.remoteBranch,
         });
         setIsCheckingPush(false);
+      } else if (msg?.type === 'rebase-commits-result') {
+        setInteractiveRebaseCommits(msg.commits || []);
+        setIsFetchingRebaseCommits(false);
+        if (msg.error) {
+          setRebaseCommitsError(msg.error);
+        }
+      } else if (msg?.type === 'interactive-rebase-result') {
+        if (msg.success) {
+          setIsInteractiveRebaseOpen(false);
+          setInteractiveRebaseCommits([]);
+        }
       }
     };
     window.addEventListener('message', handleMessage);
@@ -108,13 +130,20 @@ export function NodeInspector() {
     setIsEditingMessage(false);
     setEditedMessage('');
     setShowEditConfirm(false);
+    setIsInteractiveRebaseOpen(false);
+    setInteractiveRebaseCommits([]);
+    setIsFetchingRebaseCommits(false);
+    setRebaseCommitsError(undefined);
   }, [selectedNodeDetails?.nodeId]);
 
   // Close on Escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (pendingAction) {
+        if (isInteractiveRebaseOpen) {
+          setIsInteractiveRebaseOpen(false);
+          setInteractiveRebaseCommits([]);
+        } else if (pendingAction) {
           setPendingAction(null);
         } else if (isInspectorOpen) {
           closeInspector();
@@ -123,11 +152,32 @@ export function NodeInspector() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isInspectorOpen, closeInspector, pendingAction]);
+  }, [isInspectorOpen, closeInspector, pendingAction, isInteractiveRebaseOpen]);
+
+  const openInteractiveRebaseModal = useCallback((ref: string, label: string) => {
+    setInteractiveRebaseBaseRef(ref);
+    setInteractiveRebaseTargetLabel(label);
+    setIsInteractiveRebaseOpen(true);
+    setIsFetchingRebaseCommits(true);
+    setRebaseCommitsError(undefined);
+    setInteractiveRebaseCommits([]);
+    postMessage({
+      type: 'get-rebase-commits',
+      baseRef: ref,
+    });
+  }, []);
 
   // Show preview panel instead of immediately executing
   const handleAction = useCallback(
     (kind: EdgeKind, args?: any) => {
+      // Interactive rebase
+      if (kind === 'rebase-interactive' && selectedNodeDetails) {
+        const isBranch = selectedNodeDetails.kind === 'branch' || selectedNodeDetails.kind === 'remote-branch';
+        const ref = isBranch ? selectedNodeDetails.label : (selectedNodeDetails.hash || selectedNodeDetails.label);
+        openInteractiveRebaseModal(ref, selectedNodeDetails.label);
+        return;
+      }
+
       // Direct commit from working directory
       if (kind === 'commit' && selectedNodeDetails) {
         const commitAction: ValidAction = {
@@ -158,12 +208,14 @@ export function NodeInspector() {
         if ((kind === 'merge' || kind === 'rebase') && selectedNodeDetails) {
           setMergeability(null);
           setIsCheckingMerge(true);
-          // Use the node label as the ref (branch name or remote branch name)
-          const ref = selectedNodeDetails.label;
+          // For branch/remote-branch use branch name; for commits use commit hash
+          const isBranch = selectedNodeDetails.kind === 'branch' || selectedNodeDetails.kind === 'remote-branch';
+          const ref = isBranch ? selectedNodeDetails.label : (selectedNodeDetails.hash || selectedNodeDetails.label);
           postMessage({
             type: 'check-mergeability',
             nodeId: selectedNodeDetails.nodeId,
             ref,
+            action: kind,
           });
         }
         // Trigger push status check for push actions
@@ -268,6 +320,110 @@ export function NodeInspector() {
                   },
                 }}
               >
+                {/* Rebase in Progress banner */}
+                {repositoryState === 'rebasing' && (() => {
+                  const conflictedCount = details.workingDirectoryStatus?.conflicted?.length ?? 0;
+                  return (
+                    <motion.div
+                      className="inspector-section rebase-progress-card"
+                      variants={sectionVariants}
+                      style={{
+                        background: 'rgba(217, 119, 6, 0.12)',
+                        border: '1px solid rgba(217, 119, 6, 0.4)',
+                        borderRadius: '8px',
+                        padding: '14px 16px',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 600, color: '#f59e0b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>⤴</span>
+                          <span>Rebase in Progress</span>
+                        </span>
+                        {rebaseProgress && (
+                          <span style={{
+                            fontSize: '11px',
+                            background: 'rgba(217, 119, 6, 0.25)',
+                            color: '#f59e0b',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: 600,
+                          }}>
+                            Step {rebaseProgress.currentStep} of {rebaseProgress.totalSteps}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.4' }}>
+                        {conflictedCount > 0 ? (
+                          <span>
+                            Rebase paused due to <strong>{conflictedCount} conflict{conflictedCount !== 1 ? 's' : ''}</strong>.
+                            Resolve and stage the conflicted files below, then click Continue.
+                          </span>
+                        ) : (
+                          <span>
+                            Conflicts resolved or changes staged. You can now continue the rebase or skip this step.
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          className="action-button"
+                          disabled={conflictedCount > 0}
+                          onClick={() => {
+                            const continueAction = validActions.find((a) => a.kind === 'rebase-continue');
+                            if (continueAction) {
+                              handleAction('rebase-continue');
+                            } else {
+                              postMessage({ type: 'rebase-continue' });
+                            }
+                          }}
+                          title={conflictedCount > 0 ? 'Resolve and stage conflicts before continuing' : 'Continue rebase with resolved changes'}
+                          style={{ flex: 1, minWidth: '120px', justifyContent: 'center' }}
+                        >
+                          <span className="action-button-icon">►</span>
+                          <span className="action-button-label">Continue</span>
+                        </button>
+
+                        <button
+                          className="action-button danger"
+                          onClick={() => {
+                            const skipAction = validActions.find((a) => a.kind === 'rebase-skip');
+                            if (skipAction) {
+                              handleAction('rebase-skip');
+                            } else {
+                              postMessage({ type: 'rebase-skip' });
+                            }
+                          }}
+                          title="Skip the current commit and proceed with remaining rebase"
+                          style={{ minWidth: '80px', justifyContent: 'center' }}
+                        >
+                          <span className="action-button-icon">»</span>
+                          <span className="action-button-label">Skip</span>
+                        </button>
+
+                        <button
+                          className="action-button danger"
+                          onClick={() => {
+                            const abortAction = validActions.find((a) => a.kind === 'rebase-abort');
+                            if (abortAction) {
+                              handleAction('rebase-abort');
+                            } else {
+                              postMessage({ type: 'rebase-abort' });
+                            }
+                          }}
+                          title="Abort rebase and restore original branch state"
+                          style={{ minWidth: '80px', justifyContent: 'center' }}
+                        >
+                          <span className="action-button-icon">✕</span>
+                          <span className="action-button-label">Abort</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+
                 {/* Commit details section */}
                 {details.hash && (
                   <motion.div
@@ -944,6 +1100,37 @@ export function NodeInspector() {
                           isCheckingPush={isCheckingPush}
                           onProceed={handleProceed}
                           onCancel={handleCancel}
+                          onSwitchToInteractive={
+                            pendingAction.kind === 'rebase'
+                              ? () => {
+                                  const isBranch = details.kind === 'branch' || details.kind === 'remote-branch';
+                                  const ref = isBranch ? details.label : (details.hash || details.label);
+                                  openInteractiveRebaseModal(ref, details.label);
+                                }
+                              : undefined
+                          }
+                        />
+                      )}
+                      {isInteractiveRebaseOpen && (
+                        <InteractiveRebaseModal
+                          baseRef={interactiveRebaseBaseRef}
+                          targetLabel={interactiveRebaseTargetLabel}
+                          currentBranch={currentBranch}
+                          commits={interactiveRebaseCommits}
+                          isLoading={isFetchingRebaseCommits}
+                          error={rebaseCommitsError}
+                          onExecute={(items, options) => {
+                            postMessage({
+                              type: 'execute-interactive-rebase',
+                              baseRef: interactiveRebaseBaseRef,
+                              items,
+                              options,
+                            });
+                          }}
+                          onCancel={() => {
+                            setIsInteractiveRebaseOpen(false);
+                            setInteractiveRebaseCommits([]);
+                          }}
                         />
                       )}
                     </AnimatePresence>,

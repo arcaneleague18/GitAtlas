@@ -1,0 +1,402 @@
+/**
+ * interactive-rebase.css
+ * Styling for the Interactive Rebase modal dialog in Git Atlas.
+ */
+
+.interactive-rebase-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.interactive-rebase-modal {
+  width: 100%;
+  max-width: 840px;
+  max-height: 88vh;
+  background: var(--bg-surface, #161b22);
+  border: 1px solid var(--border-default, #30363d);
+  border-radius: var(--radius-xl, 12px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.interactive-rebase-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-muted, #21262d);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary, #0d1117);
+}
+
+.interactive-rebase-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.interactive-rebase-icon {
+  font-size: 18px;
+  color: var(--accent-color, #58a6ff);
+}
+
+.interactive-rebase-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #c9d1d9);
+}
+
+.interactive-rebase-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--accent-color, #58a6ff);
+  font-weight: 500;
+}
+
+.interactive-rebase-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #8b949e);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.interactive-rebase-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #c9d1d9);
+}
+
+.interactive-rebase-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.interactive-rebase-instructions {
+  font-size: 12px;
+  color: var(--text-secondary, #8b949e);
+  line-height: 1.5;
+}
+
+.interactive-rebase-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.interactive-rebase-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-muted, #21262d);
+  border-radius: var(--radius-md, 6px);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.interactive-rebase-row:hover {
+  border-color: var(--border-default, #30363d);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.interactive-rebase-row.drop {
+  opacity: 0.55;
+  background: rgba(248, 81, 73, 0.05);
+  border-color: rgba(248, 81, 73, 0.2);
+}
+
+.interactive-rebase-row.drop .interactive-rebase-commit-subject {
+  text-decoration: line-through;
+}
+
+.interactive-rebase-row.squash,
+.interactive-rebase-row.fixup {
+  margin-left: 18px;
+  border-left: 3px solid #bc8cff;
+}
+
+.interactive-rebase-row.fixup {
+  border-left-color: #39c5cf;
+}
+
+.interactive-rebase-order-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.interactive-rebase-order-btn {
+  background: transparent;
+  border: 1px solid var(--border-muted, #21262d);
+  color: var(--text-secondary, #8b949e);
+  border-radius: 3px;
+  font-size: 9px;
+  width: 20px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.interactive-rebase-order-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #c9d1d9);
+  border-color: var(--border-default, #30363d);
+}
+
+.interactive-rebase-order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.interactive-rebase-action-select {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: var(--bg-tertiary, #21262d);
+  color: var(--text-primary, #c9d1d9);
+  outline: none;
+}
+
+.interactive-rebase-action-select.pick {
+  background: rgba(56, 139, 253, 0.15);
+  color: #58a6ff;
+  border-color: rgba(56, 139, 253, 0.3);
+}
+
+.interactive-rebase-action-select.reword {
+  background: rgba(63, 185, 80, 0.15);
+  color: #3fb950;
+  border-color: rgba(63, 185, 80, 0.3);
+}
+
+.interactive-rebase-action-select.edit {
+  background: rgba(210, 153, 34, 0.15);
+  color: #d29922;
+  border-color: rgba(210, 153, 34, 0.3);
+}
+
+.interactive-rebase-action-select.squash {
+  background: rgba(188, 140, 255, 0.15);
+  color: #bc8cff;
+  border-color: rgba(188, 140, 255, 0.3);
+}
+
+.interactive-rebase-action-select.fixup {
+  background: rgba(57, 197, 207, 0.15);
+  color: #39c5cf;
+  border-color: rgba(57, 197, 207, 0.3);
+}
+
+.interactive-rebase-action-select.drop {
+  background: rgba(248, 81, 73, 0.15);
+  color: #f85149;
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+.interactive-rebase-commit-hash {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: var(--accent-color, #58a6ff);
+  background: rgba(88, 166, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.interactive-rebase-commit-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.interactive-rebase-commit-subject {
+  font-size: 12px;
+  color: var(--text-primary, #c9d1d9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.interactive-rebase-reword-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 12px;
+  background: var(--vscode-input-background, #0d1117);
+  color: var(--vscode-input-foreground, #c9d1d9);
+  border: 1px solid var(--vscode-input-border, #30363d);
+  border-radius: 4px;
+  outline: none;
+}
+
+.interactive-rebase-reword-input:focus {
+  border-color: var(--accent-color, #58a6ff);
+}
+
+.interactive-rebase-commit-meta {
+  font-size: 11px;
+  color: var(--text-tertiary, #6e7681);
+  display: flex;
+  gap: 8px;
+}
+
+.interactive-rebase-drop-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #8b949e);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.interactive-rebase-drop-btn:hover {
+  color: #f85149;
+  background: rgba(248, 81, 73, 0.12);
+}
+
+.interactive-rebase-options {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-muted, #21262d);
+  border-radius: var(--radius-md, 6px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.interactive-rebase-option-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-primary, #c9d1d9);
+  cursor: pointer;
+  user-select: none;
+}
+
+.interactive-rebase-preview-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #8b949e);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.interactive-rebase-preview-toggle:hover {
+  color: var(--text-primary, #c9d1d9);
+}
+
+.interactive-rebase-todo-preview {
+  background: #0d1117;
+  border: 1px solid var(--border-muted, #21262d);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  color: #8b949e;
+  max-height: 140px;
+  overflow-y: auto;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.interactive-rebase-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-muted, #21262d);
+  background: var(--bg-secondary, #0d1117);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.interactive-rebase-footer-right {
+  display: flex;
+  gap: 10px;
+}
+
+.interactive-rebase-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.interactive-rebase-btn-cancel {
+  background: transparent;
+  border-color: var(--border-default, #30363d);
+  color: var(--text-primary, #c9d1d9);
+}
+
+.interactive-rebase-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.interactive-rebase-btn-reset {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary, #8b949e);
+}
+
+.interactive-rebase-btn-reset:hover {
+  color: var(--text-primary, #c9d1d9);
+  text-decoration: underline;
+}
+
+.interactive-rebase-btn-start {
+  background: var(--accent-color, #238636);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+
+.interactive-rebase-btn-start:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.interactive-rebase-btn-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.interactive-rebase-meld-indicator {
+  display: inline-block;
+  margin-right: 4px;
+  color: #bc8cff;
+  font-weight: bold;
+}

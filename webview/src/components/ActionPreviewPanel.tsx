@@ -31,6 +31,7 @@ interface ActionPreviewPanelProps {
   isCheckingPush?: boolean;
   onProceed: (extraArgs?: Record<string, any>) => void;
   onCancel: () => void;
+  onSwitchToInteractive?: () => void;
 }
 
 const ACTION_ICONS: Record<string, string> = {
@@ -39,6 +40,7 @@ const ACTION_ICONS: Record<string, string> = {
   tag: '🏷',
   merge: '⤵',
   rebase: '⤴',
+  'rebase-interactive': '⚙',
   'cherry-pick': '🍒',
   reset: '⟲',
   'reset-soft': '⟲',
@@ -54,6 +56,9 @@ const ACTION_ICONS: Record<string, string> = {
   'apply-stash': '📤',
   'pop-stash': '📤',
   'reword': '✏️',
+  'rebase-continue': '►',
+  'rebase-skip': '»',
+  'rebase-abort': '✕',
 };
 
 function ActionPreviewPanelComponent({
@@ -67,12 +72,14 @@ function ActionPreviewPanelComponent({
   isCheckingPush,
   onProceed,
   onCancel,
+  onSwitchToInteractive,
 }: ActionPreviewPanelProps) {
   const icon = ACTION_ICONS[action.kind] ?? '⚡';
   const shortHead = headHash?.substring(0, 7) ?? '???';
   const targetShort = nodeDetails.hash?.substring(0, 7) ?? nodeDetails.label;
   const isMergeAction = action.kind === 'merge' || action.kind === 'rebase';
   const isMergeOnly = action.kind === 'merge';
+  const isRebaseOnly = action.kind === 'rebase';
   const isPushAction = action.kind === 'push';
   const isCommitAction = action.kind === 'commit';
   const isPushOrCommit = isPushAction || isCommitAction;
@@ -82,6 +89,10 @@ function ActionPreviewPanelComponent({
   // Merge strategy state
   const [mergeStrategy, setMergeStrategy] = useState<'ff' | 'no-ff' | 'ff-only'>('ff');
   const [mergeMessage, setMergeMessage] = useState('');
+
+  // Rebase options state
+  const [autostash, setAutostash] = useState(true);
+  const [rebaseMerges, setRebaseMerges] = useState(false);
 
   const isProceedDisabled = !!(
     (isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge))) ||
@@ -247,7 +258,16 @@ function ActionPreviewPanelComponent({
       <div className="action-preview-section">
         <div className="action-preview-section-label">Commands</div>
         <div className="action-preview-commands">
-          {getGitCommands(action.kind, nodeDetails, currentBranch, headHash, isMergeOnly ? mergeStrategy : undefined, (action as any).args?.pushMode, isMergeOnly ? mergeMessage : undefined, (action as any).args).map((cmd, i) => (
+          {getGitCommands(
+            action.kind,
+            nodeDetails,
+            currentBranch,
+            headHash,
+            isMergeOnly ? mergeStrategy : undefined,
+            (action as any).args?.pushMode,
+            isMergeOnly ? mergeMessage : undefined,
+            isRebaseOnly ? { autostash, rebaseMerges, ...(action as any).args } : (action as any).args
+          ).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
               <span className="action-preview-command-prompt">$</span>
               <code>{cmd}</code>
@@ -261,6 +281,72 @@ function ActionPreviewPanelComponent({
         <div className="action-preview-warning">
           <span className="action-preview-warning-icon">⚠</span>
           <span>This action is destructive and cannot be easily undone.</span>
+        </div>
+      )}
+
+      {/* Rebase Options */}
+      {isRebaseOnly && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Rebase Options</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '12px', userSelect: 'none', color: 'var(--text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={autostash}
+                onChange={(e) => setAutostash(e.target.checked)}
+                style={{ marginTop: '2px', cursor: 'pointer' }}
+              />
+              <span><strong>Autostash (--autostash)</strong>: Automatically stash local changes before rebasing and pop after</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '12px', userSelect: 'none', color: 'var(--text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={rebaseMerges}
+                onChange={(e) => setRebaseMerges(e.target.checked)}
+                style={{ marginTop: '2px', cursor: 'pointer' }}
+              />
+              <span><strong>Preserve merges (--rebase-merges)</strong>: Recreate merge commits instead of flattening them</span>
+            </label>
+            {onSwitchToInteractive && (
+              <div style={{
+                marginTop: '6px',
+                paddingTop: '8px',
+                borderTop: '1px solid var(--border-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+              }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  Need to reorder, squash, or edit individual commits?
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCancel();
+                    onSwitchToInteractive();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    fontWeight: 500,
+                    background: 'rgba(59, 130, 246, 0.15)',
+                    border: '1px solid rgba(59, 130, 246, 0.35)',
+                    color: '#60a5fa',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <span>⚙</span>
+                  <span>Interactive Rebase...</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -337,7 +423,13 @@ function ActionPreviewPanelComponent({
           } ${isProceedDisabled ? 'disabled' : ''}`}
           onClick={() => {
             if (!isProceedDisabled) {
-              onProceed(isMergeOnly ? { mergeStrategy, mergeMessage } : undefined);
+              onProceed(
+                isMergeOnly
+                  ? { mergeStrategy, mergeMessage }
+                  : isRebaseOnly
+                  ? { autostash, rebaseMerges }
+                  : undefined
+              );
             }
           }}
           disabled={isProceedDisabled}
@@ -403,6 +495,13 @@ function getGraphImpact(
         { icon: '⤴', text: `Current branch will be replayed on top of ${details.label}` },
         { icon: '●', text: 'Commit hashes will change (history rewrite)' },
         { icon: '⚠', text: 'Force push may be needed if already pushed' },
+      ];
+
+    case 'rebase-interactive':
+      return [
+        { icon: '⚙', text: `Interactive rebase session replaying commits onto ${details.label}` },
+        { icon: '●', text: 'You can reorder, squash, edit, reword, or drop individual commits' },
+        { icon: '⚠', text: 'Commit hashes will change (history rewrite)' },
       ];
 
     case 'cherry-pick':
@@ -493,6 +592,24 @@ function getGraphImpact(
         { icon: '⚠', text: 'Force push may be needed if already pushed' },
       ];
 
+    case 'rebase-continue':
+      return [
+        { icon: '►', text: 'Staged resolutions will be committed and next rebase step executed' },
+        { icon: '●', text: 'Rebase will continue until all steps are complete or another conflict arises' },
+      ];
+
+    case 'rebase-skip':
+      return [
+        { icon: '»', text: 'The patch for the current commit will be skipped and omitted from history' },
+        { icon: '●', text: 'Rebase sequence will proceed directly to the next commit' },
+      ];
+
+    case 'rebase-abort':
+      return [
+        { icon: '✕', text: 'The in-progress rebase operation will be aborted' },
+        { icon: '⟲', text: 'Working tree and branch HEAD will be restored to pre-rebase state' },
+      ];
+
     default:
       return [
         { icon: '⚡', text: `${kind} will be executed on ${details.label}` },
@@ -548,8 +665,30 @@ function getGitCommands(
       return [`git merge${strategyFlag}${msgFlag} ${ref}`];
     }
 
-    case 'rebase':
-      return [`git rebase ${ref}`];
+    case 'rebase': {
+      const flags: string[] = [];
+      if (actionArgs?.autostash) flags.push('--autostash');
+      if (actionArgs?.rebaseMerges) flags.push('--rebase-merges');
+      const flagStr = flags.length > 0 ? ` ${flags.join(' ')}` : '';
+      return [`git rebase${flagStr} ${ref}`];
+    }
+
+    case 'rebase-interactive': {
+      const flags: string[] = [];
+      if (actionArgs?.autostash) flags.push('--autostash');
+      if (actionArgs?.rebaseMerges) flags.push('--rebase-merges');
+      const flagStr = flags.length > 0 ? ` ${flags.join(' ')}` : '';
+      return [`git rebase -i${flagStr} ${ref}`];
+    }
+
+    case 'rebase-continue':
+      return ['git rebase --continue'];
+
+    case 'rebase-skip':
+      return ['git rebase --skip'];
+
+    case 'rebase-abort':
+      return ['git rebase --abort'];
 
     case 'cherry-pick':
       return [`git cherry-pick ${shortHash}`];

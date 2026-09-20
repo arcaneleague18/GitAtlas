@@ -168,7 +168,11 @@ export type EdgeKind =
   | 'stash-drop'
   | 'apply-stash'
   | 'pop-stash'
-  | 'reword';
+  | 'reword'
+  | 'rebase-continue'
+  | 'rebase-skip'
+  | 'rebase-abort'
+  | 'rebase-interactive';
 
 /** An edge in the repository graph. */
 export interface GraphEdge {
@@ -226,6 +230,15 @@ export interface RepositoryGraph {
   readonly timestamp: number;
   /** All remotes configured in the repository. */
   readonly remotes: readonly RawRemote[];
+  /** Ongoing rebase progress metadata, if state is rebasing. */
+  readonly rebaseProgress?: RebaseProgress;
+}
+
+export interface RebaseProgress {
+  readonly currentStep: number;
+  readonly totalSteps: number;
+  readonly onto: string;
+  readonly branch: string;
 }
 
 // ============================================================
@@ -325,6 +338,19 @@ export interface GitHubContext {
   commitStatuses: Record<string, GitHubCommitStatus>; // keyed by commit hash
 }
 
+export type RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop';
+
+export interface RebaseCommitItem {
+  readonly hash: string;
+  readonly shortHash: string;
+  readonly subject: string;
+  readonly author: string;
+  readonly authorEmail: string;
+  readonly timestamp: number;
+  action: RebaseAction;
+  newMessage?: string;
+}
+
 export interface PushStatusResult {
   readonly isRemoteUpdated: boolean;
   readonly status: 'up-to-date' | 'behind' | 'diverged' | 'new-branch' | 'no-remote' | 'unreachable' | 'error';
@@ -351,6 +377,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'file-purge-cancelled'; filePath: string }
   | { type: 'file-purge-result'; filePath: string; success: boolean; message: string }
   | { type: 'mergeability-result'; nodeId: string; canMerge: boolean; status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error'; conflictFiles: string[]; aheadBehind: { ahead: number; behind: number }; message: string }
+  | { type: 'rebase-commits-result'; baseRef: string; commits: RebaseCommitItem[]; error?: string }
+  | { type: 'interactive-rebase-result'; success: boolean; paused?: boolean; error?: string }
   | ({ type: 'push-status-result'; nodeId: string } & PushStatusResult);
 
 /** Messages from Webview → Extension Host */
@@ -379,8 +407,13 @@ export type WebviewToExtensionMessage =
   | { type: 'amend-commit' }
   | { type: 'search-file-in-history'; filePath: string }
   | { type: 'purge-file-from-history'; filePath: string }
-  | { type: 'check-mergeability'; nodeId: string; ref: string }
+  | { type: 'check-mergeability'; nodeId: string; ref: string; action?: 'merge' | 'rebase' }
   | { type: 'check-push-status'; nodeId: string; branch?: string }
+  | { type: 'rebase-continue' }
+  | { type: 'rebase-skip' }
+  | { type: 'rebase-abort' }
+  | { type: 'get-rebase-commits'; baseRef: string; headRef?: string }
+  | { type: 'execute-interactive-rebase'; baseRef: string; items: RebaseCommitItem[]; options?: { autostash?: boolean; rebaseMerges?: boolean } }
   | { type: 'first-commit' };
 
 /**
@@ -397,6 +430,7 @@ export interface SerializedGraph {
   readonly timestamp: number;
   readonly hasMore?: boolean;
   readonly remotes: readonly RawRemote[];
+  readonly rebaseProgress?: RebaseProgress;
 }
 
 // ============================================================

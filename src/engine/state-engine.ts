@@ -28,6 +28,8 @@ import type {
   TagNodeData,
   StashNodeData,
   WorkingDirectoryNodeData,
+  RebaseStateNodeData,
+  RebaseProgress,
   RawCommit,
 } from './types.js';
 
@@ -331,6 +333,40 @@ export class RepositoryStateEngine extends DisposableBase {
     };
     nodes.set(wdNode.id, wdNode);
 
+    // Build rebase-state node if currently rebasing
+    let rebaseProgress: RebaseProgress | undefined;
+    if (repoState === 'rebasing') {
+      rebaseProgress = await this.gitService.getRebaseProgress();
+      const rebaseNode: GraphNode = {
+        id: 'rebase-state',
+        kind: 'rebase-state',
+        label: `Rebase (${rebaseProgress?.currentStep ?? 1}/${rebaseProgress?.totalSteps ?? '?'})`,
+        isHead: false,
+        isCurrentBranch: false,
+        data: {
+          kind: 'rebase-state',
+          onto: rebaseProgress?.onto ?? '',
+          currentStep: rebaseProgress?.currentStep ?? 1,
+          totalSteps: rebaseProgress?.totalSteps ?? 1,
+        } satisfies RebaseStateNodeData,
+      };
+      nodes.set(rebaseNode.id, rebaseNode);
+
+      // Edge connecting rebase-state to the onto commit or HEAD
+      const targetHash = rebaseProgress?.onto
+        ? findFullHash(commits, rebaseProgress.onto) || head.hash
+        : head.hash;
+      if (targetHash) {
+        edges.push({
+          id: `rebase-state->${targetHash}`,
+          source: 'rebase-state',
+          target: targetHash,
+          kind: 'parent',
+          label: 'rebasing onto',
+        });
+      }
+    }
+
     const graph: RepositoryGraph = {
       nodes,
       edges,
@@ -339,6 +375,7 @@ export class RepositoryStateEngine extends DisposableBase {
       state: repoState,
       timestamp: Date.now(),
       remotes,
+      rebaseProgress,
     };
 
     this._graph = graph;
@@ -360,6 +397,7 @@ export class RepositoryStateEngine extends DisposableBase {
       timestamp: graph.timestamp,
       remotes: graph.remotes,
       hasMore: this._totalCommitsAvailable >= this._currentMaxCount,
+      rebaseProgress: graph.rebaseProgress,
     };
   }
 

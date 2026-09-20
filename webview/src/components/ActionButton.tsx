@@ -33,6 +33,10 @@ const ACTION_ICONS: Record<string, string> = {
   stash: '📦',
   'apply-stash': '📤',
   'pop-stash': '📤',
+  'rebase-continue': '►',
+  'rebase-skip': '»',
+  'rebase-abort': '✕',
+  'rebase-interactive': '⚙',
 };
 
 function ActionButtonComponent({ action, onAction }: ActionButtonProps) {

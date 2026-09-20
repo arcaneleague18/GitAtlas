@@ -104,57 +104,74 @@ export class ActionExecutor {
         vscode.window.showInformationMessage(`Successfully completed ${action}.`);
       }
     } catch (err: any) {
-      // 5. Error Handling — show static error immediately, then enhance with AI
-      const stderr = err.stderr || err.message || 'Unknown error';
-      const parsedError = parseGitError(stderr, action);
-
-      this.outputChannel.appendLine(`\n[Git Atlas] ${action} failed at ${new Date().toISOString()}`);
-      this.outputChannel.appendLine(`Stderr: ${stderr}`);
-
-      const viewDetailsBtn = 'View Details';
-
-      // Fire the AI explanation in the background without blocking
-      void (async () => {
-        const aiResult = await explainGitErrorWithAi(stderr, action);
-
-        if (aiResult) {
-          this.outputChannel.appendLine(`\n[AI Explanation]\n${aiResult.explanation}`);
-          if (aiResult.nextSteps) {
-            this.outputChannel.appendLine(`[Suggested next steps]\n${aiResult.nextSteps}`);
+      // Check if rebase paused due to conflicts
+      let isRebaseConflict = false;
+      if (action === 'rebase' || action === 'rebase-continue') {
+        try {
+          const repoState = await this.gitService.getRepositoryState();
+          if (repoState === 'rebasing') {
+            isRebaseConflict = true;
           }
+        } catch { /* ignore */ }
+      }
 
-          const fullMsg = aiResult.nextSteps
-            ? `${aiResult.explanation} ${aiResult.nextSteps}`
-            : aiResult.explanation;
+      if (isRebaseConflict) {
+        vscode.window.showWarningMessage(
+          'Git Atlas: Rebase paused due to conflicts. Resolve and stage conflicts, then click "Continue Rebase".'
+        );
+      } else {
+        // 5. Error Handling — show static error immediately, then enhance with AI
+        const stderr = err.stderr || err.message || 'Unknown error';
+        const parsedError = parseGitError(stderr, action);
 
-          const aiChoice = await vscode.window.showErrorMessage(
-            `⚡ Git Atlas — ${action} failed: ${fullMsg}`,
-            viewDetailsBtn
-          );
-          if (aiChoice === viewDetailsBtn) {
-            this.outputChannel.show();
+        this.outputChannel.appendLine(`\n[Git Atlas] ${action} failed at ${new Date().toISOString()}`);
+        this.outputChannel.appendLine(`Stderr: ${stderr}`);
+
+        const viewDetailsBtn = 'View Details';
+
+        // Fire the AI explanation in the background without blocking
+        void (async () => {
+          const aiResult = await explainGitErrorWithAi(stderr, action);
+
+          if (aiResult) {
+            this.outputChannel.appendLine(`\n[AI Explanation]\n${aiResult.explanation}`);
+            if (aiResult.nextSteps) {
+              this.outputChannel.appendLine(`[Suggested next steps]\n${aiResult.nextSteps}`);
+            }
+
+            const fullMsg = aiResult.nextSteps
+              ? `${aiResult.explanation} ${aiResult.nextSteps}`
+              : aiResult.explanation;
+
+            const aiChoice = await vscode.window.showErrorMessage(
+              `Git Atlas — ${action} failed: ${fullMsg}`,
+              viewDetailsBtn
+            );
+            if (aiChoice === viewDetailsBtn) {
+              this.outputChannel.show();
+            }
+          } else {
+            // Fallback to static parser message
+            const choice = await vscode.window.showErrorMessage(
+              `Git Atlas — ${parsedError.message} ${parsedError.reason}\n${parsedError.nextSteps}`,
+              viewDetailsBtn
+            );
+            if (choice === viewDetailsBtn) {
+              this.outputChannel.show();
+            }
           }
-        } else {
-          // Fallback to static parser message
-          const choice = await vscode.window.showErrorMessage(
-            `Git Atlas — ${parsedError.message} ${parsedError.reason}\n${parsedError.nextSteps}`,
-            viewDetailsBtn
-          );
-          if (choice === viewDetailsBtn) {
-            this.outputChannel.show();
-          }
-        }
-      })();
+        })();
+      }
     } finally {
       // 6. Cleanup & Refresh
       postMessage({ type: 'clear-preview' });
       await this.stateEngine.buildGraph();
     }
 
-    // 7. After merge, check if conflicts exist
-    if (action === 'merge') {
+    // 7. After merge or rebase, check if conflicts exist
+    if (action === 'merge' || action === 'rebase' || action === 'rebase-continue') {
       const updatedGraph = this.stateEngine.graph;
-      if (updatedGraph && updatedGraph.state === 'merging') {
+      if (updatedGraph && (updatedGraph.state === 'merging' || updatedGraph.state === 'rebasing')) {
         const wdNode = updatedGraph.nodes.get('working-directory');
         if (wdNode && wdNode.data.kind === 'working-directory' && wdNode.data.conflicted.length > 0) {
           return { mergeConflicts: true };
@@ -282,8 +299,22 @@ export class ActionExecutor {
         await this.gitService.merge(ref, mergeStrategy, mergeMessage);
         break;
       }
-      case 'rebase':
-        await this.gitService.rebase(node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash);
+      case 'rebase': {
+        const ref = node.kind === 'branch' || node.kind === 'remote-branch' ? branchName : hash;
+        await this.gitService.rebase(ref, {
+          autostash: args?.autostash,
+          rebaseMerges: args?.rebaseMerges,
+        });
+        break;
+      }
+      case 'rebase-continue':
+        await this.gitService.rebaseContinue();
+        break;
+      case 'rebase-skip':
+        await this.gitService.rebaseSkip();
+        break;
+      case 'rebase-abort':
+        await this.gitService.rebaseAbort();
         break;
       case 'cherry-pick':
         await this.gitService.cherryPick(hash);
@@ -332,6 +363,8 @@ export class ActionExecutor {
         await this.gitService.rewordCommitMessage(hash, node._tempRewordMessage, isHead);
         break;
       }
+      case 'rebase-interactive':
+        throw new Error('Interactive rebase should be launched via the interactive rebase modal.');
       default:
         throw new Error(`Action ${action} is not yet implemented.`);
     }
@@ -346,6 +379,10 @@ export class ActionExecutor {
       'delete-remote-branch': 'Deleting remote branch',
       merge: 'Merging',
       rebase: 'Rebasing',
+      'rebase-interactive': 'Starting interactive rebase',
+      'rebase-continue': 'Continuing rebase',
+      'rebase-skip': 'Skipping rebase commit',
+      'rebase-abort': 'Aborting rebase',
       'cherry-pick': 'Cherry-picking',
       revert: 'Reverting',
       reset: 'Resetting',

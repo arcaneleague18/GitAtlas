@@ -23,6 +23,7 @@ import type {
   PreviewData,
   GitHubContext,
   RawRemote,
+  RebaseProgress,
 } from '../types';
 
 /** Branch color palette — matches the extension host colors. */
@@ -60,6 +61,7 @@ export interface GraphStoreState {
   headHash: string;
   currentBranch: string | null;
   repositoryState: RepositoryState;
+  rebaseProgress?: RebaseProgress;
   theme: 'dark' | 'light' | 'high-contrast';
   isLoading: boolean;
   commitCount: number;
@@ -149,6 +151,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   headHash: '',
   currentBranch: null,
   repositoryState: 'clean',
+  rebaseProgress: undefined,
   theme: 'dark',
   isLoading: true,
   commitCount: 0,
@@ -454,6 +457,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       headHash: graph.headHash,
       currentBranch: graph.currentBranch,
       repositoryState: graph.state,
+      rebaseProgress: graph.rebaseProgress,
       isLoading: false,
       commitCount: commitNodes.length,
       branchCount: branchColorsList.length,

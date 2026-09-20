@@ -181,6 +181,22 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
     isDangerous: true,
   });
 
+  // Interactive Rebase — available when not HEAD and not in special state
+  actions.push({
+    kind: 'rebase-interactive',
+    label: 'Interactive Rebase onto Here',
+    description: isHead
+      ? 'Cannot rebase onto the current commit'
+      : `Interactively rebase ${graph.currentBranch || 'HEAD'} onto this commit`,
+    enabled: !isHead && !isInSpecialState,
+    disabledReason: isHead
+      ? 'Cannot rebase onto the current commit'
+      : isInSpecialState
+        ? 'Resolve current operation first'
+        : undefined,
+    isDangerous: true,
+  });
+
   // ── Reset — offer all three modes ──
 
   // Reset --soft — keeps changes staged
@@ -327,6 +343,21 @@ function getBranchActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
   });
 
   actions.push({
+    kind: 'rebase-interactive',
+    label: 'Interactive Rebase Current onto This',
+    description: isCurrent
+      ? 'Cannot rebase a branch onto itself'
+      : `Interactively rebase ${graph.currentBranch || 'HEAD'} onto ${node.label}`,
+    enabled: !isCurrent && !isInSpecialState,
+    disabledReason: isCurrent
+      ? 'Cannot rebase a branch onto itself'
+      : isInSpecialState
+        ? 'Resolve current operation first'
+        : undefined,
+    isDangerous: true,
+  });
+
+  actions.push({
     kind: 'delete-branch',
     label: 'Delete Branch',
     description: isCurrent
@@ -398,6 +429,15 @@ function getRemoteBranchActions(node: GraphNode, graph: RepositoryGraph): ValidA
     kind: 'rebase',
     label: 'Rebase onto Remote',
     description: `Rebase ${graph.currentBranch || 'HEAD'} onto ${node.label}`,
+    enabled: !isInSpecialState,
+    disabledReason: isInSpecialState ? 'Resolve current operation first' : undefined,
+    isDangerous: true,
+  });
+
+  actions.push({
+    kind: 'rebase-interactive',
+    label: 'Interactive Rebase onto Remote',
+    description: `Interactively rebase ${graph.currentBranch || 'HEAD'} onto ${node.label}`,
     enabled: !isInSpecialState,
     disabledReason: isInSpecialState ? 'Resolve current operation first' : undefined,
     isDangerous: true,
@@ -485,16 +525,51 @@ function getStashActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction
 
 // ── Working Directory Actions ──────────────────────────────────
 
-function getWorkingDirectoryActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
-  return [
-    {
-      kind: 'stash',
-      label: 'Stash',
-      description: 'Save your changes temporarily',
-      enabled: true,
-      isDangerous: false,
-    },
-  ];
+function getWorkingDirectoryActions(_node: GraphNode, graph: RepositoryGraph): ValidAction[] {
+  const actions: ValidAction[] = [];
+
+  if (graph.state === 'rebasing') {
+    const wdNode = graph.nodes.get('working-directory');
+    const hasConflicts = wdNode && wdNode.data.kind === 'working-directory' && wdNode.data.conflicted.length > 0;
+
+    actions.push(
+      {
+        kind: 'rebase-continue',
+        label: 'Continue Rebase',
+        description: hasConflicts
+          ? 'Resolve and stage all conflicted files before continuing'
+          : 'Continue to the next step of the rebase',
+        enabled: !hasConflicts,
+        disabledReason: hasConflicts ? 'Resolve and stage conflicts before continuing' : undefined,
+        isDangerous: false,
+      },
+      {
+        kind: 'rebase-skip',
+        label: 'Skip This Commit',
+        description: 'Skip the current commit and move to the next one',
+        enabled: true,
+        isDangerous: false,
+      },
+      {
+        kind: 'rebase-abort',
+        label: 'Abort Rebase',
+        description: 'Cancel the rebase and restore original branch state',
+        enabled: true,
+        isDangerous: true,
+      }
+    );
+    return actions;
+  }
+
+  actions.push({
+    kind: 'stash',
+    label: 'Stash',
+    description: 'Save your changes temporarily',
+    enabled: true,
+    isDangerous: false,
+  });
+
+  return actions;
 }
 
 // ── Index Actions ──────────────────────────────────────────────
@@ -554,19 +629,32 @@ function getMergeStateActions(_node: GraphNode, _graph: RepositoryGraph): ValidA
 
 // ── Rebase State Actions ───────────────────────────────────────
 
-function getRebaseStateActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
+function getRebaseStateActions(_node: GraphNode, graph: RepositoryGraph): ValidAction[] {
+  const wdNode = graph.nodes.get('working-directory');
+  const hasConflicts = wdNode && wdNode.data.kind === 'working-directory' && wdNode.data.conflicted.length > 0;
+
   return [
     {
-      kind: 'commit',
+      kind: 'rebase-continue',
       label: 'Continue Rebase',
-      description: 'Continue to the next step of the rebase',
+      description: hasConflicts
+        ? 'Resolve and stage all conflicted files before continuing'
+        : 'Continue to the next step of the rebase',
+      enabled: !hasConflicts,
+      disabledReason: hasConflicts ? 'Resolve and stage conflicts before continuing' : undefined,
+      isDangerous: false,
+    },
+    {
+      kind: 'rebase-skip',
+      label: 'Skip This Commit',
+      description: 'Skip the current commit and move to the next one',
       enabled: true,
       isDangerous: false,
     },
     {
-      kind: 'reset',
+      kind: 'rebase-abort',
       label: 'Abort Rebase',
-      description: 'Cancel the rebase and restore original state',
+      description: 'Cancel the rebase and restore original branch state',
       enabled: true,
       isDangerous: true,
     },
