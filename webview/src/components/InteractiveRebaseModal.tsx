@@ -58,11 +58,30 @@ function InteractiveRebaseModalComponent({
   const [autostash, setAutostash] = useState(true);
   const [rebaseMerges, setRebaseMerges] = useState(false);
   const [showTodoPreview, setShowTodoPreview] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executeError, setExecuteError] = useState<string | undefined>(undefined);
 
   // Initialize or reset items when incoming commits change
   useEffect(() => {
     setItems(commits.map((c) => ({ ...c, action: c.action || 'pick' })));
+    setIsExecuting(false);
+    setExecuteError(undefined);
   }, [commits]);
+
+  // Listen for rebase result events to update executing/error state
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) {
+        setIsExecuting(false);
+        if (!detail.success && detail.error) {
+          setExecuteError(detail.error);
+        }
+      }
+    };
+    window.addEventListener('interactive-rebase-result', handler);
+    return () => window.removeEventListener('interactive-rebase-result', handler);
+  }, []);
 
   const shortBase = baseRef.length > 12 ? baseRef.substring(0, 7) : baseRef;
   const displayTarget = targetLabel || shortBase;
@@ -141,12 +160,15 @@ function InteractiveRebaseModalComponent({
   // Reset to original commits
   const handleReset = useCallback(() => {
     setItems(commits.map((c) => ({ ...c, action: 'pick', newMessage: undefined })));
+    setExecuteError(undefined);
   }, [commits]);
 
   // Validation
   const isValid = useMemo(() => {
     if (items.length === 0) return false;
     if (items[0]!.action === 'squash' || items[0]!.action === 'fixup') return false;
+    // At least one commit must not be dropped
+    if (items.every((item) => item.action === 'drop')) return false;
     return true;
   }, [items]);
 
@@ -158,16 +180,20 @@ function InteractiveRebaseModalComponent({
           return `drop ${item.shortHash} ${item.subject}`;
         }
         if (item.action === 'reword' && item.newMessage && item.newMessage.trim() !== item.subject.trim()) {
-          return `pick ${item.shortHash} ${item.subject}\nexec git commit --amend -m "${item.newMessage.trim().replace(/"/g, '\\"')}"`;
+          return `pick ${item.shortHash} ${item.subject}\nexec git commit --amend -F <msg-file>`;
         }
-        const act = idx === 0 && (item.action === 'squash' || item.action === 'fixup') ? 'pick' : item.action;
+        // Count non-exec lines to find effective index for squash/fixup guard
+        const precedingCommitLines = items.slice(0, idx).filter(i => i.action !== 'drop' || idx === 0).length;
+        const act = precedingCommitLines === 0 && (item.action === 'squash' || item.action === 'fixup') ? 'pick' : item.action;
         return `${act} ${item.shortHash} ${item.subject}`;
       })
       .join('\n');
   }, [items]);
 
   const handleStartRebase = () => {
-    if (!isValid) return;
+    if (!isValid || isExecuting) return;
+    setIsExecuting(true);
+    setExecuteError(undefined);
     onExecute(items, { autostash, rebaseMerges });
   };
 
@@ -325,6 +351,13 @@ function InteractiveRebaseModalComponent({
             </div>
           )}
 
+          {/* Inline execution error */}
+          {executeError && (
+            <div style={{ color: '#f85149', padding: '12px 16px', background: 'rgba(248, 81, 73, 0.1)', borderRadius: '6px', fontSize: '12px', marginTop: '8px' }}>
+              <strong>Rebase failed:</strong> {executeError}
+            </div>
+          )}
+
           {/* Rebase Options */}
           {items.length > 0 && (
             <div className="interactive-rebase-options">
@@ -387,15 +420,19 @@ function InteractiveRebaseModalComponent({
             </button>
             <button
               className="interactive-rebase-btn interactive-rebase-btn-start"
-              disabled={!isValid || isLoading || items.length === 0}
+              disabled={!isValid || isLoading || items.length === 0 || isExecuting}
               onClick={handleStartRebase}
               title={
                 !isValid
-                  ? 'First commit cannot be squash or fixup'
-                  : `Start interactive rebase of ${items.length} commit${items.length !== 1 ? 's' : ''}`
+                  ? items.every((i) => i.action === 'drop')
+                    ? 'Cannot drop all commits'
+                    : 'First commit cannot be squash or fixup'
+                  : isExecuting
+                    ? 'Rebase in progress...'
+                    : `Start interactive rebase of ${items.length} commit${items.length !== 1 ? 's' : ''}`
               }
             >
-              Start Interactive Rebase
+              {isExecuting ? 'Rebasing...' : 'Start Interactive Rebase'}
             </button>
           </div>
         </div>

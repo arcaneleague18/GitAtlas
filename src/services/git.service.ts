@@ -1323,20 +1323,31 @@ export class GitService {
    */
   async getRebaseCommits(baseRef: string): Promise<RebaseCommitItem[]> {
     try {
-      let range = `${baseRef}..HEAD`;
+      // Check if the base commit is a root commit (has no parent)
+      let isRootRebase = false;
       try {
         await this.exec(['rev-parse', '--verify', `${baseRef}^`]);
       } catch {
-        // Base commit has no parent (root commit)
-        range = `${baseRef}..HEAD`;
+        // Base commit has no parent — this is the root commit
+        isRootRebase = true;
       }
 
-      const out = await this.exec([
+      // For root rebases, include all commits from the beginning up to HEAD;
+      // for normal rebases, use the standard exclusive range.
+      const logArgs = [
         'log',
         '--reverse',
         '--format=%H\x1f%h\x1f%s\x1f%an\x1f%ae\x1f%at',
-        range,
-      ]);
+      ];
+
+      if (isRootRebase) {
+        // Show all commits from root to HEAD (inclusive of the root)
+        logArgs.push('HEAD');
+      } else {
+        logArgs.push(`${baseRef}..HEAD`);
+      }
+
+      const out = await this.exec(logArgs);
 
       const lines = out.trim().split('\n').filter(Boolean);
       const items: RebaseCommitItem[] = [];
@@ -1384,11 +1395,28 @@ export class GitService {
     const toPosix = (p: string) => p.replace(/\\/g, '/');
 
     try {
+      // 0. Check if base ref is a root commit (needs --root flag)
+      let isRootRebase = false;
+      try {
+        await execFileAsync(this.gitPath, ['rev-parse', '--verify', `${baseRef}^`], {
+          cwd: this.workspaceRoot,
+          windowsHide: true,
+        });
+      } catch {
+        isRootRebase = true;
+      }
+
       // 1. Build the customized todo list
       const todoLines: string[] = [];
 
       for (let i = 0; i < items.length; i++) {
         const item = items[i]!;
+        // Validate that the item has a usable hash
+        if (!item.shortHash || !item.shortHash.trim()) {
+          this.outputChannel.appendLine(`[GitService] Skipping item at index ${i} with empty hash.`);
+          continue;
+        }
+
         if (item.action === 'drop') {
           todoLines.push(`drop ${item.shortHash} ${item.subject}`);
         } else if (item.action === 'reword' && item.newMessage && item.newMessage.trim() !== item.subject.trim()) {
@@ -1400,11 +1428,16 @@ export class GitService {
           todoLines.push(`exec git commit --amend -F "${toPosix(msgFile)}"`);
         } else {
           // If first item is squash/fixup (which is invalid in git), fallback to pick
-          const action = (i === 0 && (item.action === 'squash' || item.action === 'fixup'))
+          const effectiveIdx = todoLines.filter(l => !l.startsWith('exec ')).length;
+          const action = (effectiveIdx === 0 && (item.action === 'squash' || item.action === 'fixup'))
             ? 'pick'
             : item.action;
           todoLines.push(`${action} ${item.shortHash} ${item.subject}`);
         }
+      }
+
+      if (todoLines.filter(l => !l.startsWith('exec ')).length === 0) {
+        return { success: false, error: 'No valid commits to rebase.' };
       }
 
       writeFileSync(tempTodoFile, todoLines.join('\n') + '\n', 'utf-8');
@@ -1432,7 +1465,11 @@ export class GitService {
       if (options?.rebaseMerges) {
         args.push('--rebase-merges');
       }
-      args.push(baseRef);
+      if (isRootRebase) {
+        args.push('--root');
+      } else {
+        args.push(baseRef);
+      }
 
       this.outputChannel.appendLine(`[GitService] > git ${args.join(' ')} (interactive rebase)`);
 
@@ -1462,12 +1499,14 @@ export class GitService {
       this.outputChannel.appendLine(`[GitService] Interactive rebase error: ${errMsg}`);
       return { success: false, error: errMsg };
     } finally {
-      // Clean up temp files
-      for (const file of tempFiles) {
-        try {
-          unlinkSync(file);
-        } catch { /* ignore */ }
-      }
+      // Clean up temp files (delayed slightly to allow git exec commands to finish reading)
+      setTimeout(() => {
+        for (const file of tempFiles) {
+          try {
+            unlinkSync(file);
+          } catch { /* ignore */ }
+        }
+      }, 2000);
     }
   }
 

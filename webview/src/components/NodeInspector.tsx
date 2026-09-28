@@ -119,6 +119,8 @@ export function NodeInspector() {
           setIsInteractiveRebaseOpen(false);
           setInteractiveRebaseCommits([]);
         }
+        // Dispatch a custom event so the modal can react to the result
+        window.dispatchEvent(new CustomEvent('interactive-rebase-result', { detail: msg }));
       }
     };
     window.addEventListener('message', handleMessage);
@@ -866,6 +868,12 @@ export function NodeInspector() {
                                 max={maxDate}
                                 onChange={handleDateChange}
                               />
+                            )}
+                            {backdateEnabled && backdateValue && (
+                              <div className="backdate-command-preview">
+                                <span className="backdate-command-prompt">$</span>
+                                <code>git commit --date="{backdateValue}" -m "{commitInputMessage.trim() ? commitInputMessage.trim().substring(0, 40) + (commitInputMessage.trim().length > 40 ? '...' : '') : '<message>'}"</code>
+                              </div>
                             )}
                           </div>
                         );

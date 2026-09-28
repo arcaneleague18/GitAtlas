@@ -596,11 +596,11 @@
   cursor: not-allowed;
 }
 
-/* ── Backdate Picker ─────────────────────────────────────────── */
 .backdate-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .backdate-toggle-btn {
@@ -653,6 +653,35 @@
 .backdate-input::-webkit-calendar-picker-indicator {
   filter: invert(0.7);
   cursor: pointer;
+}
+
+.backdate-command-preview {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 5px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+
+.backdate-command-preview code {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.backdate-command-prompt {
+  color: var(--text-accent);
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
 .primary-commit-btn {
