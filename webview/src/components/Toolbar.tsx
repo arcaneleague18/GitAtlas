@@ -48,8 +48,10 @@ function ToolbarComponent() {
   const [isPurging, setIsPurging] = useState<string | null>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const remotePopupRef = useRef<HTMLDivElement>(null);
-  const searchPopupRef = useRef<HTMLDivElement>(null);
+  const searchPopupRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const rebaseDropdownRef = useRef<HTMLDivElement>(null);
+  const [isRebaseDropdownOpen, setIsRebaseDropdownOpen] = useState(false);
 
   const currentBranchColor = branchColors.find((b) => b.isCurrent)?.color ?? '#aaaaaa';
 
@@ -188,11 +190,91 @@ function ToolbarComponent() {
 
   const primaryRemote = remotes.find(r => r.name === 'origin') ?? remotes[0];
   const hasStashes = nodes.some(n => n.type === 'stash' || (n.data as any)?.kind === 'stash');
+  const isRebasing = repositoryState === 'rebasing';
+
+  // Close rebase dropdown on outside click
+  useEffect(() => {
+    if (!isRebaseDropdownOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (rebaseDropdownRef.current && !rebaseDropdownRef.current.contains(e.target as Node)) {
+        setIsRebaseDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isRebaseDropdownOpen]);
 
   return (
     <>
       {/* Top-right toolbar */}
       <div className="graph-toolbar">
+        {/* Rebase In Progress Button */}
+        {isRebasing && (
+          <div style={{ position: 'relative' }} ref={rebaseDropdownRef}>
+            <button
+              className={`toolbar-button rebase-progress-btn ${isRebaseDropdownOpen ? 'active' : ''}`}
+              onClick={() => setIsRebaseDropdownOpen(prev => !prev)}
+              title="Rebase is in progress. Click for options."
+            >
+              <span className="rebase-progress-dot" />
+              Rebase in progress
+              <span className="rebase-progress-chevron">{isRebaseDropdownOpen ? '\u25B4' : '\u25BE'}</span>
+            </button>
+
+            <AnimatePresence>
+              {isRebaseDropdownOpen && (
+                <motion.div
+                  className="rebase-toolbar-dropdown"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 4 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div
+                    className="rebase-toolbar-dropdown-item"
+                    onClick={() => {
+                      setIsRebaseDropdownOpen(false);
+                      postMessage({ type: 'rebase-continue' });
+                    }}
+                  >
+                    <span className="rebase-toolbar-dropdown-icon">&#x25BA;</span>
+                    <div>
+                      <div className="rebase-toolbar-dropdown-title">Continue Rebase</div>
+                      <div className="rebase-toolbar-dropdown-desc">Continue to the next step</div>
+                    </div>
+                  </div>
+                  <div
+                    className="rebase-toolbar-dropdown-item"
+                    onClick={() => {
+                      setIsRebaseDropdownOpen(false);
+                      postMessage({ type: 'rebase-skip' });
+                    }}
+                  >
+                    <span className="rebase-toolbar-dropdown-icon">&#xBB;</span>
+                    <div>
+                      <div className="rebase-toolbar-dropdown-title">Skip This Commit</div>
+                      <div className="rebase-toolbar-dropdown-desc">Skip the current commit and move on</div>
+                    </div>
+                  </div>
+                  <div
+                    className="rebase-toolbar-dropdown-item danger"
+                    onClick={() => {
+                      setIsRebaseDropdownOpen(false);
+                      postMessage({ type: 'rebase-abort' });
+                    }}
+                  >
+                    <span className="rebase-toolbar-dropdown-icon">&#x2715;</span>
+                    <div>
+                      <div className="rebase-toolbar-dropdown-title">Abort Rebase</div>
+                      <div className="rebase-toolbar-dropdown-desc">Cancel and restore original state</div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
         {hasStashes && (
           <button
             className="toolbar-button text-button"

@@ -635,24 +635,28 @@ export class GitService {
 
       // Check for rebase in progress
       try {
-        const rebaseDir = await this.exec([
+        const rebaseDirRaw = await this.exec([
           'rev-parse',
           '--git-path',
           'rebase-merge',
         ]);
         const { stat } = await import('fs/promises');
-        await stat(rebaseDir.trim());
+        const { resolve } = await import('path');
+        const rebaseDir = resolve(this.workspaceRoot, rebaseDirRaw.trim());
+        await stat(rebaseDir);
         return 'rebasing';
       } catch { /* not rebasing (merge) */ }
 
       try {
-        const rebaseDir = await this.exec([
+        const rebaseDirRaw = await this.exec([
           'rev-parse',
           '--git-path',
           'rebase-apply',
         ]);
         const { stat } = await import('fs/promises');
-        await stat(rebaseDir.trim());
+        const { resolve } = await import('path');
+        const rebaseDir = resolve(this.workspaceRoot, rebaseDirRaw.trim());
+        await stat(rebaseDir);
         return 'rebasing';
       } catch { /* not rebasing (apply) */ }
 
@@ -1256,14 +1260,15 @@ export class GitService {
   async getRebaseProgress(): Promise<RebaseProgress | undefined> {
     try {
       const { readFile } = await import('fs/promises');
-      const { join } = await import('path');
+      const { join, resolve } = await import('path');
 
       let dir = '';
       try {
         const out = await this.exec(['rev-parse', '--git-path', 'rebase-merge']);
-        dir = out.trim();
+        const absDir = resolve(this.workspaceRoot, out.trim());
         const { stat } = await import('fs/promises');
-        await stat(dir);
+        await stat(absDir);
+        dir = absDir;
       } catch {
         dir = '';
       }
@@ -1271,9 +1276,10 @@ export class GitService {
       if (!dir) {
         try {
           const out = await this.exec(['rev-parse', '--git-path', 'rebase-apply']);
-          dir = out.trim();
+          const absDir = resolve(this.workspaceRoot, out.trim());
           const { stat } = await import('fs/promises');
-          await stat(dir);
+          await stat(absDir);
+          dir = absDir;
         } catch {
           dir = '';
         }
@@ -1485,6 +1491,14 @@ export class GitService {
           GIT_EDITOR: 'true',
         },
       });
+
+      // Git rebase -i with 'edit' exits with code 0 but leaves rebase in progress.
+      // Check if the rebase is still active after a successful exit.
+      const postState = await this.getRepositoryState();
+      if (postState === 'rebasing') {
+        this.outputChannel.appendLine('[GitService] Interactive rebase paused after clean exit (edit instruction).');
+        return { success: true, paused: true };
+      }
 
       return { success: true };
     } catch (err: any) {
