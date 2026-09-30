@@ -56,7 +56,10 @@ export type EdgeKind =
   | 'rebase-skip'
   | 'rebase-abort'
   | 'rebase-interactive'
-  | 'create-tracking-branch';
+  | 'create-tracking-branch'
+  | 'push-tag'
+  | 'delete-tag'
+  | 'delete-remote-tag';
 
 export type FileChangeStatus = 'added' | 'modified' | 'deleted' | 'renamed' | 'copied' | 'conflicted';
 

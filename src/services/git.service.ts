@@ -1553,6 +1553,15 @@ export class GitService {
     await this.exec(['tag', '-d', name]);
   }
 
+  async pushTag(tag: string | string[], remote: string = 'origin'): Promise<void> {
+    const tags = Array.isArray(tag) ? tag : [tag];
+    await this.exec(['push', remote, ...tags]);
+  }
+
+  async deleteRemoteTag(tag: string, remote: string = 'origin'): Promise<void> {
+    await this.exec(['push', remote, '--delete', tag]);
+  }
+
   async push(branch?: string, mode?: 'normal' | 'force-with-lease' | 'force'): Promise<void> {
     const args = ['push'];
     if (mode === 'force-with-lease') args.push('--force-with-lease');

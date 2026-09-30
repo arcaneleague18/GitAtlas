@@ -208,6 +208,59 @@ export function NodeInspector() {
         return;
       }
 
+      // Tag actions
+      if (kind === 'create-tag') {
+        const createTagAction: ValidAction = {
+          kind: 'create-tag',
+          label: 'Create Tag',
+          description: `Create a new tag on commit ${selectedNodeDetails?.hash?.substring(0, 7) ?? ''}`,
+          enabled: true,
+          isDangerous: false,
+          args: { ...args, tags: selectedNodeDetails?.tags },
+        };
+        setPendingAction(createTagAction);
+        return;
+      }
+
+      if (kind === 'push-tag') {
+        const pushTagAction: ValidAction = {
+          kind: 'push-tag',
+          label: 'Push Tags to Remote',
+          description: `Push tag(s) to remote repository (origin)`,
+          enabled: true,
+          isDangerous: false,
+          args: { ...args, tags: selectedNodeDetails?.tags },
+        };
+        setPendingAction(pushTagAction);
+        return;
+      }
+
+      if (kind === 'delete-tag') {
+        const deleteTagAction: ValidAction = {
+          kind: 'delete-tag',
+          label: 'Delete Tag',
+          description: `Delete tag from local repository`,
+          enabled: true,
+          isDangerous: true,
+          args: { ...args, tags: selectedNodeDetails?.tags },
+        };
+        setPendingAction(deleteTagAction);
+        return;
+      }
+
+      if (kind === 'delete-remote-tag') {
+        const deleteRemoteTagAction: ValidAction = {
+          kind: 'delete-remote-tag',
+          label: 'Delete Tag from Remote',
+          description: `Delete tag from remote repository (origin)`,
+          enabled: true,
+          isDangerous: true,
+          args: { ...args, tags: selectedNodeDetails?.tags },
+        };
+        setPendingAction(deleteRemoteTagAction);
+        return;
+      }
+
       const action = validActions.find((a) => a.kind === kind);
       if (action) {
         setPendingAction({ ...action, args });
@@ -1086,13 +1139,27 @@ export function NodeInspector() {
                   >
                     <div className="inspector-section-title">Actions</div>
                     <div className="inspector-actions-grid">
-                      {validActions.map((action) => (
-                        <ActionButton
-                          key={action.kind}
-                          action={action}
-                          onAction={handleAction}
-                        />
-                      ))}
+                      {validActions.map((action) => {
+                        let enhancedAction = action;
+                        if ((action.kind === 'create-tag' || action.kind === 'tag') && details?.tags && details.tags.length > 0) {
+                          enhancedAction = {
+                            ...action,
+                            label: 'Tag',
+                            args: {
+                              ...action.args,
+                              hasTags: true,
+                              tags: details.tags,
+                            },
+                          };
+                        }
+                        return (
+                          <ActionButton
+                            key={action.kind}
+                            action={enhancedAction}
+                            onAction={handleAction}
+                          />
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )}

@@ -50,7 +50,7 @@ export class ActionExecutor {
       });
 
       // 2. Validate & Confirm
-      const confirmed = await this.confirmAction(action, node);
+      const confirmed = await this.confirmAction(action, node, args);
       if (!confirmed) {
         postMessage({ type: 'clear-preview' });
         return { mergeConflicts: false };
@@ -104,6 +104,32 @@ export class ActionExecutor {
         const targetBranchName = args?.branchName || (node as any)._tempBranchName || node.label.replace(/^[^/]+\//, '');
         vscode.window.showInformationMessage(
           `Git Atlas: Created local branch "${targetBranchName}" tracking "${node.label}".`
+        );
+      } else if (action === 'push-tag') {
+        if (args?.allTags && Array.isArray(args.allTags) && args.allTags.length > 1) {
+          vscode.window.showInformationMessage(
+            `Git Atlas: Pushed tags "${args.allTags.join(', ')}" to remote.`
+          );
+        } else {
+          const tagName = (args?.allTags && args.allTags.length === 1 ? args.allTags[0] : args?.tagName) || (node as any)._tempTagName || 'tag';
+          vscode.window.showInformationMessage(
+            `Git Atlas: Pushed tag "${tagName}" to remote.`
+          );
+        }
+      } else if (action === 'delete-tag') {
+        const tagName = args?.tagName || (node as any)._tempTagName || 'tag';
+        vscode.window.showInformationMessage(
+          `Git Atlas: Deleted local tag "${tagName}".`
+        );
+      } else if (action === 'delete-remote-tag') {
+        const tagName = args?.tagName || (node as any)._tempTagName || 'tag';
+        vscode.window.showInformationMessage(
+          `Git Atlas: Deleted remote tag "${tagName}".`
+        );
+      } else if (action === 'create-tag') {
+        const tagName = args?.tagName || (node as any)._tempTagName || 'tag';
+        vscode.window.showInformationMessage(
+          `Git Atlas: Created tag "${tagName}".`
         );
       } else {
         vscode.window.showInformationMessage(`Successfully completed ${action}.`);
@@ -194,7 +220,7 @@ export class ActionExecutor {
    * Non-destructive actions are confirmed in the webview's ActionPreviewPanel,
    * so they pass through here without an extra dialog.
    */
-  private async confirmAction(action: EdgeKind, node: any): Promise<boolean> {
+  private async confirmAction(action: EdgeKind, node: any, args?: any): Promise<boolean> {
     // Destructive actions get a native VS Code warning as a second safety net
     if (action === 'reset' || action === 'delete-branch' || action === 'delete-commit') {
       const confirmText = action === 'reset' ? 'Reset (Hard)' : action === 'delete-commit' ? 'Delete Commit' : 'Delete Branch';
@@ -231,6 +257,11 @@ export class ActionExecutor {
     }
 
     if (action === 'create-tag') {
+      if (args?.tagName) {
+        node._tempTagName = args.tagName;
+        node._tempTagMessage = args.tagMessage;
+        return true;
+      }
       const name = await vscode.window.showInputBox({
         prompt: 'Enter tag name',
         placeHolder: 'v1.0.0',
@@ -243,6 +274,78 @@ export class ActionExecutor {
       node._tempTagName = name;
       node._tempTagMessage = message || undefined;
       return true;
+    }
+
+    if (action === 'push-tag') {
+      const tagName = args?.tagName || (node.kind === 'tag' ? node.label : undefined);
+      if (tagName || args?.allTags) {
+        node._tempTagName = tagName;
+        return true;
+      }
+      const tags = (node.data as any)?.tags || [];
+      if (tags.length === 1) {
+        node._tempTagName = tags[0];
+        return true;
+      }
+      if (tags.length > 1) {
+        const picked = await vscode.window.showQuickPick(tags, {
+          placeHolder: 'Select tag to push to remote',
+        });
+        if (!picked) return false;
+        node._tempTagName = picked;
+        return true;
+      }
+      const input = await vscode.window.showInputBox({
+        prompt: 'Enter tag name to push',
+        placeHolder: 'v1.0.0',
+      });
+      if (!input) return false;
+      node._tempTagName = input;
+      return true;
+    }
+
+    if (action === 'delete-tag') {
+      const tagName = args?.tagName || (node.kind === 'tag' ? node.label : undefined);
+      if (tagName) {
+        node._tempTagName = tagName;
+        return true;
+      }
+      const tags = (node.data as any)?.tags || [];
+      if (tags.length === 1) {
+        node._tempTagName = tags[0];
+        return true;
+      }
+      if (tags.length > 1) {
+        const picked = await vscode.window.showQuickPick(tags, {
+          placeHolder: 'Select tag to delete',
+        });
+        if (!picked) return false;
+        node._tempTagName = picked;
+        return true;
+      }
+      return false;
+    }
+
+    if (action === 'delete-remote-tag') {
+      const tagName = args?.tagName || (node.kind === 'tag' ? node.label : undefined);
+      if (tagName) {
+        node._tempTagName = tagName;
+        return true;
+      }
+      const tags = (node.data as any)?.tags || [];
+      if (tags.length === 1) {
+        node._tempTagName = tags[0];
+        return true;
+      }
+      if (tags.length > 1) {
+        const picked = await vscode.window.showQuickPick(tags, {
+          placeHolder: 'Select tag to delete from remote',
+        });
+        if (!picked) return false;
+        node._tempTagName = picked;
+        return true;
+      }
+      return false;
     }
 
     if (action === 'commit') {
@@ -358,6 +461,33 @@ export class ActionExecutor {
       case 'create-tag':
         await this.gitService.createTag(node._tempTagName, hash, node._tempTagMessage);
         break;
+      case 'push-tag': {
+        const remote = args?.remote || 'origin';
+        if (args?.allTags && Array.isArray(args.allTags) && args.allTags.length > 0) {
+          await this.gitService.pushTag(args.allTags, remote);
+        } else {
+          const tagName = args?.tagName || node._tempTagName || (node.kind === 'tag' ? node.label : undefined);
+          if (tagName) {
+            await this.gitService.pushTag(tagName, remote);
+          }
+        }
+        break;
+      }
+      case 'delete-tag': {
+        const tagName = args?.tagName || node._tempTagName || (node.kind === 'tag' ? node.label : undefined);
+        if (tagName) {
+          await this.gitService.deleteTag(tagName);
+        }
+        break;
+      }
+      case 'delete-remote-tag': {
+        const tagName = args?.tagName || node._tempTagName || (node.kind === 'tag' ? node.label : undefined);
+        const remote = args?.remote || 'origin';
+        if (tagName) {
+          await this.gitService.deleteRemoteTag(tagName, remote);
+        }
+        break;
+      }
       case 'commit':
         await this.gitService.createCommit(node._tempCommitMessage);
         break;
@@ -414,6 +544,9 @@ export class ActionExecutor {
       'reset-soft': 'Soft resetting',
       'reset-mixed': 'Mixed resetting',
       'create-tag': 'Creating tag',
+      'push-tag': 'Pushing tag to remote',
+      'delete-tag': 'Deleting tag',
+      'delete-remote-tag': 'Deleting tag from remote',
       commit: 'Committing',
       stash: 'Stashing',
       'apply-stash': 'Applying stash',

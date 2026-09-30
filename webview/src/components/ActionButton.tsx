@@ -21,6 +21,10 @@ const ACTION_ICONS: Record<string, string> = {
   switch: '↗',
   branch: '⎇',
   tag: '🏷',
+  'create-tag': '🏷',
+  'push-tag': '↑',
+  'delete-tag': '✕',
+  'delete-remote-tag': '✕',
   merge: '⤵',
   rebase: '⤴',
   'cherry-pick': '🍒',
@@ -44,6 +48,13 @@ function ActionButtonComponent({ action, onAction }: ActionButtonProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const isPushDropdown = action.kind === 'push';
+  const tagList: string[] = action.args?.tags || [];
+  const hasTagDropdown =
+    (action.kind === 'create-tag' || action.kind === 'tag') &&
+    (action.args?.hasTags === true || tagList.length > 0);
+  const hasDropdown = isPushDropdown || hasTagDropdown;
+
   // Close dropdown on outside click
   useEffect(() => {
     if (!showDropdown) return;
@@ -58,12 +69,12 @@ function ActionButtonComponent({ action, onAction }: ActionButtonProps) {
 
   const handleClick = useCallback(() => {
     if (!action.enabled) return;
-    if (action.kind === 'push') {
+    if (hasDropdown) {
       setShowDropdown((prev) => !prev);
     } else {
       onAction(action.kind);
     }
-  }, [action, onAction]);
+  }, [action, onAction, hasDropdown]);
 
   const handleDropdownSelect = useCallback(
     (mode: string, e: React.MouseEvent) => {
@@ -72,6 +83,15 @@ function ActionButtonComponent({ action, onAction }: ActionButtonProps) {
       onAction(action.kind, { pushMode: mode });
     },
     [action, onAction]
+  );
+
+  const handleTagDropdownSelect = useCallback(
+    (targetKind: EdgeKind, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setShowDropdown(false);
+      onAction(targetKind, { tags: tagList, defaultTag: tagList[0] });
+    },
+    [onAction, tagList]
   );
 
   const icon = ACTION_ICONS[action.kind] ?? '⚡';
@@ -100,6 +120,9 @@ function ActionButtonComponent({ action, onAction }: ActionButtonProps) {
       >
         <span className="action-button-icon">{icon}</span>
         <span className="action-button-label">{action.label}</span>
+        {hasDropdown && (
+          <span className="action-button-chevron">{showDropdown ? '\u25B4' : '\u25BE'}</span>
+        )}
       </motion.button>
       
       <AnimatePresence>
@@ -111,18 +134,73 @@ function ActionButtonComponent({ action, onAction }: ActionButtonProps) {
             exit={{ opacity: 0, y: -5 }}
             transition={{ duration: 0.15 }}
           >
-            <div className="action-dropdown-item" onClick={(e) => handleDropdownSelect('normal', e)}>
-              <div className="action-dropdown-title">Normal Push</div>
-              <div className="action-dropdown-desc">Safe push, aborts if remote has changes</div>
-            </div>
-            <div className="action-dropdown-item" onClick={(e) => handleDropdownSelect('force-with-lease', e)}>
-              <div className="action-dropdown-title">Force Push with Lease</div>
-              <div className="action-dropdown-desc">Safe force push, protects remote changes</div>
-            </div>
-            <div className="action-dropdown-item danger" onClick={(e) => handleDropdownSelect('force', e)}>
-              <div className="action-dropdown-title">Force Push</div>
-              <div className="action-dropdown-desc">Destructive force push, overwrites remote</div>
-            </div>
+            {isPushDropdown && (
+              <>
+                <div className="action-dropdown-item" onClick={(e) => handleDropdownSelect('normal', e)}>
+                  <div>
+                    <div className="action-dropdown-title">Normal Push</div>
+                    <div className="action-dropdown-desc">Safe push, aborts if remote has changes</div>
+                  </div>
+                </div>
+                <div className="action-dropdown-item" onClick={(e) => handleDropdownSelect('force-with-lease', e)}>
+                  <div>
+                    <div className="action-dropdown-title">Force Push with Lease</div>
+                    <div className="action-dropdown-desc">Safe force push, protects remote changes</div>
+                  </div>
+                </div>
+                <div className="action-dropdown-item danger" onClick={(e) => handleDropdownSelect('force', e)}>
+                  <div>
+                    <div className="action-dropdown-title">Force Push</div>
+                    <div className="action-dropdown-desc">Destructive force push, overwrites remote</div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {hasTagDropdown && (
+              <>
+                <div className="action-dropdown-item" onClick={(e) => handleTagDropdownSelect('create-tag', e)}>
+                  <span className="action-dropdown-icon">🏷</span>
+                  <div>
+                    <div className="action-dropdown-title">Create a new tag</div>
+                    <div className="action-dropdown-desc">Add another tag to this commit</div>
+                  </div>
+                </div>
+                <div className="action-dropdown-item" onClick={(e) => handleTagDropdownSelect('push-tag', e)}>
+                  <span className="action-dropdown-icon">↑</span>
+                  <div>
+                    <div className="action-dropdown-title">Push tags to remote</div>
+                    <div className="action-dropdown-desc">
+                      {tagList.length === 1
+                        ? `Push ${tagList[0]} onto remote (git push origin ${tagList[0]})`
+                        : `Push tag(s) onto remote repository`}
+                    </div>
+                  </div>
+                </div>
+                <div className="action-dropdown-item danger" onClick={(e) => handleTagDropdownSelect('delete-tag', e)}>
+                  <span className="action-dropdown-icon">✕</span>
+                  <div>
+                    <div className="action-dropdown-title">Delete a tag</div>
+                    <div className="action-dropdown-desc">
+                      {tagList.length === 1
+                        ? `Delete "${tagList[0]}" from local repository`
+                        : `Delete a tag from local repository`}
+                    </div>
+                  </div>
+                </div>
+                <div className="action-dropdown-item danger" onClick={(e) => handleTagDropdownSelect('delete-remote-tag', e)}>
+                  <span className="action-dropdown-icon">✕</span>
+                  <div>
+                    <div className="action-dropdown-title">Delete tag from remote</div>
+                    <div className="action-dropdown-desc">
+                      {tagList.length === 1
+                        ? `Delete "${tagList[0]}" from remote repository`
+                        : `Delete a tag from remote repository`}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -2,6 +2,21 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.2.0] - 2026-09-30
+### Added
+- **Interactive Rebase:** Full interactive rebase modal allowing users to visually reorder, pick, squash, fixup, edit, drop, and reword commits before executing the rebase sequence.
+- **Rebase in Progress Toolbar Control:** Added a pulsing indicator button in the top-right toolbar when a rebase is paused or active. Clicking it displays a dropdown with quick actions to Continue, Skip This Commit, or Abort Rebase.
+- **Create Tracking Branch:** Added a dedicated action button for remote branches in the inspector (directly below switch branch) to create a local branch that tracks the selected remote branch, complete with pre-execution command previews.
+- **Commit and Push Confirmation Modals:** Added confirmation dialogs for commit and push operations featuring real-time pre-flight checks against remote repositories (such as checking whether remote is ahead, diverged, or up-to-date) to prevent accidental overwrites.
+- **Backdating Command Previews:** Added live Git command previews when backdating commits so users can review the exact command before executing.
+- **Co-author Section:** Added support in the inspector to easily append co-author attribution trailers to commit messages.
+- **Tag Action Dropdown:** When tags exist on a commit, the Tag action button displays a dropdown menu providing four options: Create a new tag, Push tags to remote, Delete a tag, and Delete tag from remote, complete with live command previews and multi-tag selection.
+
+### Fixed
+- **Rebase State Detection:** Resolved workspace root path resolution issues where `git rev-parse --git-path rebase-merge` returned paths relative to the workspace, causing file system checks to fail.
+- **Interactive Rebase Pause Handling:** Corrected pause handling during interactive rebases so pausing on commit edits or conflicts correctly updates repository state rather than falsely reporting premature completion.
+- **Interactive Rebase Validation:** Added safeguards in the interactive rebase modal preventing all commits from being dropped, along with real-time in-modal execution error alerts.
+
 ## [0.1.6] - 2026-09-13
 ### Added
 - **Eager Copilot Authorization:** The extension now asks for GitHub Copilot language model permissions as soon as you open a repository, ensuring a smoother initial AI chat experience without interruptions.

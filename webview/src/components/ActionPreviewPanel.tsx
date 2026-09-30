@@ -53,6 +53,9 @@ const ACTION_ICONS: Record<string, string> = {
   commit: '✓',
   'delete-branch': '✕',
   'create-tag': '🏷',
+  'push-tag': '↑',
+  'delete-tag': '✕',
+  'delete-remote-tag': '✕',
   stash: '📦',
   'apply-stash': '📤',
   'pop-stash': '📤',
@@ -87,6 +90,10 @@ function ActionPreviewPanelComponent({
   const isCommitAction = action.kind === 'commit';
   const isPushOrCommit = isPushAction || isCommitAction;
   const isTrackingBranchAction = action.kind === 'create-tracking-branch';
+  const isCreateTagAction = action.kind === 'create-tag';
+  const isPushTagAction = action.kind === 'push-tag';
+  const isDeleteTagAction = action.kind === 'delete-tag';
+  const isDeleteRemoteTagAction = action.kind === 'delete-remote-tag';
   const pushMode = (action as any).args?.pushMode ?? 'normal';
   const [allowDivergeCommit, setAllowDivergeCommit] = useState(false);
 
@@ -105,6 +112,30 @@ function ActionPreviewPanelComponent({
   const [trackingBranchName, setTrackingBranchName] = useState(defaultTrackingBranchName);
   const [switchAfterCreate, setSwitchAfterCreate] = useState(true);
 
+  // Tag states
+  const tagsOnCommit: string[] = useMemo(() => {
+    const list = (action as any).args?.tags || (nodeDetails.tags as string[]) || [];
+    return Array.from(new Set(list));
+  }, [action, nodeDetails.tags]);
+
+  const [tagName, setTagName] = useState('');
+  const [tagMessage, setTagMessage] = useState('');
+
+  const [selectedPushTag, setSelectedPushTag] = useState<string>(
+    (action as any).args?.defaultTag || tagsOnCommit[0] || ''
+  );
+  const [pushAllTags, setPushAllTags] = useState(false);
+  const pushTagRemote = (action as any).args?.remote || 'origin';
+
+  const [selectedDeleteTag, setSelectedDeleteTag] = useState<string>(
+    (action as any).args?.defaultTag || (action as any).args?.tagName || tagsOnCommit[0] || ''
+  );
+
+  const [selectedRemoteDeleteTag, setSelectedRemoteDeleteTag] = useState<string>(
+    (action as any).args?.defaultTag || (action as any).args?.tagName || tagsOnCommit[0] || ''
+  );
+  const deleteTagRemote = (action as any).args?.remote || 'origin';
+
   const isBranchNameTaken = useMemo(() => {
     if (!isTrackingBranchAction) return false;
     const trimmed = trackingBranchName.trim();
@@ -113,16 +144,55 @@ function ActionPreviewPanelComponent({
 
   const isTrackingBranchInvalid = isTrackingBranchAction && (!trackingBranchName.trim() || isBranchNameTaken);
 
+  const isTagInvalid =
+    (isCreateTagAction && !tagName.trim()) ||
+    (isPushTagAction && !pushAllTags && !selectedPushTag.trim()) ||
+    (isDeleteTagAction && !selectedDeleteTag.trim()) ||
+    (isDeleteRemoteTagAction && !selectedRemoteDeleteTag.trim());
+
   const isProceedDisabled = !!(
     (isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge))) ||
     (isPushAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease'))) ||
     (isCommitAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit))) ||
-    isTrackingBranchInvalid
+    isTrackingBranchInvalid ||
+    isTagInvalid
   );
 
   const graphImpact = useMemo(
-    () => getGraphImpact(action.kind, nodeDetails, shortHead, currentBranch, targetShort, trackingBranchName.trim(), switchAfterCreate),
-    [action.kind, nodeDetails, shortHead, currentBranch, targetShort, trackingBranchName, switchAfterCreate]
+    () =>
+      getGraphImpact(
+        action.kind,
+        nodeDetails,
+        shortHead,
+        currentBranch,
+        targetShort,
+        trackingBranchName.trim(),
+        switchAfterCreate,
+        {
+          tagName: tagName.trim(),
+          pushTag: pushAllTags ? 'all' : selectedPushTag.trim(),
+          pushRemote: pushTagRemote,
+          deleteTag: selectedDeleteTag.trim(),
+          deleteRemoteTag: selectedRemoteDeleteTag.trim(),
+          deleteRemote: deleteTagRemote,
+        }
+      ),
+    [
+      action.kind,
+      nodeDetails,
+      shortHead,
+      currentBranch,
+      targetShort,
+      trackingBranchName,
+      switchAfterCreate,
+      tagName,
+      pushAllTags,
+      selectedPushTag,
+      pushTagRemote,
+      selectedDeleteTag,
+      selectedRemoteDeleteTag,
+      deleteTagRemote,
+    ]
   );
 
   return (
@@ -257,6 +327,14 @@ function ActionPreviewPanelComponent({
         <div className="action-preview-description">
           {isCommitAction && (action as any).args?.message
             ? `Commit ${(action as any).args.stagedCount ? `${(action as any).args.stagedCount} ` : ''}staged file${(action as any).args.stagedCount !== 1 ? 's' : ''} with message: "${(action as any).args.message}"`
+            : isCreateTagAction
+            ? `Create a new Git tag at commit ${targetShort}`
+            : isPushTagAction
+            ? `Push Git tag "${pushAllTags ? tagsOnCommit.join(', ') : (selectedPushTag || tagsOnCommit[0] || '')}" onto remote (${pushTagRemote})`
+            : isDeleteTagAction
+            ? `Delete local Git tag "${selectedDeleteTag || tagsOnCommit[0] || ''}"`
+            : isDeleteRemoteTagAction
+            ? `Delete Git tag "${selectedRemoteDeleteTag || tagsOnCommit[0] || ''}" from remote repository (${deleteTagRemote})`
             : action.description}
         </div>
       </div>
@@ -290,6 +368,14 @@ function ActionPreviewPanelComponent({
               ? { autostash, rebaseMerges, ...(action as any).args }
               : isTrackingBranchAction
               ? { branchName: trackingBranchName.trim(), switch: switchAfterCreate }
+              : isCreateTagAction
+              ? { tagName: tagName.trim(), tagMessage: tagMessage.trim() }
+              : isPushTagAction
+              ? { tagName: selectedPushTag.trim(), remote: pushTagRemote, allTags: pushAllTags ? tagsOnCommit : undefined }
+              : isDeleteTagAction
+              ? { tagName: selectedDeleteTag.trim() }
+              : isDeleteRemoteTagAction
+              ? { tagName: selectedRemoteDeleteTag.trim(), remote: deleteTagRemote }
               : (action as any).args
           ).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
@@ -480,6 +566,263 @@ function ActionPreviewPanelComponent({
         </div>
       )}
 
+      {/* Create Tag Options */}
+      {isCreateTagAction && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Tag Settings</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                Tag Name: <span style={{ color: '#f87171' }}>*</span>
+              </label>
+              <input
+                type="text"
+                value={tagName}
+                onChange={(e) => setTagName(e.target.value)}
+                placeholder="e.g. v1.0.0"
+                autoFocus
+                style={{
+                  padding: '6px 10px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                Tag Message (optional, creates annotated tag):
+              </label>
+              <input
+                type="text"
+                value={tagMessage}
+                onChange={(e) => setTagMessage(e.target.value)}
+                placeholder="e.g. Release v1.0.0"
+                style={{
+                  padding: '6px 10px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Push Tag Options */}
+      {isPushTagAction && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Push Tag Settings</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {tagsOnCommit.length > 1 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                  Select Tag to Push:
+                </label>
+                <select
+                  value={pushAllTags ? '__all__' : selectedPushTag}
+                  onChange={(e) => {
+                    if (e.target.value === '__all__') {
+                      setPushAllTags(true);
+                    } else {
+                      setPushAllTags(false);
+                      setSelectedPushTag(e.target.value);
+                    }
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    outline: 'none',
+                  }}
+                >
+                  {tagsOnCommit.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                  <option value="__all__">Push all tags ({tagsOnCommit.join(', ')})</option>
+                </select>
+              </div>
+            ) : tagsOnCommit.length === 1 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Tag to Push:</span>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    background: 'var(--bg-tertiary)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  🏷 {tagsOnCommit[0]}
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Tag Name to Push:</label>
+                <input
+                  type="text"
+                  value={selectedPushTag}
+                  onChange={(e) => setSelectedPushTag(e.target.value)}
+                  placeholder="v1.0.0"
+                  style={{
+                    padding: '6px 10px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Remote:</span>
+              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{pushTagRemote}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Tag Options */}
+      {isDeleteTagAction && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Select Tag to Delete</div>
+          {tagsOnCommit.length > 1 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <select
+                value={selectedDeleteTag}
+                onChange={(e) => setSelectedDeleteTag(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              >
+                {tagsOnCommit.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : tagsOnCommit.length === 1 ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Local Tag:</span>
+              <span
+                style={{
+                  fontWeight: 600,
+                  color: 'var(--text-danger)',
+                  background: 'rgba(248, 81, 73, 0.1)',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid rgba(248, 81, 73, 0.2)',
+                }}
+              >
+                🏷 {tagsOnCommit[0]}
+              </span>
+            </div>
+          ) : (
+            <input
+              type="text"
+              value={selectedDeleteTag}
+              onChange={(e) => setSelectedDeleteTag(e.target.value)}
+              placeholder="Tag name to delete"
+              style={{
+                padding: '6px 10px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-sm)',
+                color: 'var(--text-primary)',
+                fontSize: '12px',
+                outline: 'none',
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Delete Remote Tag Options */}
+      {isDeleteRemoteTagAction && (
+        <div className="action-preview-section">
+          <div className="action-preview-section-label">Select Remote Tag to Delete</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {tagsOnCommit.length > 1 ? (
+              <select
+                value={selectedRemoteDeleteTag}
+                onChange={(e) => setSelectedRemoteDeleteTag(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              >
+                {tagsOnCommit.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            ) : tagsOnCommit.length === 1 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>Remote Tag:</span>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: 'var(--text-danger)',
+                    background: 'rgba(248, 81, 73, 0.1)',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid rgba(248, 81, 73, 0.2)',
+                  }}
+                >
+                  🏷 {tagsOnCommit[0]}
+                </span>
+                <span style={{ color: 'var(--text-secondary)' }}>from {deleteTagRemote}</span>
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={selectedRemoteDeleteTag}
+                onChange={(e) => setSelectedRemoteDeleteTag(e.target.value)}
+                placeholder="Remote tag name to delete"
+                style={{
+                  padding: '6px 10px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-primary)',
+                  fontSize: '12px',
+                  outline: 'none',
+                }}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Buttons */}
       <div className="action-preview-buttons">
         <button
@@ -490,7 +833,7 @@ function ActionPreviewPanelComponent({
         </button>
         <button
           className={`action-preview-btn action-preview-btn-proceed ${
-            action.isDangerous || (isCommitAction && pushStatus?.isRemoteUpdated) ? 'danger' : ''
+            action.isDangerous || isDeleteTagAction || isDeleteRemoteTagAction || (isCommitAction && pushStatus?.isRemoteUpdated) ? 'danger' : ''
           } ${isProceedDisabled ? 'disabled' : ''}`}
           onClick={() => {
             if (!isProceedDisabled) {
@@ -501,6 +844,18 @@ function ActionPreviewPanelComponent({
                   ? { autostash, rebaseMerges }
                   : isTrackingBranchAction
                   ? { branchName: trackingBranchName.trim(), switch: switchAfterCreate }
+                  : isCreateTagAction
+                  ? { tagName: tagName.trim(), tagMessage: tagMessage.trim() || undefined }
+                  : isPushTagAction
+                  ? {
+                      tagName: pushAllTags ? tagsOnCommit.join(', ') : selectedPushTag.trim(),
+                      remote: pushTagRemote,
+                      allTags: pushAllTags ? tagsOnCommit : undefined,
+                    }
+                  : isDeleteTagAction
+                  ? { tagName: selectedDeleteTag.trim() }
+                  : isDeleteRemoteTagAction
+                  ? { tagName: selectedRemoteDeleteTag.trim(), remote: deleteTagRemote }
                   : undefined
               );
             }
@@ -516,6 +871,10 @@ function ActionPreviewPanelComponent({
             isCommitAction && pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit ? 'Remote has new changes. Pull or rebase first, or check "Commit anyway".' :
             isTrackingBranchAction && !trackingBranchName.trim() ? 'Branch name cannot be empty' :
             isTrackingBranchAction && isBranchNameTaken ? 'A local branch with this name already exists' :
+            isCreateTagAction && !tagName.trim() ? 'Tag name cannot be empty' :
+            isPushTagAction && !pushAllTags && !selectedPushTag.trim() ? 'Please select or enter a tag to push' :
+            isDeleteTagAction && !selectedDeleteTag.trim() ? 'Please select a tag to delete' :
+            isDeleteRemoteTagAction && !selectedRemoteDeleteTag.trim() ? 'Please select a tag to delete from remote' :
             undefined
           }
         >
@@ -525,6 +884,14 @@ function ActionPreviewPanelComponent({
               : 'Commit'
             : isTrackingBranchAction
             ? (switchAfterCreate ? 'Create & Switch' : 'Create Branch')
+            : isCreateTagAction
+            ? 'Create Tag'
+            : isPushTagAction
+            ? (pushAllTags ? 'Push All Tags' : 'Push Tag')
+            : isDeleteTagAction
+            ? 'Delete Tag'
+            : isDeleteRemoteTagAction
+            ? 'Delete Remote Tag'
             : 'Proceed'}
         </button>
       </div>
@@ -545,7 +912,15 @@ function getGraphImpact(
   currentBranch: string | null,
   targetShort: string,
   extraName?: string,
-  shouldSwitch?: boolean
+  shouldSwitch?: boolean,
+  tagOptions?: {
+    tagName?: string;
+    pushTag?: string;
+    pushRemote?: string;
+    deleteTag?: string;
+    deleteRemoteTag?: string;
+    deleteRemote?: string;
+  }
 ): ImpactLine[] {
   const branchDisplay = currentBranch ?? `detached at ${shortHead}`;
 
@@ -628,11 +1003,39 @@ function getGraphImpact(
         { icon: '●', text: 'Commits unique to this branch may become unreachable' },
       ];
 
-    case 'create-tag':
+    case 'create-tag': {
+      const name = tagOptions?.tagName ? ` "${tagOptions.tagName}"` : '';
       return [
-        { icon: '🏷', text: `A tag will be created at commit ${targetShort}` },
+        { icon: '🏷', text: `Tag${name} will be created at commit ${targetShort}` },
         { icon: '●', text: 'Tags are permanent markers in the history' },
       ];
+    }
+
+    case 'push-tag': {
+      const tagText = tagOptions?.pushTag === 'all' ? 'All tags on this commit' : `Tag "${tagOptions?.pushTag || '<tag>'}"`;
+      const remote = tagOptions?.pushRemote || 'origin';
+      return [
+        { icon: '↑', text: `${tagText} will be pushed to remote (${remote})` },
+        { icon: '☁', text: 'Remote repository will be updated with the tag' },
+      ];
+    }
+
+    case 'delete-tag': {
+      const tagText = tagOptions?.deleteTag ? ` "${tagOptions.deleteTag}"` : '';
+      return [
+        { icon: '✕', text: `Local tag${tagText} will be deleted` },
+        { icon: '●', text: 'Commits in history remain unaffected' },
+      ];
+    }
+
+    case 'delete-remote-tag': {
+      const tagText = tagOptions?.deleteRemoteTag ? ` "${tagOptions.deleteRemoteTag}"` : '';
+      const remote = tagOptions?.deleteRemote || 'origin';
+      return [
+        { icon: '✕', text: `Tag${tagText} will be deleted from remote (${remote})` },
+        { icon: '☁', text: 'Remote repository will no longer reference this tag' },
+      ];
+    }
 
     case 'push':
       return [
@@ -800,8 +1203,34 @@ function getGitCommands(
     case 'reset-mixed':
       return [`git reset --mixed ${shortHash}`];
 
-    case 'create-tag':
-      return [`git tag <name> ${shortHash}`];
+    case 'create-tag': {
+      const name = actionArgs?.tagName || '<name>';
+      const msg = actionArgs?.tagMessage;
+      if (msg) {
+        return [`git tag -a ${name} -m "${msg.replace(/"/g, '\\"')}" ${shortHash}`];
+      }
+      return [`git tag ${name} ${shortHash}`];
+    }
+
+    case 'push-tag': {
+      const remote = actionArgs?.remote || 'origin';
+      if (actionArgs?.allTags && Array.isArray(actionArgs.allTags) && actionArgs.allTags.length > 0) {
+        return [`git push ${remote} ${actionArgs.allTags.join(' ')}`];
+      }
+      const tag = actionArgs?.tagName || '<tag>';
+      return [`git push ${remote} ${tag}`];
+    }
+
+    case 'delete-tag': {
+      const tag = actionArgs?.tagName || '<tag>';
+      return [`git tag -d ${tag}`];
+    }
+
+    case 'delete-remote-tag': {
+      const remote = actionArgs?.remote || 'origin';
+      const tag = actionArgs?.tagName || '<tag>';
+      return [`git push ${remote} --delete ${tag}`];
+    }
 
     case 'commit': {
       const msg = actionArgs?.message ? actionArgs.message.replace(/"/g, '\\"') : '<message>';

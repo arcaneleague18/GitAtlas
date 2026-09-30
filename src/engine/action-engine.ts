@@ -94,15 +94,16 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
     isDangerous: false,
   });
 
-  // Create Tag — always available unless already tagged
+  // Tag / Create Tag
   actions.push({
     kind: 'create-tag',
-    label: 'Create Tag',
+    label: hasTags ? 'Tag' : 'Create Tag',
     description: hasTags
-      ? 'This commit already has tags, but you can add another'
+      ? `Manage tags on this commit (${data.tags.join(', ')})`
       : 'Tag this commit with a name',
     enabled: true,
     isDangerous: false,
+    args: hasTags ? { hasTags: true, tags: [...data.tags] } : { hasTags: false, tags: [] },
   });
 
   // ── Integration ──
@@ -477,7 +478,8 @@ function getRemoteBranchActions(node: GraphNode, graph: RepositoryGraph): ValidA
 
 // ── Tag Actions ────────────────────────────────────────────────
 
-function getTagActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
+function getTagActions(node: GraphNode, _graph: RepositoryGraph): ValidAction[] {
+  const tagName = node.label;
   return [
     {
       kind: 'switch',
@@ -494,11 +496,28 @@ function getTagActions(_node: GraphNode, _graph: RepositoryGraph): ValidAction[]
       isDangerous: false,
     },
     {
-      kind: 'delete-branch',
+      kind: 'push-tag',
+      label: 'Push Tag to Remote',
+      description: `Push tag "${tagName}" to remote (origin)`,
+      enabled: true,
+      isDangerous: false,
+      args: { tagName, remote: 'origin' },
+    },
+    {
+      kind: 'delete-tag',
       label: 'Delete Tag',
-      description: 'Remove this tag',
+      description: `Delete local tag "${tagName}"`,
       enabled: true,
       isDangerous: true,
+      args: { tagName },
+    },
+    {
+      kind: 'delete-remote-tag',
+      label: 'Delete Tag from Remote',
+      description: `Delete tag "${tagName}" from remote (origin)`,
+      enabled: true,
+      isDangerous: true,
+      args: { tagName, remote: 'origin' },
     },
   ];
 }
