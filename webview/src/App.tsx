@@ -28,6 +28,7 @@ export function App() {
     theme,
     setPreviewState,
     setGithubContext,
+    setGraphSettings,
   } = useGraphStore();
 
   // Handle messages from the extension host
@@ -61,9 +62,12 @@ export function App() {
         case 'github-context':
           setGithubContext(message.context);
           break;
+        case 'settings-update':
+          setGraphSettings(message.settings);
+          break;
       }
     },
-    [setGraph, setTheme, setLoading, selectNode, setNodeDetails, setValidActions, setPreviewState, setGithubContext]
+    [setGraph, setTheme, setLoading, selectNode, setNodeDetails, setValidActions, setPreviewState, setGithubContext, setGraphSettings]
   );
 
   useVSCodeMessage(handleMessage);

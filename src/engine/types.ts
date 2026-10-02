@@ -172,6 +172,7 @@ export type EdgeKind =
   | 'rebase-continue'
   | 'rebase-skip'
   | 'rebase-abort'
+  | 'rebase-interactive'
   | 'create-tracking-branch'
   | 'push-tag'
   | 'delete-tag'
@@ -261,6 +262,8 @@ export interface ValidAction {
   readonly disabledReason?: string;
   /** Whether this action is destructive / dangerous. */
   readonly isDangerous: boolean;
+  /** Optional arguments for action preview or execution. */
+  readonly args?: any;
 }
 
 // ============================================================
@@ -382,7 +385,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'mergeability-result'; nodeId: string; canMerge: boolean; status: 'clean' | 'conflicts' | 'up-to-date' | 'fast-forward' | 'error'; conflictFiles: string[]; aheadBehind: { ahead: number; behind: number }; message: string }
   | { type: 'rebase-commits-result'; baseRef: string; commits: RebaseCommitItem[]; error?: string }
   | { type: 'interactive-rebase-result'; success: boolean; paused?: boolean; error?: string }
-  | ({ type: 'push-status-result'; nodeId: string } & PushStatusResult);
+  | ({ type: 'push-status-result'; nodeId: string } & PushStatusResult)
+  | { type: 'settings-update'; settings: { nodeSpacing: number; rankSpacing: number } };
 
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =

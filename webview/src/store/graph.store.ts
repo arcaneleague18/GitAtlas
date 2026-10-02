@@ -12,6 +12,7 @@
 import { create } from 'zustand';
 import type { Node, Edge } from '@xyflow/react';
 import { computeLayout } from '../layouts/dagre';
+import type { LayoutOptions } from '../layouts/dagre';
 import type {
   SerializedGraph,
   GraphNode,
@@ -86,6 +87,10 @@ export interface GraphStoreState {
   // GitHub Context
   githubContext: GitHubContext | null;
 
+  // Graph layout settings
+  nodeSpacing: number;
+  rankSpacing: number;
+
   // Actions
   setGraph: (graph: SerializedGraph) => void;
   selectNode: (nodeId: string | null) => void;
@@ -100,6 +105,7 @@ export interface GraphStoreState {
   setGithubContext: (context: GitHubContext) => void;
   setShowLostCommits: (show: boolean) => void;
   setShowStashes: (show: boolean) => void;
+  setGraphSettings: (settings: { nodeSpacing: number; rankSpacing: number }) => void;
 }
 
 /** Map to track which color is assigned to which branch. */
@@ -167,6 +173,8 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   isInspectorOpen: false,
   previewState: null,
   githubContext: null,
+  nodeSpacing: 280,
+  rankSpacing: 60,
 
   setGraph: (graph: SerializedGraph) => {
     const graphNodeMap = new Map(graph.nodes);
@@ -446,7 +454,11 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
     }
 
     // Compute layout positions and edge routing
-    const { nodes: layoutedNodes, edges: layoutedEdges } = computeLayout(flowNodes, flowEdges);
+    const layoutOptions: LayoutOptions = {
+      nodeSep: get().nodeSpacing,
+      rankSep: get().rankSpacing,
+    };
+    const { nodes: layoutedNodes, edges: layoutedEdges } = computeLayout(flowNodes, flowEdges, layoutOptions);
 
     const currentSelectedId = get().selectedNodeId;
     const isSelectedNodeDeleted = currentSelectedId && !graphNodeMap.has(currentSelectedId);
@@ -543,5 +555,21 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
 
   setShowStashes: (show: boolean) => {
     set({ showStashes: show });
+  },
+
+  setGraphSettings: (settings: { nodeSpacing: number; rankSpacing: number }) => {
+    const prev = get();
+    if (prev.nodeSpacing === settings.nodeSpacing && prev.rankSpacing === settings.rankSpacing) return;
+    set({ nodeSpacing: settings.nodeSpacing, rankSpacing: settings.rankSpacing });
+    // Re-layout existing nodes with the new spacing
+    const { nodes, edges } = get();
+    if (nodes.length > 0) {
+      const layoutOptions: LayoutOptions = {
+        nodeSep: settings.nodeSpacing,
+        rankSep: settings.rankSpacing,
+      };
+      const { nodes: layoutedNodes, edges: layoutedEdges } = computeLayout(nodes, edges, layoutOptions);
+      set({ nodes: layoutedNodes, edges: layoutedEdges });
+    }
   },
 }));

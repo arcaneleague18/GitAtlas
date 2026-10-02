@@ -14,20 +14,29 @@ import type { Node, Edge } from '@xyflow/react';
 const NODE_WIDTH = 52; // Width of the circle + padding
 const NODE_HEIGHT = 60; // Approximate height of a node
 
-/** Spacing between nodes. */
-const NODE_SEP = 280;
-const RANK_SEP = 60;
+/** Default spacing between nodes. */
+const DEFAULT_NODE_SEP = 280;
+const DEFAULT_RANK_SEP = 60;
 const EDGE_SEP = 20;
+
+export interface LayoutOptions {
+  nodeSep?: number;
+  rankSep?: number;
+}
 
 /**
  * Compute layout positions for nodes using dagre.
  *
  * @param nodes - React Flow nodes (positions will be overwritten).
  * @param edges - React Flow edges defining the graph topology.
+ * @param options - Optional spacing overrides from user settings.
  * @returns New array of nodes with computed positions.
  */
-export function computeLayout(nodes: Node[], edges: Edge[]): { nodes: Node[], edges: Edge[] } {
+export function computeLayout(nodes: Node[], edges: Edge[], options?: LayoutOptions): { nodes: Node[], edges: Edge[] } {
   if (nodes.length === 0) return { nodes: [], edges: [] };
+
+  const nodeSep = options?.nodeSep ?? DEFAULT_NODE_SEP;
+  const rankSep = options?.rankSep ?? DEFAULT_RANK_SEP;
 
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
@@ -35,8 +44,8 @@ export function computeLayout(nodes: Node[], edges: Edge[]): { nodes: Node[], ed
   // Configure layout: top-to-bottom, newest at top
   g.setGraph({
     rankdir: 'TB',
-    nodesep: NODE_SEP,
-    ranksep: RANK_SEP,
+    nodesep: nodeSep,
+    ranksep: rankSep,
     edgesep: EDGE_SEP,
     marginx: 40,
     marginy: 40,
@@ -105,6 +114,6 @@ export function computeLayout(nodes: Node[], edges: Edge[]): { nodes: Node[], ed
 export const LAYOUT_DIMENSIONS = {
   nodeWidth: NODE_WIDTH,
   nodeHeight: NODE_HEIGHT,
-  nodeSep: NODE_SEP,
-  rankSep: RANK_SEP,
+  nodeSep: DEFAULT_NODE_SEP,
+  rankSep: DEFAULT_RANK_SEP,
 } as const;

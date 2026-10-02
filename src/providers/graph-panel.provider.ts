@@ -58,6 +58,28 @@ export class GraphPanelProvider extends DisposableBase {
         });
       })
     );
+
+    // Listen for configuration changes (graph spacing, etc.)
+    this.register(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('gitAtlas.graph')) {
+          this.sendGraphSettings();
+        }
+      })
+    );
+  }
+
+  /**
+   * Read graph layout settings from VS Code configuration and send to webview.
+   */
+  private sendGraphSettings(): void {
+    const config = vscode.workspace.getConfiguration('gitAtlas.graph');
+    const nodeSpacing = config.get<number>('nodeSpacing', 280);
+    const rankSpacing = config.get<number>('rankSpacing', 60);
+    this.postMessage({
+      type: 'settings-update',
+      settings: { nodeSpacing, rankSpacing },
+    });
   }
 
   /**
@@ -168,6 +190,8 @@ export class GraphPanelProvider extends DisposableBase {
           type: 'theme-change',
           theme: this.mapThemeKind(vscode.window.activeColorTheme.kind),
         } satisfies ExtensionToWebviewMessage);
+        // Send graph layout settings
+        this.sendGraphSettings();
         break;
 
       case 'node-selected':

@@ -153,6 +153,20 @@
           "minimum": 50,
           "maximum": 10000,
           "description": "Maximum number of commits to load in the graph. Increase for larger repositories."
+        },
+        "gitAtlas.graph.nodeSpacing": {
+          "type": "number",
+          "default": 280,
+          "minimum": 80,
+          "maximum": 600,
+          "description": "Horizontal spacing between graph nodes (in pixels). Controls how far apart parallel branches are."
+        },
+        "gitAtlas.graph.rankSpacing": {
+          "type": "number",
+          "default": 60,
+          "minimum": 30,
+          "maximum": 300,
+          "description": "Vertical spacing between graph rows (in pixels). Controls the distance between parent and child commits."
         }
       }
     }
