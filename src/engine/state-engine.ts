@@ -35,17 +35,24 @@ import type {
 
 /** Color palette for branches — visually distinct, accessible colors. */
 const BRANCH_COLORS = [
-  '#58a6ff', // blue
-  '#3fb950', // green
-  '#d29922', // yellow
-  '#f78166', // orange
-  '#bc8cff', // purple
-  '#ff7b72', // red
-  '#79c0ff', // light blue
-  '#7ee787', // light green
-  '#e3b341', // gold
-  '#ffa657', // amber
+  '#58a6ff', // 0: Blue (212°)
+  '#3fb950', // 1: Green (130°)
+  '#f0883e', // 2: Orange (25°)
+  '#bc8cff', // 3: Purple (266°)
+  '#d29922', // 4: Yellow / Gold (45°)
+  '#ff7b72', // 5: Red (4°)
+  '#22d3ee', // 6: Cyan / Turquoise (189°)
+  '#f472b6', // 7: Pink / Magenta (326°)
+  '#a3e635', // 8: Lime (84°)
+  '#818cf8', // 9: Indigo (239°)
+  '#fb7185', // 10: Rose (349°)
+  '#34d399', // 11: Mint (160°)
+  '#e879f9', // 12: Fuchsia (292°)
+  '#f59e0b', // 13: Amber (38°)
+  '#38bdf8', // 14: Sky Blue (199°)
+  '#e11d48', // 15: Crimson (347°)
 ];
+
 
 export class RepositoryStateEngine extends DisposableBase {
   private readonly _onDidChangeGraph = new vscode.EventEmitter<RepositoryGraph>();

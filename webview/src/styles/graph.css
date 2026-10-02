@@ -20,10 +20,6 @@
   transition: flex var(--duration-normal) var(--ease-out);
 }
 
-.graph-with-inspector .graph-container {
-  /* The inspector takes 340px, graph fills the rest */
-}
-
 /* ── React Flow Overrides ──────────────────────────────────── */
 .react-flow {
   background: var(--bg-primary) !important;
@@ -50,14 +46,14 @@
 
 /* ── Edges ─────────────────────────────────────────────────── */
 .react-flow__edge-path {
-  stroke: var(--edge-default);
   stroke-width: 2;
-  transition: stroke var(--duration-normal) var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-out),
+              stroke-width var(--duration-normal) var(--ease-out);
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
-  stroke: var(--edge-active);
+  opacity: 1 !important;
   stroke-width: 2.5;
 }
 
