@@ -8,6 +8,7 @@ All notable changes to the "git-atlas" extension will be documented in this file
 - **Interactive Pull Modal:** Added a dedicated modal dialog for the Pull button in the graph toolbar. Users can select any remote branch to pull into their active branch, or select the "All Branches" mode to fetch all remotes and synchronize tracking branches. Includes live Git command preview, `--rebase`, and `--autostash` options.
 
 ### Fixed
+- **Push Untracked / New Branches (`--set-upstream`):** Pushing from a commit node previously passed an empty branch parameter, falling back to a bare `git push` which failed on untracked branches with `fatal: The current branch has no upstream branch`. Git Atlas now accurately detects the target branch, checks whether an upstream tracking branch is already configured, and automatically attaches `--set-upstream` to publish new branches cleanly. The action preview modal and graph impact indicators now reflect the exact command and upstream setup.
 - **Purge From History Splitting the Graph:** Purging a file previously force-pushed only the current branch, so every other remote branch kept the old history and the next fetch showed it as a disconnected duplicate graph. Purge now fetches all remotes first, rewrites every branch and tag, and force-pushes every rewritten branch (plus tags that already exist on the remote). Branches that fail to push (e.g. protected branches) are reported individually. Re-running the purge on an already-split repository reconnects the branches.
 
 ## [0.2.1] - 2026-10-02
