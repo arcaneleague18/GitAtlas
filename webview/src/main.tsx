@@ -21,6 +21,7 @@ import './styles/working-directory-node.css';
 import './styles/action-preview.css';
 import './styles/ai-assistant.css';
 import './styles/interactive-rebase.css';
+import './styles/pull-modal.css';
 
 declare global {
   interface Window {

@@ -1,0 +1,367 @@
+/**
+ * Pull Modal Styles — Git Atlas
+ *
+ * Glassmorphic design matching the Git Atlas UI theme.
+ */
+
+.pull-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  padding: var(--space-4);
+}
+
+.pull-modal-container {
+  position: relative;
+  width: 500px;
+  max-width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(22, 27, 34, 0.96);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 24px rgba(88, 166, 255, 0.15);
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+}
+
+/* ── Header ─────────────────────────────────────────── */
+.pull-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-muted);
+  background: rgba(13, 17, 23, 0.5);
+}
+
+.pull-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.pull-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: rgba(88, 166, 255, 0.15);
+  color: var(--text-link);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pull-modal-title {
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.pull-modal-subtitle {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.pull-modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-out);
+  line-height: 1;
+}
+
+.pull-modal-close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Body ───────────────────────────────────────────── */
+.pull-modal-body {
+  padding: var(--space-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Context Info Banner ────────────────────────────── */
+.pull-modal-context-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(13, 17, 23, 0.6);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+
+.pull-modal-context-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+
+.pull-modal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(88, 166, 255, 0.12);
+  color: var(--text-link);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+/* ── Mode Selector Cards ────────────────────────────── */
+.pull-modal-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.pull-modal-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  text-align: left;
+}
+
+.pull-modal-mode-card:hover {
+  border-color: var(--border-accent);
+  background: var(--bg-tertiary);
+}
+
+.pull-modal-mode-card.active {
+  border-color: var(--border-accent);
+  background: rgba(88, 166, 255, 0.1);
+  box-shadow: 0 0 12px rgba(88, 166, 255, 0.15);
+}
+
+.pull-modal-mode-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pull-modal-mode-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+/* ── Fields Section ─────────────────────────────────── */
+.pull-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pull-modal-label {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pull-modal-select,
+.pull-modal-input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.pull-modal-select:focus,
+.pull-modal-input:focus {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2);
+}
+
+.pull-modal-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ── Checkbox Options ───────────────────────────────── */
+.pull-modal-options-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: rgba(13, 17, 23, 0.4);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+}
+
+.pull-modal-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.pull-modal-checkbox-row input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: var(--text-link);
+  cursor: pointer;
+}
+
+.pull-modal-checkbox-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pull-modal-checkbox-title {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pull-modal-checkbox-desc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ── Command Preview Box ────────────────────────────── */
+.pull-modal-command-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pull-modal-command-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pull-modal-command-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #79c0ff;
+  overflow-x: auto;
+}
+
+.pull-modal-command-prompt {
+  color: var(--text-muted);
+  user-select: none;
+}
+
+/* ── Warning / Info Box ─────────────────────────────── */
+.pull-modal-info-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: rgba(88, 166, 255, 0.08);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* ── Footer ─────────────────────────────────────────── */
+.pull-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-muted);
+  background: rgba(13, 17, 23, 0.5);
+}
+
+.pull-modal-btn {
+  padding: 7px 16px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  border: 1px solid transparent;
+}
+
+.pull-modal-btn-cancel {
+  background: var(--bg-secondary);
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+
+.pull-modal-btn-cancel:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.pull-modal-btn-pull {
+  background: #238636;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pull-modal-btn-pull:hover:not(:disabled) {
+  background: #2ea043;
+  box-shadow: 0 0 12px rgba(46, 160, 67, 0.4);
+}
+
+.pull-modal-btn-pull:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #238636;
+}

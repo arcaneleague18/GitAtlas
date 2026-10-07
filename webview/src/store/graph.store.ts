@@ -229,7 +229,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   isInspectorOpen: false,
   previewState: null,
   githubContext: null,
-  nodeSpacing: 280,
+  nodeSpacing: 360,
   rankSpacing: 60,
 
   setGraph: (graph: SerializedGraph) => {

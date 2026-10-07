@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { postMessage } from '../vscode';
 import { useGraphStore } from '../store/graph.store';
 import { SearchIcon, GlobeIcon, DeleteIcon, EditIcon, CopyIcon } from '../../../resources/icons';
+import { PullModal, type PullOptions } from './PullModal';
 
 
 interface FileSearchCommit {
@@ -52,6 +53,7 @@ function ToolbarComponent() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rebaseDropdownRef = useRef<HTMLDivElement>(null);
   const [isRebaseDropdownOpen, setIsRebaseDropdownOpen] = useState(false);
+  const [isPullModalOpen, setIsPullModalOpen] = useState(false);
 
   const currentBranchColor = branchColors.find((b) => b.isCurrent)?.color ?? '#aaaaaa';
 
@@ -133,8 +135,22 @@ function ToolbarComponent() {
   }, [postMessage]);
 
   const handlePull = useCallback(() => {
-    postMessage({ type: 'pull' });
-  }, [postMessage]);
+    setIsPullModalOpen(true);
+  }, []);
+
+  const handleExecutePull = useCallback(
+    (options: PullOptions) => {
+      postMessage({
+        type: 'pull',
+        remote: options.remote,
+        branch: options.branch,
+        pullAll: options.pullAll,
+        rebase: options.rebase,
+        autostash: options.autostash,
+      });
+    },
+    []
+  );
 
   const handleToggleLostCommits = useCallback(() => {
     const newValue = !showLostCommits;
@@ -613,6 +629,12 @@ function ToolbarComponent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PullModal
+        isOpen={isPullModalOpen}
+        onClose={() => setIsPullModalOpen(false)}
+        onPull={handleExecutePull}
+      />
     </>
   );
 }

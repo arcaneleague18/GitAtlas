@@ -1582,7 +1582,40 @@ export class GitService {
   }
 
   async pull(remote?: string, branch?: string): Promise<void> {
+    return this.pullWithOptions({ remote, branch });
+  }
+
+  async pullWithOptions(options: {
+    remote?: string;
+    branch?: string;
+    pullAll?: boolean;
+    rebase?: boolean;
+    autostash?: boolean;
+  }): Promise<void> {
+    const { remote, branch, pullAll, rebase, autostash } = options;
+
+    if (pullAll) {
+      // 1. Fetch all remotes and prune deleted remote tracking branches
+      try {
+        await this.exec(['fetch', '--all', '--prune']);
+      } catch (err) {
+        console.warn('Git Atlas: fetch --all --prune warning:', err);
+      }
+
+      // 2. Pull all tracking branches into current HEAD
+      const pullArgs = ['pull', '--all'];
+      if (rebase) pullArgs.push('--rebase');
+      if (autostash) pullArgs.push('--autostash');
+      await this.exec(pullArgs);
+
+      // 3. Fast-forward any local branches that track remote branches
+      await this.fastForwardTrackingBranches();
+      return;
+    }
+
     const args = ['pull'];
+    if (rebase) args.push('--rebase');
+    if (autostash) args.push('--autostash');
     if (remote) {
       args.push(remote);
       if (branch) {
@@ -1590,6 +1623,29 @@ export class GitService {
       }
     }
     await this.exec(args);
+  }
+
+  private async fastForwardTrackingBranches(): Promise<void> {
+    try {
+      const branches = await this.getBranches();
+      const localTrackingBranches = branches.filter(
+        (b) => !b.isRemote && !b.isCurrent && b.upstream
+      );
+      for (const b of localTrackingBranches) {
+        try {
+          const slashIdx = b.upstream!.indexOf('/');
+          if (slashIdx > 0) {
+            const remote = b.upstream!.substring(0, slashIdx);
+            const remoteBranch = b.upstream!.substring(slashIdx + 1);
+            await this.exec(['fetch', remote, `${remoteBranch}:${b.name}`]);
+          }
+        } catch {
+          // Normal if non-fast-forward; ignore without failing whole pull
+        }
+      }
+    } catch {
+      // Non-critical background task
+    }
   }
 
   async show(ref: string, relativePath: string): Promise<string> {

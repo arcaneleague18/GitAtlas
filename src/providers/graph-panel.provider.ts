@@ -74,7 +74,7 @@ export class GraphPanelProvider extends DisposableBase {
    */
   private sendGraphSettings(): void {
     const config = vscode.workspace.getConfiguration('gitAtlas.graph');
-    const nodeSpacing = config.get<number>('nodeSpacing', 280);
+    const nodeSpacing = config.get<number>('nodeSpacing', 360);
     const rankSpacing = config.get<number>('rankSpacing', 60);
     this.postMessage({
       type: 'settings-update',
@@ -229,26 +229,43 @@ export class GraphPanelProvider extends DisposableBase {
         );
         break;
 
-      case 'pull':
+      case 'pull': {
+        const pullTitle = message.pullAll
+          ? 'Git Atlas: Pulling from all branches...'
+          : `Git Atlas: Pulling ${message.branch ? `${message.remote || 'origin'}/${message.branch}` : 'from remote'}...`;
+
         void vscode.window.withProgress(
           {
-            location: vscode.ProgressLocation.SourceControl,
-            title: 'Git Atlas: Pulling...',
+            location: vscode.ProgressLocation.Notification,
+            title: pullTitle,
           },
           async () => {
             try {
               this.postMessage({ type: 'loading', loading: true });
-              await this.gitService.pull();
+              await this.gitService.pullWithOptions({
+                remote: message.remote,
+                branch: message.branch,
+                pullAll: message.pullAll,
+                rebase: message.rebase,
+                autostash: message.autostash,
+              });
               await this.stateEngine.buildGraph();
-            } catch (err) {
+              void vscode.window.showInformationMessage(
+                message.pullAll
+                  ? 'Git Atlas: Successfully pulled from all branches.'
+                  : `Git Atlas: Successfully pulled ${message.branch ? `${message.remote || 'origin'}/${message.branch}` : 'from remote'}.`
+              );
+            } catch (err: any) {
               console.error('Git Atlas: Pull failed', err);
-              vscode.window.showErrorMessage('Git Atlas: Failed to pull from remote.');
+              const errMsg = err?.message || 'Failed to pull from remote.';
+              void vscode.window.showErrorMessage(`Git Atlas: Pull failed — ${errMsg}`);
             } finally {
               this.postMessage({ type: 'loading', loading: false });
             }
           }
         );
         break;
+      }
 
       case 'open-file': {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];

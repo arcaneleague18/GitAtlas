@@ -15,7 +15,7 @@ const NODE_WIDTH = 52; // Width of the circle + padding
 const NODE_HEIGHT = 60; // Approximate height of a node
 
 /** Default spacing between nodes. */
-const DEFAULT_NODE_SEP = 280;
+const DEFAULT_NODE_SEP = 360;
 const DEFAULT_RANK_SEP = 60;
 const EDGE_SEP = 20;
 

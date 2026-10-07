@@ -156,17 +156,17 @@
         },
         "gitAtlas.graph.nodeSpacing": {
           "type": "number",
-          "default": 280,
+          "default": 360,
           "minimum": 80,
-          "maximum": 600,
-          "description": "Horizontal spacing between graph nodes (in pixels). Controls how far apart parallel branches are."
+          "maximum": 1000,
+          "description": "Horizontal spacing between parallel branches (in pixels). Increase to add more horizontal space between branch cards."
         },
         "gitAtlas.graph.rankSpacing": {
           "type": "number",
           "default": 60,
           "minimum": 30,
-          "maximum": 300,
-          "description": "Vertical spacing between graph rows (in pixels). Controls the distance between parent and child commits."
+          "maximum": 600,
+          "description": "Vertical spacing between commit rows (in pixels). Controls the vertical distance between parent and child commits."
         }
       }
     }
