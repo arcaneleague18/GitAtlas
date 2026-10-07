@@ -1562,13 +1562,54 @@ export class GitService {
     await this.exec(['push', remote, '--delete', tag]);
   }
 
-  async push(branch?: string, mode?: 'normal' | 'force-with-lease' | 'force'): Promise<void> {
+  async push(
+    branch?: string,
+    mode?: 'normal' | 'force-with-lease' | 'force',
+    setUpstream?: boolean,
+    remote?: string
+  ): Promise<void> {
     const args = ['push'];
     if (mode === 'force-with-lease') args.push('--force-with-lease');
     else if (mode === 'force') args.push('--force');
 
-    if (branch) {
-      args.push('origin', branch);
+    let targetBranch = branch?.trim();
+    if (!targetBranch) {
+      try {
+        targetBranch = (await this.exec(['branch', '--show-current'])).trim() || undefined;
+      } catch {
+        // ignore
+      }
+    }
+
+    let targetRemote = remote;
+    if (!targetRemote) {
+      try {
+        const remotesOutput = (await this.exec(['remote'])).trim();
+        const remotes = remotesOutput.split(/\s+/).filter(Boolean);
+        targetRemote = remotes.includes('origin') ? 'origin' : (remotes[0] || 'origin');
+      } catch {
+        targetRemote = 'origin';
+      }
+    }
+
+    let shouldSetUpstream = setUpstream;
+    if (targetBranch && shouldSetUpstream === undefined) {
+      // Check if branch has an upstream configured
+      try {
+        await this.exec(['rev-parse', '--abbrev-ref', `${targetBranch}@{upstream}`]);
+        shouldSetUpstream = false;
+      } catch {
+        // No upstream configured for this branch — need --set-upstream!
+        shouldSetUpstream = true;
+      }
+    }
+
+    if (shouldSetUpstream) {
+      args.push('--set-upstream');
+    }
+
+    if (targetBranch) {
+      args.push(targetRemote, targetBranch);
     }
     await this.exec(args);
   }
@@ -2323,11 +2364,7 @@ return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length -
    * has changed since our last fetch.
    */
   async forcePushWithLease(branch?: string): Promise<void> {
-    const args = ['push', '--force-with-lease'];
-    if (branch) {
-      args.push('origin', branch);
-    }
-    await this.exec(args);
+    await this.push(branch, 'force-with-lease');
   }
 
   /**

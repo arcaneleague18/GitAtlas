@@ -275,6 +275,7 @@ function getCommitActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
       enabled: !isInSpecialState,
       disabledReason: isInSpecialState ? 'Resolve current operation first' : undefined,
       isDangerous: false,
+      args: { branch: graph.currentBranch },
     });
   }
 
@@ -382,6 +383,7 @@ function getBranchActions(node: GraphNode, graph: RepositoryGraph): ValidAction[
     enabled: !isInSpecialState,
     disabledReason: isInSpecialState ? 'Resolve current operation first' : undefined,
     isDangerous: false,
+    args: { branch: node.label },
   });
 
   actions.push({

@@ -131,6 +131,13 @@ export class ActionExecutor {
         vscode.window.showInformationMessage(
           `Git Atlas: Created tag "${tagName}".`
         );
+      } else if (action === 'push') {
+        const pushedBranch = args?.branch || (node.kind === 'branch' ? branchName : this.stateEngine.graph?.currentBranch);
+        vscode.window.showInformationMessage(
+          pushedBranch
+            ? `Git Atlas: Successfully pushed "${pushedBranch}" to remote.`
+            : `Git Atlas: Successfully pushed to remote.`
+        );
       } else {
         vscode.window.showInformationMessage(`Successfully completed ${action}.`);
       }
@@ -503,9 +510,11 @@ export class ActionExecutor {
       case 'stash-drop':
         await this.gitService.dropStash(node.data.index);
         break;
-      case 'push':
-        await this.gitService.push(node.kind === 'branch' ? branchName : undefined, args?.pushMode);
+      case 'push': {
+        const targetBranch = args?.branch || (node.kind === 'branch' ? branchName : (this.stateEngine.graph?.currentBranch || undefined));
+        await this.gitService.push(targetBranch, args?.pushMode, args?.setUpstream);
         break;
+      }
       case 'fetch':
         await this.gitService.fetch();
         break;

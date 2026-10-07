@@ -175,6 +175,7 @@ function ActionPreviewPanelComponent({
           deleteTag: selectedDeleteTag.trim(),
           deleteRemoteTag: selectedRemoteDeleteTag.trim(),
           deleteRemote: deleteTagRemote,
+          isNewBranch: pushStatus?.status === 'new-branch' || !pushStatus?.remoteBranch,
         }
       ),
     [
@@ -192,6 +193,7 @@ function ActionPreviewPanelComponent({
       selectedDeleteTag,
       selectedRemoteDeleteTag,
       deleteTagRemote,
+      pushStatus,
     ]
   );
 
@@ -376,6 +378,13 @@ function ActionPreviewPanelComponent({
               ? { tagName: selectedDeleteTag.trim() }
               : isDeleteRemoteTagAction
               ? { tagName: selectedRemoteDeleteTag.trim(), remote: deleteTagRemote }
+              : isPushAction
+              ? {
+                  branch: (nodeDetails.kind === 'branch' ? nodeDetails.label : currentBranch) || currentBranch,
+                  setUpstream: pushStatus?.status === 'new-branch' || !pushStatus?.remoteBranch,
+                  remote: pushStatus?.remoteBranch ? pushStatus.remoteBranch.split('/')[0] : 'origin',
+                  ...(action as any).args,
+                }
               : (action as any).args
           ).map((cmd, i) => (
             <div key={i} className="action-preview-command-line">
@@ -856,6 +865,12 @@ function ActionPreviewPanelComponent({
                   ? { tagName: selectedDeleteTag.trim() }
                   : isDeleteRemoteTagAction
                   ? { tagName: selectedRemoteDeleteTag.trim(), remote: deleteTagRemote }
+                  : isPushAction
+                  ? {
+                      branch: (nodeDetails.kind === 'branch' ? nodeDetails.label : currentBranch) || currentBranch,
+                      setUpstream: pushStatus?.status === 'new-branch' || !pushStatus?.remoteBranch,
+                      pushMode,
+                    }
                   : undefined
               );
             }
@@ -920,6 +935,7 @@ function getGraphImpact(
     deleteTag?: string;
     deleteRemoteTag?: string;
     deleteRemote?: string;
+    isNewBranch?: boolean;
   }
 ): ImpactLine[] {
   const branchDisplay = currentBranch ?? `detached at ${shortHead}`;
@@ -1040,7 +1056,12 @@ function getGraphImpact(
     case 'push':
       return [
         { icon: '↑', text: `Local commits will be pushed to the remote` },
-        { icon: '☁', text: 'Remote branch will be updated to match local' },
+        {
+          icon: '☁',
+          text: tagOptions?.isNewBranch
+            ? 'Remote branch will be published and configured as upstream'
+            : 'Remote branch will be updated to match local',
+        },
       ];
 
     case 'fetch':
@@ -1255,8 +1276,11 @@ function getGitCommands(
 
     case 'push': {
       const pushFlag = pushMode === 'force' ? ' --force' : pushMode === 'force-with-lease' ? ' --force-with-lease' : '';
-      return currentBranch
-        ? [`git push origin ${currentBranch}${pushFlag}`]
+      const targetBranch = actionArgs?.branch || (isBranch ? label : currentBranch) || currentBranch;
+      const remote = actionArgs?.remote || 'origin';
+      const setUpstream = actionArgs?.setUpstream ? ' --set-upstream' : '';
+      return targetBranch
+        ? [`git push${setUpstream} ${remote} ${targetBranch}${pushFlag}`]
         : [`git push${pushFlag}`];
     }
 
