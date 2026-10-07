@@ -560,7 +560,7 @@ export class GraphPanelProvider extends DisposableBase {
 
       case 'purge-file-from-history': {
         const purgeChoice = await vscode.window.showWarningMessage(
-          `Are you sure you want to permanently remove "${message.filePath}" from the ENTIRE Git history? This rewrites all commits and force-pushes to the remote. This action CANNOT be undone.`,
+          `Are you sure you want to permanently remove "${message.filePath}" from the ENTIRE Git history? This rewrites the commits of every branch and tag, then force-pushes all rewritten branches to their remotes. This action CANNOT be undone.`,
           { modal: true },
           'Purge from History'
         );

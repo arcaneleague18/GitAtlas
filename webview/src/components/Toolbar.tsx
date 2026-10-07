@@ -602,6 +602,10 @@ function ToolbarComponent() {
               <div className="file-search-commands-block">
                 <div className="file-search-command-line">
                   <span className="file-search-command-prompt">$</span>
+                  <code>git fetch --all --prune</code>
+                </div>
+                <div className="file-search-command-line">
+                  <span className="file-search-command-prompt">$</span>
                   <code>git stash push -u -m "auto-stash before purge"</code>
                 </div>
                 <div className="file-search-command-line">
@@ -622,7 +626,7 @@ function ToolbarComponent() {
                 </div>
                 <div className="file-search-command-line">
                   <span className="file-search-command-prompt">$</span>
-                  <code>git push origin &lt;branch&gt; --force</code>
+                  <code>git push --force &lt;remote&gt; &lt;rewritten-ref&gt;:refs/heads/&lt;branch&gt;  # for every branch</code>
                 </div>
               </div>
             </div>

@@ -1794,14 +1794,32 @@ export class GitService {
    * This rewrites history so that the file never existed in any commit.
    *
    * Steps:
+   * 0. Fetch all remotes so every remote branch is present locally and gets rewritten
    * 1. Stash any uncommitted changes (filter-branch requires a clean index)
    * 2. Rewrite all history with filter-branch to remove the file
    * 3. Pop the stash to restore the user's working state
    * 4. Clean up backup refs and garbage collect
-   * 5. Force push to sync with remote (if requested)
+   * 5. Force push EVERY rewritten branch (and remote tags) to sync with remotes (if requested)
+   *
+   * Pushing only the current branch leaves the old history on the remote for all
+   * other branches; the next fetch then restores it as a disconnected duplicate graph.
    */
   async purgeFileFromHistory(filePath: string, forcePush: boolean = false): Promise<string> {
     const log: string[] = [];
+
+    // Step 0: Refresh remote-tracking refs so branches created on the remote
+    // since the last fetch are included in the rewrite.
+    const remotes = await this.listRemoteNames();
+    let fetchSucceeded = false;
+    if (remotes.length > 0) {
+      try {
+        await this.exec(['fetch', '--all', '--prune']);
+        fetchSucceeded = true;
+        log.push('Fetched all remotes so every remote branch is rewritten.');
+      } catch {
+        log.push('Warning: Could not fetch remotes before purge. Branches created on the remote since your last fetch will not be rewritten.');
+      }
+    }
 
     // Step 1: Stash any uncommitted changes (filter-branch requires clean index)
     let didStash = false;
@@ -1891,25 +1909,174 @@ export class GitService {
       // Non-critical
     }
 
-    // Step 6: Force push to remote if requested
-    if (forcePush) {
-      try {
-        const head = await this.getHead();
-        if (head.branch) {
-          // Use --force (not --force-with-lease) because filter-branch makes
-          // the lease info stale, causing --force-with-lease to always reject
-          await this.exec(['push', 'origin', head.branch, '--force']);
-          log.push(`Force-pushed '${head.branch}' to origin. Remote is now in sync.`);
-        } else {
-          log.push('Warning: HEAD is detached — cannot determine branch for force push. Push manually with: git push origin <branch> --force-with-lease');
-        }
-      } catch (err: any) {
-        const stderr = err.stderr || err.message || '';
-        log.push(`Warning: Force push failed: ${stderr}. Push manually with: git push origin <branch> --force-with-lease`);
+    // Step 6: Force push every rewritten branch and tag so no remote keeps the old history
+    if (remotes.length > 0) {
+      const targets = await this.collectRewrittenPushTargets(remotes, fetchSucceeded);
+      if (forcePush) {
+        await this.forcePushRewrittenRefs(targets, log);
+      } else if (targets.length > 0) {
+        log.push(
+          `Warning: ${targets.length} remote branch(es) still contain the old history. ` +
+          'Fetching or pulling before force-pushing them will bring the old commits back as a disconnected graph. Push them with:\n' +
+          targets.map((t) => `  git push --force ${t.remote} ${t.source}:refs/heads/${t.branch}`).join('\n')
+        );
       }
     }
 
     return log.join('\n');
+  }
+
+  /** Names of all configured remotes. */
+  private async listRemoteNames(): Promise<string[]> {
+    try {
+      return (await this.exec(['remote'])).trim().split(/\s+/).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Determine which rewritten refs must be force-pushed to which remote branch.
+   *
+   * - Every remote-tracking branch (refs/remotes/<remote>/<branch>) is pushed back
+   *   from its rewritten copy, so branches without a local counterpart are synced too.
+   * - A local branch tracking <remote>/<branch> takes precedence, since it may
+   *   contain commits that were never pushed.
+   * - The current branch is published to the default remote if it has no upstream.
+   *
+   * If the pre-purge fetch failed, remote-tracking refs may be stale (e.g. deleted
+   * on the remote), so only local branches are pushed to avoid resurrecting them.
+   */
+  private async collectRewrittenPushTargets(
+    remotes: string[],
+    includeRemoteTracking: boolean
+  ): Promise<{ remote: string; branch: string; source: string }[]> {
+    const targets = new Map<string, Map<string, string>>(); // remote -> branch -> source ref
+    const setTarget = (remote: string, branch: string, source: string) => {
+      if (!targets.has(remote)) targets.set(remote, new Map());
+      targets.get(remote)!.set(branch, source);
+    };
+
+    if (includeRemoteTracking) {
+      for (const remote of remotes) {
+        try {
+          const out = await this.exec(['for-each-ref', '--format=%(refname)', `refs/remotes/${remote}/`]);
+          for (const ref of out.trim().split('\n').filter(Boolean)) {
+            const branch = ref.slice(`refs/remotes/${remote}/`.length);
+            if (!branch || branch === 'HEAD') continue;
+            setTarget(remote, branch, ref);
+          }
+        } catch {
+          // Remote has no tracking refs
+        }
+      }
+    }
+
+    // Local branches with an upstream override the remote-tracking copy
+    try {
+      const out = await this.exec([
+        'for-each-ref',
+        `--format=%(refname:short)${FIELD_SEP}%(upstream:short)`,
+        'refs/heads/',
+      ]);
+      for (const line of out.trim().split('\n').filter(Boolean)) {
+        const [local, upstream] = line.split(FIELD_SEP).map((s) => s.trim());
+        if (!local || !upstream) continue;
+        const remote = remotes.find((r) => upstream.startsWith(`${r}/`));
+        if (!remote) continue;
+        setTarget(remote, upstream.slice(remote.length + 1), `refs/heads/${local}`);
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Publish the current branch if it has no upstream (previous behaviour)
+    try {
+      const head = await this.getHead();
+      if (head.branch) {
+        const alreadyTargeted = Array.from(targets.values()).some((m) =>
+          Array.from(m.values()).includes(`refs/heads/${head.branch}`)
+        );
+        if (!alreadyTargeted) {
+          const defaultRemote = remotes.includes('origin') ? 'origin' : remotes[0]!;
+          setTarget(defaultRemote, head.branch, `refs/heads/${head.branch}`);
+        }
+      }
+    } catch {
+      // Detached HEAD
+    }
+
+    const result: { remote: string; branch: string; source: string }[] = [];
+    for (const [remote, branches] of targets) {
+      for (const [branch, source] of branches) {
+        result.push({ remote, branch, source });
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Force-push each rewritten branch individually (so one protected branch does not
+   * block the rest), then force-push rewritten tags that already exist on each remote.
+   */
+  private async forcePushRewrittenRefs(
+    targets: { remote: string; branch: string; source: string }[],
+    log: string[]
+  ): Promise<void> {
+    const pushed: string[] = [];
+    const failed: string[] = [];
+
+    for (const t of targets) {
+      try {
+        // Use --force (not --force-with-lease): filter-branch makes the lease info stale
+        await this.exec(['push', '--force', t.remote, `${t.source}:refs/heads/${t.branch}`]);
+        pushed.push(`${t.remote}/${t.branch}`);
+      } catch (err: any) {
+        const reason = (err.stderr || err.message || '').toString().trim().split('\n').pop() ?? '';
+        failed.push(`${t.remote}/${t.branch}${reason ? ` (${reason})` : ''}`);
+      }
+    }
+
+    if (pushed.length > 0) {
+      log.push(`Force-pushed ${pushed.length} rewritten branch(es): ${pushed.join(', ')}.`);
+    }
+    if (failed.length > 0) {
+      log.push(
+        `Warning: Could not force-push ${failed.length} branch(es): ${failed.join('; ')}. ` +
+        'These remote branches still contain the old history (check branch protection rules), ' +
+        'and fetching them will show a disconnected graph until they are force-pushed.'
+      );
+    }
+
+    // Tags: filter-branch rewrote them with --tag-name-filter cat. Only update tags the
+    // remote already has, so purging never publishes local-only tags.
+    const remotesInvolved = Array.from(new Set(targets.map((t) => t.remote)));
+    for (const remote of remotesInvolved) {
+      try {
+        const remoteTagsOut = await this.exec(['ls-remote', '--tags', remote]);
+        const remoteTags = new Set(
+          remoteTagsOut
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => line.split('\t')[1] ?? '')
+            .filter((ref) => ref.startsWith('refs/tags/') && !ref.endsWith('^{}'))
+        );
+        const localTagsOut = await this.exec(['for-each-ref', '--format=%(refname)', 'refs/tags/']);
+        const tagRefspecs = localTagsOut
+          .trim()
+          .split('\n')
+          .filter((ref) => ref && remoteTags.has(ref))
+          .map((ref) => `${ref}:${ref}`);
+        if (tagRefspecs.length > 0) {
+          await this.exec(['push', '--force', remote, ...tagRefspecs]);
+          log.push(`Force-pushed ${tagRefspecs.length} rewritten tag(s) to ${remote}.`);
+        }
+      } catch (err: any) {
+        const reason = (err.stderr || err.message || '').toString().trim().split('\n').pop() ?? '';
+        log.push(`Warning: Could not force-push rewritten tags to ${remote}${reason ? `: ${reason}` : ''}.`);
+      }
+    }
   }
 
   async generateCommitMessage(): Promise<string> {

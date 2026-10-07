@@ -1345,7 +1345,7 @@ export class AiAssistantProvider
           const result = await this.gitService.purgeFileFromHistory(args.file, forcePush);
           let output = result;
           if (!forcePush) {
-            output += `\n\n⚠️ History has been rewritten locally. To sync with the remote, run:\n  git push origin <branch> --force-with-lease\n\nCRITICAL: Do NOT reset, merge, pull, or fetch from origin — that would undo the purge.`;
+            output += `\n\nHistory has been rewritten locally for every branch. Every rewritten branch (not just the current one) must be force-pushed using the commands listed above, otherwise the remaining remote branches keep the old history.\n\nCRITICAL: Do NOT reset, merge, pull, or fetch from origin before pushing — that would bring the old commits back as a disconnected graph.`;
           }
           return { success: true, output };
         }
