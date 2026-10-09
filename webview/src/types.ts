@@ -342,6 +342,9 @@ export type WebviewToExtensionMessage =
   | { type: 'rebase-continue' }
   | { type: 'rebase-skip' }
   | { type: 'rebase-abort' }
+  | { type: 'merge-abort' }
+  | { type: 'merge-continue' }
+  | { type: 'resolve-conflicts' }
   | { type: 'get-rebase-commits'; baseRef: string; headRef?: string }
   | { type: 'execute-interactive-rebase'; baseRef: string; items: RebaseCommitItem[]; options?: { autostash?: boolean; rebaseMerges?: boolean } }
   | { type: 'first-commit' };

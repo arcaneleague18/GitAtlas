@@ -484,6 +484,91 @@ export function NodeInspector() {
                   );
                 })()}
 
+                {/* Merge in Progress banner */}
+                {repositoryState === 'merging' && (() => {
+                  const conflictedCount = details.workingDirectoryStatus?.conflicted?.length ?? 0;
+                  return (
+                    <motion.div
+                      className="inspector-section merge-progress-card"
+                      variants={sectionVariants}
+                      style={{
+                        background: 'rgba(59, 130, 246, 0.12)',
+                        border: '1px solid rgba(59, 130, 246, 0.4)',
+                        borderRadius: '8px',
+                        padding: '14px 16px',
+                        marginBottom: '16px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontWeight: 600, color: '#3b82f6', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>&#x2B95;</span>
+                          <span>Merge in Progress</span>
+                        </span>
+                        {conflictedCount > 0 && (
+                          <span style={{
+                            fontSize: '11px',
+                            background: 'rgba(239, 68, 68, 0.25)',
+                            color: '#f87171',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: 600,
+                          }}>
+                            {conflictedCount} conflict{conflictedCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: '1.4' }}>
+                        {conflictedCount > 0 ? (
+                          <span>
+                            Merge has <strong>{conflictedCount} conflict{conflictedCount !== 1 ? 's' : ''}</strong>.
+                            Resolve the conflicted files, stage your changes, then click Complete Merge.
+                          </span>
+                        ) : (
+                          <span>
+                            Merge in progress. Stage resolved files and complete the merge, or abort to cancel.
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {conflictedCount > 0 && (
+                          <button
+                            className="action-button"
+                            onClick={() => postMessage({ type: 'resolve-conflicts' })}
+                            title="Open conflicted files in the editor"
+                            style={{ flex: 1, minWidth: '120px', justifyContent: 'center' }}
+                          >
+                            <span className="action-button-icon">&#x2699;</span>
+                            <span className="action-button-label">Resolve</span>
+                          </button>
+                        )}
+
+                        <button
+                          className="action-button"
+                          disabled={conflictedCount > 0}
+                          onClick={() => postMessage({ type: 'merge-continue' })}
+                          title={conflictedCount > 0 ? 'Resolve and stage conflicts before completing' : 'Commit the resolved merge'}
+                          style={{ flex: 1, minWidth: '120px', justifyContent: 'center' }}
+                        >
+                          <span className="action-button-icon">&#x25BA;</span>
+                          <span className="action-button-label">Complete</span>
+                        </button>
+
+                        <button
+                          className="action-button danger"
+                          onClick={() => postMessage({ type: 'merge-abort' })}
+                          title="Abort merge and restore pre-merge state"
+                          style={{ minWidth: '80px', justifyContent: 'center' }}
+                        >
+                          <span className="action-button-icon">&#x2715;</span>
+                          <span className="action-button-label">Abort</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
+
                 {/* Commit details section */}
                 {details.hash && (
                   <motion.div

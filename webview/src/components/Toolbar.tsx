@@ -52,7 +52,9 @@ function ToolbarComponent() {
   const searchPopupRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rebaseDropdownRef = useRef<HTMLDivElement>(null);
+  const mergeDropdownRef = useRef<HTMLDivElement>(null);
   const [isRebaseDropdownOpen, setIsRebaseDropdownOpen] = useState(false);
+  const [isMergeDropdownOpen, setIsMergeDropdownOpen] = useState(false);
   const [isPullModalOpen, setIsPullModalOpen] = useState(false);
 
   const currentBranchColor = branchColors.find((b) => b.isCurrent)?.color ?? '#aaaaaa';
@@ -207,6 +209,7 @@ function ToolbarComponent() {
   const primaryRemote = remotes.find(r => r.name === 'origin') ?? remotes[0];
   const hasStashes = nodes.some(n => n.type === 'stash' || (n.data as any)?.kind === 'stash');
   const isRebasing = repositoryState === 'rebasing';
+  const isMerging = repositoryState === 'merging';
 
   // Close rebase dropdown on outside click
   useEffect(() => {
@@ -219,6 +222,18 @@ function ToolbarComponent() {
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [isRebaseDropdownOpen]);
+
+  // Close merge dropdown on outside click
+  useEffect(() => {
+    if (!isMergeDropdownOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (mergeDropdownRef.current && !mergeDropdownRef.current.contains(e.target as Node)) {
+        setIsMergeDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isMergeDropdownOpen]);
 
   return (
     <>
@@ -283,6 +298,73 @@ function ToolbarComponent() {
                     <div>
                       <div className="rebase-toolbar-dropdown-title">Abort Rebase</div>
                       <div className="rebase-toolbar-dropdown-desc">Cancel and restore original state</div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Merge In Progress Button */}
+        {isMerging && (
+          <div style={{ position: 'relative' }} ref={mergeDropdownRef}>
+            <button
+              className={`toolbar-button merge-progress-btn ${isMergeDropdownOpen ? 'active' : ''}`}
+              onClick={() => setIsMergeDropdownOpen(prev => !prev)}
+              title="Merge is in progress. Click for options."
+            >
+              <span className="merge-progress-dot" />
+              Merge in progress
+              <span className="merge-progress-chevron">{isMergeDropdownOpen ? '\u25B4' : '\u25BE'}</span>
+            </button>
+
+            <AnimatePresence>
+              {isMergeDropdownOpen && (
+                <motion.div
+                  className="rebase-toolbar-dropdown"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 4 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <div
+                    className="rebase-toolbar-dropdown-item"
+                    onClick={() => {
+                      setIsMergeDropdownOpen(false);
+                      postMessage({ type: 'resolve-conflicts' });
+                    }}
+                  >
+                    <span className="rebase-toolbar-dropdown-icon">&#x2699;</span>
+                    <div>
+                      <div className="rebase-toolbar-dropdown-title">Resolve Conflicts</div>
+                      <div className="rebase-toolbar-dropdown-desc">Open conflicted files in the editor</div>
+                    </div>
+                  </div>
+                  <div
+                    className="rebase-toolbar-dropdown-item"
+                    onClick={() => {
+                      setIsMergeDropdownOpen(false);
+                      postMessage({ type: 'merge-continue' });
+                    }}
+                  >
+                    <span className="rebase-toolbar-dropdown-icon">&#x25BA;</span>
+                    <div>
+                      <div className="rebase-toolbar-dropdown-title">Complete Merge</div>
+                      <div className="rebase-toolbar-dropdown-desc">Commit the resolved merge</div>
+                    </div>
+                  </div>
+                  <div
+                    className="rebase-toolbar-dropdown-item danger"
+                    onClick={() => {
+                      setIsMergeDropdownOpen(false);
+                      postMessage({ type: 'merge-abort' });
+                    }}
+                  >
+                    <span className="rebase-toolbar-dropdown-icon">&#x2715;</span>
+                    <div>
+                      <div className="rebase-toolbar-dropdown-title">Abort Merge</div>
+                      <div className="rebase-toolbar-dropdown-desc">Cancel and restore pre-merge state</div>
                     </div>
                   </div>
                 </motion.div>

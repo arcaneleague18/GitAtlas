@@ -2,6 +2,13 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.2.3] - 2026-10-09
+
+### Added
+- **Merge Conflict Resolution Flow:** When attempting to merge a branch that contains conflicts, the operation is no longer completely blocked. The Action Preview modal now provides a "Resolve Conflicts" button instead of "Proceed", which initiates the merge and directly opens the first conflicted file in VS Code's editor / merge editor.
+- **Merge in Progress Toolbar Badge:** When a repository is in an active merge state (due to paused merge conflicts), a pulsing "Merge in progress" badge appears in the top toolbar (matching the rebase indicator). Clicking the badge opens a dropdown with options to Resolve Conflicts, Complete Merge (after resolving and staging), or Abort Merge.
+- **Merge State Inspector Banner:** The Node Inspector now displays an active "Merge in Progress" banner during merge conflicts, showing the count of conflicted files and providing one-click actions to Resolve Conflicts, Complete Merge, or Abort Merge.
+
 ## [0.2.2] - 2026-10-08
 
 ### Added

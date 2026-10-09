@@ -132,7 +132,7 @@ export class ActionExecutor {
           `Git Atlas: Created tag "${tagName}".`
         );
       } else if (action === 'push') {
-        const pushedBranch = args?.branch || (node.kind === 'branch' ? branchName : this.stateEngine.graph?.currentBranch);
+        const pushedBranch = args?.branch || (node.kind === 'branch' ? ((node.data as any)?.name || node.label) : this.stateEngine.graph?.currentBranch);
         vscode.window.showInformationMessage(
           pushedBranch
             ? `Git Atlas: Successfully pushed "${pushedBranch}" to remote.`
@@ -153,10 +153,39 @@ export class ActionExecutor {
         } catch { /* ignore */ }
       }
 
+      // Check if merge paused due to conflicts
+      let isMergeConflict = false;
+      if (action === 'merge') {
+        try {
+          const repoState = await this.gitService.getRepositoryState();
+          if (repoState === 'merging') {
+            isMergeConflict = true;
+          }
+        } catch { /* ignore */ }
+      }
+
       if (isRebaseConflict) {
         vscode.window.showWarningMessage(
           'Git Atlas: Rebase paused due to conflicts. Resolve and stage conflicts, then click "Continue Rebase".'
         );
+      } else if (isMergeConflict) {
+        vscode.window.showWarningMessage(
+          'Git Atlas: Merge paused due to conflicts. Resolve and stage conflicts, then complete the merge.'
+        );
+        try {
+          const conflictedFiles = await this.gitService.getConflictedFiles();
+          if (conflictedFiles.length > 0) {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+              const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, conflictedFiles[0]);
+              await vscode.commands.executeCommand('vscode.open', fileUri);
+              void vscode.commands.executeCommand('git.openMergeEditor', fileUri).then(
+                () => {},
+                () => {}
+              );
+            }
+          }
+        } catch { /* ignore */ }
       } else {
         // 5. Error Handling — show static error immediately, then enhance with AI
         const stderr = err.stderr || err.message || 'Unknown error';
@@ -450,6 +479,12 @@ export class ActionExecutor {
       case 'rebase-abort':
         await this.gitService.rebaseAbort();
         break;
+      case 'merge-abort':
+        await this.gitService.mergeAbort();
+        break;
+      case 'merge-continue':
+        await this.gitService.mergeContinue();
+        break;
       case 'cherry-pick':
         await this.gitService.cherryPick(hash);
         break;
@@ -547,6 +582,8 @@ export class ActionExecutor {
       'rebase-continue': 'Continuing rebase',
       'rebase-skip': 'Skipping rebase commit',
       'rebase-abort': 'Aborting rebase',
+      'merge-abort': 'Aborting merge',
+      'merge-continue': 'Completing merge',
       'cherry-pick': 'Cherry-picking',
       revert: 'Reverting',
       reset: 'Resetting',

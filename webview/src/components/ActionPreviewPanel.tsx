@@ -150,8 +150,12 @@ function ActionPreviewPanelComponent({
     (isDeleteTagAction && !selectedDeleteTag.trim()) ||
     (isDeleteRemoteTagAction && !selectedRemoteDeleteTag.trim());
 
+  // For merge conflicts, we allow proceeding (the merge will be attempted and
+  // conflicts will land in the working tree for resolution). We only block
+  // when the status is 'up-to-date' or 'error', not 'conflicts'.
+  const mergeHasConflicts = isMergeOnly && mergeability?.status === 'conflicts';
   const isProceedDisabled = !!(
-    (isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge))) ||
+    (isMergeAction && (isCheckingMerge || (mergeability && !mergeability.canMerge && !mergeHasConflicts))) ||
     (isPushAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease'))) ||
     (isCommitAction && (isCheckingPush || (pushStatus && pushStatus.isRemoteUpdated && !allowDivergeCommit))) ||
     isTrackingBranchInvalid ||
@@ -842,7 +846,7 @@ function ActionPreviewPanelComponent({
         </button>
         <button
           className={`action-preview-btn action-preview-btn-proceed ${
-            action.isDangerous || isDeleteTagAction || isDeleteRemoteTagAction || (isCommitAction && pushStatus?.isRemoteUpdated) ? 'danger' : ''
+            action.isDangerous || isDeleteTagAction || isDeleteRemoteTagAction || (isCommitAction && pushStatus?.isRemoteUpdated) || mergeHasConflicts ? 'danger' : ''
           } ${isProceedDisabled ? 'disabled' : ''}`}
           onClick={() => {
             if (!isProceedDisabled) {
@@ -879,7 +883,8 @@ function ActionPreviewPanelComponent({
           aria-disabled={isProceedDisabled}
           title={
             isMergeAction && isCheckingMerge ? 'Checking mergeability...' :
-            isMergeAction && mergeability && !mergeability.canMerge ? 'Cannot merge due to conflicts' :
+            mergeHasConflicts ? 'Merge will produce conflicts. Click to merge and open conflict resolution editor.' :
+            isMergeAction && mergeability && !mergeability.canMerge ? 'Cannot merge' :
             isPushAction && isCheckingPush ? 'Checking remote repository...' :
             isPushAction && pushStatus && pushStatus.isRemoteUpdated && pushMode !== 'force' && pushMode !== 'force-with-lease' ? 'Cannot push: remote has new changes. Pull or rebase first.' :
             isCommitAction && isCheckingPush ? 'Checking remote repository...' :
@@ -907,6 +912,8 @@ function ActionPreviewPanelComponent({
             ? 'Delete Tag'
             : isDeleteRemoteTagAction
             ? 'Delete Remote Tag'
+            : mergeHasConflicts
+            ? 'Resolve Conflicts'
             : 'Proceed'}
         </button>
       </div>

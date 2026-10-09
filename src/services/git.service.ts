@@ -814,6 +814,35 @@ export class GitService {
   }
 
   /**
+   * Abort an in-progress merge, restoring the working tree to its pre-merge state.
+   */
+  async mergeAbort(): Promise<void> {
+    await this.exec(['merge', '--abort']);
+  }
+
+  /**
+   * Continue (finalize) a merge after conflicts have been resolved and staged.
+   * This creates the merge commit using the resolved index.
+   */
+  async mergeContinue(): Promise<void> {
+    // `git commit` with no extra args will pick up the merge state
+    // and create the merge commit with the default merge message.
+    await this.exec(['commit', '--no-edit']);
+  }
+
+  /**
+   * Get the list of conflicted files in the working directory.
+   */
+  async getConflictedFiles(): Promise<string[]> {
+    try {
+      const stdout = await this.exec(['diff', '--name-only', '--diff-filter=U']);
+      return stdout.trim().split('\n').filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Check if a ref can be cleanly merged or rebased into/onto the current branch.
    * Uses `git merge-tree --write-tree` (Git 2.38+) for an in-memory merge check.
    * Falls back to `git merge-base` diff check for older Git versions.

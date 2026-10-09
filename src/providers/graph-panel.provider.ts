@@ -664,6 +664,74 @@ export class GraphPanelProvider extends DisposableBase {
         break;
       }
 
+      case 'merge-abort': {
+        const choice = await vscode.window.showWarningMessage(
+          'Are you sure you want to abort the merge? All merge progress will be discarded and the branch will return to its pre-merge state.',
+          { modal: true },
+          'Abort Merge'
+        );
+        if (choice === 'Abort Merge') {
+          await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: 'Git: Aborting merge...' },
+            async () => {
+              try {
+                await this.gitService.mergeAbort();
+                await this.stateEngine.buildGraph();
+                vscode.window.showInformationMessage('Git Atlas: Merge aborted.');
+              } catch (err: any) {
+                vscode.window.showErrorMessage(`Git Atlas: Failed to abort merge — ${err.stderr || err.message}`);
+              }
+            }
+          );
+        }
+        break;
+      }
+
+      case 'merge-continue': {
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: 'Git: Completing merge...' },
+          async () => {
+            try {
+              await this.gitService.mergeContinue();
+              await this.stateEngine.buildGraph();
+              vscode.window.showInformationMessage('Git Atlas: Merge completed successfully.');
+            } catch (err: any) {
+              vscode.window.showErrorMessage(`Git Atlas: Failed to complete merge — ${err.stderr || err.message}`);
+            }
+          }
+        );
+        break;
+      }
+
+      case 'resolve-conflicts': {
+        try {
+          const conflictedFiles = await this.gitService.getConflictedFiles();
+          if (conflictedFiles.length > 0) {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (workspaceFolder) {
+              // Open the first conflicted file in the merge editor
+              const fileUri = vscode.Uri.joinPath(workspaceFolder.uri, conflictedFiles[0]);
+              await vscode.commands.executeCommand('merge-conflict.accept.all-current', fileUri).then(
+                () => {},
+                () => {} // ignore if command doesn't exist
+              );
+              // Open the file so the user can see inline conflict markers
+              await vscode.commands.executeCommand('vscode.open', fileUri);
+              // Also try to open the built-in merge editor if available
+              void vscode.commands.executeCommand('git.openMergeEditor', fileUri).then(
+                () => {},
+                () => {} // ignore if command not available
+              );
+            }
+          } else {
+            vscode.window.showInformationMessage('Git Atlas: No conflicted files found. You can continue the merge.');
+          }
+        } catch (err: any) {
+          vscode.window.showErrorMessage(`Git Atlas: Failed to open conflict resolution — ${err.stderr || err.message}`);
+        }
+        break;
+      }
+
       case 'check-push-status': {
         const result = await this.gitService.checkPushStatus(message.branch);
         this.postMessage({
