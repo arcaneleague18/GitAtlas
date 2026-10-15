@@ -2,6 +2,19 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.2.4] - 2026-10-16
+
+### Added
+- **File History Search Commit Navigation:** Clicking any commit result in the "Search File/Folder in History" modal smoothly pans the canvas, focuses, and highlights that commit node in the graph. The viewport automatically centers the node offset to the left side, keeping it completely clear of the search popup and inspector panel on the right.
+- **HEAD Commit Pulsing Pale Yellow Glow:** The active HEAD commit node now features an elegant pale yellow border and soft breathing glow pulse animation, making the repository's current HEAD immediately identifiable in dense, multi-branch graphs.
+
+### Changed
+- **Right-Aligned Search Popup Layout:** Positioned the "Search File/Folder in History" popup to open downwards and towards the right side of the screen relative to the toolbar, leaving all branch lines and commit nodes on the left side unobstructed.
+- **Persistent Search State:** Search queries and results now persist across toggles and background interactions, preventing accidental loss of search context until cleared.
+
+### Fixed
+- **Stable Deterministic Branch Colors:** Fixed branch color instability when switching branches. Branch color assignments are now deterministic and preserved across branch switches instead of re-shuffling the palette.
+
 ## [0.2.3] - 2026-10-09
 
 ### Added
