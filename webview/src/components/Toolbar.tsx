@@ -37,6 +37,8 @@ function ToolbarComponent() {
     branchColors,
     remotes,
     nodes,
+    selectNode,
+    selectedNodeId,
   } = useGraphStore();
 
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -49,7 +51,7 @@ function ToolbarComponent() {
   const [isPurging, setIsPurging] = useState<string | null>(null);
   const legendRef = useRef<HTMLDivElement>(null);
   const remotePopupRef = useRef<HTMLDivElement>(null);
-  const searchPopupRef = useRef<HTMLInputElement>(null);
+  const searchPopupRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rebaseDropdownRef = useRef<HTMLDivElement>(null);
   const mergeDropdownRef = useRef<HTMLDivElement>(null);
@@ -85,14 +87,17 @@ function ToolbarComponent() {
 
   // Close popups when clicking outside or pressing Escape
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (legendRef.current && !legendRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+
+      if (legendRef.current && !legendRef.current.contains(target)) {
         setIsLegendOpen(false);
       }
-      if (remotePopupRef.current && !remotePopupRef.current.contains(e.target as Node)) {
+      if (remotePopupRef.current && !remotePopupRef.current.contains(target)) {
         setIsRemotePopupOpen(false);
       }
-      if (searchPopupRef.current && !searchPopupRef.current.contains(e.target as Node)) {
+      if (searchPopupRef.current && !searchPopupRef.current.contains(target)) {
         setIsSearchOpen(false);
       }
     };
@@ -105,10 +110,13 @@ function ToolbarComponent() {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    // Use capture phase so React Flow canvas events (which stop bubbling) are intercepted
+    document.addEventListener('pointerdown', handleClickOutside, true);
+    document.addEventListener('mousedown', handleClickOutside, true);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside, true);
+      document.removeEventListener('mousedown', handleClickOutside, true);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, []);
@@ -197,14 +205,60 @@ function ToolbarComponent() {
   }, []);
 
   const handleToggleSearch = useCallback(() => {
-    setIsSearchOpen(prev => {
-      if (!prev) {
-        setSearchQuery('');
-        setSearchResults(null);
-      }
-      return !prev;
-    });
+    setIsSearchOpen(prev => !prev);
   }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults(null);
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  const handleSelectSearchCommit = useCallback(
+    (commitHash: string, shortHash: string) => {
+      const flowNodes = reactFlow.getNodes();
+      let targetNode = flowNodes.find(
+        (n) =>
+          n.id === commitHash ||
+          n.id === shortHash ||
+          n.data?.hash === commitHash ||
+          n.data?.shortHash === shortHash
+      );
+
+      if (!targetNode) {
+        targetNode = nodes.find(
+          (n) =>
+            n.id === commitHash ||
+            n.id === shortHash ||
+            (n.data as any)?.hash === commitHash ||
+            (n.data as any)?.shortHash === shortHash
+        );
+      }
+
+      const nodeId = targetNode?.id ?? commitHash;
+      selectNode(nodeId);
+      postMessage({ type: 'node-selected', nodeId });
+
+      if (targetNode) {
+        const width = targetNode.measured?.width ?? (targetNode as any).width ?? 220;
+        const height = targetNode.measured?.height ?? (targetNode as any).height ?? 80;
+        const centerX = targetNode.position.x + width / 2;
+        const centerY = targetNode.position.y + height / 2;
+        const currentZoom = reactFlow.getZoom();
+        const targetZoom = Math.min(Math.max(currentZoom, 0.9), 1.2);
+
+        // Offset viewport center slightly to the right so the node appears towards the left side of the canvas
+        const offsetX = 160;
+        reactFlow.setCenter(centerX + offsetX, centerY, { zoom: targetZoom, duration: 500 });
+        setTimeout(() => {
+          reactFlow.setCenter(centerX + offsetX, centerY, { zoom: targetZoom, duration: 300 });
+        }, 100);
+      }
+    },
+    [reactFlow, selectNode, nodes]
+  );
 
   const primaryRemote = remotes.find(r => r.name === 'origin') ?? remotes[0];
   const hasStashes = nodes.some(n => n.type === 'stash' || (n.data as any)?.kind === 'stash');
@@ -214,25 +268,35 @@ function ToolbarComponent() {
   // Close rebase dropdown on outside click
   useEffect(() => {
     if (!isRebaseDropdownOpen) return;
-    const handleOutside = (e: MouseEvent) => {
-      if (rebaseDropdownRef.current && !rebaseDropdownRef.current.contains(e.target as Node)) {
+    const handleOutside = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as Node | null;
+      if (target && rebaseDropdownRef.current && !rebaseDropdownRef.current.contains(target)) {
         setIsRebaseDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
+    document.addEventListener('pointerdown', handleOutside, true);
+    document.addEventListener('mousedown', handleOutside, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutside, true);
+      document.removeEventListener('mousedown', handleOutside, true);
+    };
   }, [isRebaseDropdownOpen]);
 
   // Close merge dropdown on outside click
   useEffect(() => {
     if (!isMergeDropdownOpen) return;
-    const handleOutside = (e: MouseEvent) => {
-      if (mergeDropdownRef.current && !mergeDropdownRef.current.contains(e.target as Node)) {
+    const handleOutside = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as Node | null;
+      if (target && mergeDropdownRef.current && !mergeDropdownRef.current.contains(target)) {
         setIsMergeDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleOutside);
-    return () => document.removeEventListener('mousedown', handleOutside);
+    document.addEventListener('pointerdown', handleOutside, true);
+    document.addEventListener('mousedown', handleOutside, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutside, true);
+      document.removeEventListener('mousedown', handleOutside, true);
+    };
   }, [isMergeDropdownOpen]);
 
   return (
@@ -385,7 +449,7 @@ function ToolbarComponent() {
         )}
 
         {/* File History Search */}
-        <div style={{ position: 'relative' }} ref={searchPopupRef}>
+        <div ref={searchPopupRef}>
           <button
             className={`toolbar-button ${isSearchOpen ? 'active' : ''}`}
             onClick={handleToggleSearch}
@@ -402,10 +466,21 @@ function ToolbarComponent() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
+                style={{ transformOrigin: 'top right' }}
                 className="file-search-popup"
               >
                 <div className="file-search-header">
-                  <span className="file-search-title"><img src={SearchIcon} style={{ width: '1.5em', height: '1.5em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />Search File/Folder in History</span>
+                  <span className="file-search-title">
+                    <img src={SearchIcon} style={{ width: '1.5em', height: '1.5em', verticalAlign: 'middle', marginRight: '6px' }} alt="Search" />
+                    Search File/Folder in History
+                  </span>
+                  <button
+                    className="file-search-close-btn"
+                    onClick={() => setIsSearchOpen(false)}
+                    title="Close (Esc)"
+                  >
+                    &#x2715;
+                  </button>
                 </div>
                 <div className="file-search-input-row">
                   <input
@@ -427,6 +502,14 @@ function ToolbarComponent() {
                     title={isSearching ? 'Searching...' : !searchQuery.trim() ? 'Enter a file/folder path to search' : 'Search for file/folder in history'}
                   >
                     {isSearching ? '...' : 'Search'}
+                  </button>
+                  <button
+                    className="file-search-clear-btn"
+                    onClick={handleClearSearch}
+                    disabled={!searchQuery && !searchResults}
+                    title="Clear input"
+                  >
+                    &#x2715;
                   </button>
                 </div>
 
@@ -467,16 +550,24 @@ function ToolbarComponent() {
                         </div>
 
                         <div className="file-search-commit-list">
-                          {searchResults.commits.map((c) => (
-                            <div key={c.hash} className="file-search-commit">
-                              <span className="file-search-commit-hash">{c.shortHash}</span>
-                              <span className="file-search-commit-msg" title={c.message}>{c.message}</span>
-                              <span className="file-search-commit-author">{c.author}</span>
-                              <span className="file-search-commit-date">
-                                {new Date(c.date).toLocaleDateString()}
-                              </span>
-                            </div>
-                          ))}
+                          {searchResults.commits.map((c) => {
+                            const isSelected = selectedNodeId === c.hash || selectedNodeId === c.shortHash;
+                            return (
+                              <div
+                                key={c.hash}
+                                className={`file-search-commit ${isSelected ? 'selected' : ''}`}
+                                onClick={() => handleSelectSearchCommit(c.hash, c.shortHash)}
+                                title={`Click to view commit ${c.shortHash} in graph`}
+                              >
+                                <span className="file-search-commit-hash">{c.shortHash}</span>
+                                <span className="file-search-commit-msg" title={c.message}>{c.message}</span>
+                                <span className="file-search-commit-author">{c.author}</span>
+                                <span className="file-search-commit-date">
+                                  {new Date(c.date).toLocaleDateString()}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </>
                     )}

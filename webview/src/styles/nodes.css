@@ -29,7 +29,7 @@
 .commit-node.selected {
   border-color: var(--border-accent);
   background: var(--bg-active);
-  box-shadow: var(--node-shadow), 0 0 0 2px var(--selection-glow);
+  box-shadow: var(--node-shadow), 0 0 0 2px var(--selection-glow), 0 0 16px var(--selection-glow);
 }
 
 /* HEAD commit node — pale yellow glow */
@@ -829,7 +829,21 @@
 }
 
 /* ── File History Search Popup ────────────────────────────── */
-.file-search-popup,
+.file-search-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  overflow: hidden;
+}
+
 .toolbar-popover {
   position: absolute;
   top: 100%;
@@ -846,6 +860,9 @@
 }
 
 .file-search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-muted);
   background: var(--bg-primary);
@@ -855,10 +872,33 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.file-search-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.file-search-close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .file-search-input-row {
   display: flex;
+  align-items: center;
   gap: 6px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-muted);
@@ -904,6 +944,34 @@
 
 .file-search-btn:disabled {
   opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.file-search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.file-search-clear-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.file-search-clear-btn:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -965,11 +1033,24 @@
   align-items: center;
   padding: 6px 14px;
   font-size: 11px;
-  transition: background var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+  user-select: none;
+  border-left: 3px solid transparent;
+  transition: all var(--duration-fast) var(--ease-out);
 }
 
 .file-search-commit:hover {
   background: var(--bg-hover);
+  border-left-color: var(--border-accent);
+}
+
+.file-search-commit.selected {
+  background: rgba(88, 166, 255, 0.15);
+  border-left-color: var(--border-accent);
+}
+
+.file-search-commit:active {
+  background: rgba(88, 166, 255, 0.25);
 }
 
 .file-search-commit-hash {
@@ -977,6 +1058,13 @@
   color: var(--branch-blue);
   font-weight: 600;
   font-size: 11px;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.file-search-commit:hover .file-search-commit-hash,
+.file-search-commit.selected .file-search-commit-hash {
+  text-decoration: underline;
+  color: var(--link-hover, #79c0ff);
 }
 
 .file-search-commit-msg {
