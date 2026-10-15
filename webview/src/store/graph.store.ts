@@ -195,7 +195,11 @@ function generateNextUniqueColor(assignedColors: Set<string>): string {
 function getBranchColor(branchName: string, knownRemotes?: Set<string>): string {
   const canonical = getCanonicalBranchName(branchName, knownRemotes);
   const existing = branchColorMap.get(canonical) || branchColorMap.get(branchName);
-  if (existing) return existing;
+  if (existing) {
+    branchColorMap.set(canonical, existing);
+    branchColorMap.set(branchName, existing);
+    return existing;
+  }
 
   const assignedColors = new Set(branchColorMap.values());
   const color = generateNextUniqueColor(assignedColors);
@@ -235,10 +239,6 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   setGraph: (graph: SerializedGraph) => {
     const graphNodeMap = new Map(graph.nodes);
 
-    // Clear stale branch color assignments so deleted/renamed branches
-    // don't hold color slots across refreshes
-    branchColorMap.clear();
-
     const knownRemotes = new Set((graph.remotes ?? []).map((r) => r.name));
     knownRemotes.add('origin');
     knownRemotes.add('upstream');
@@ -270,26 +270,47 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       }
     }
 
-    // Helper to get priority score for deterministic ordering
-    const getBranchPriorityScore = (bName: string): number => {
-      const canonical = getCanonicalBranchName(bName, knownRemotes);
-      if (bName === graph.currentBranch || canonical === graph.currentBranch) {
-        return 0;
+    // Prune deleted branches from branchColorMap so their color slots are released,
+    // while keeping surviving branches locked to their assigned colors across refreshes and branch switches.
+    const allCanonicalNames = new Set<string>();
+    for (const b of allBranchNames) {
+      allCanonicalNames.add(b);
+      allCanonicalNames.add(getCanonicalBranchName(b, knownRemotes));
+    }
+    for (const key of Array.from(branchColorMap.keys())) {
+      if (!allCanonicalNames.has(key)) {
+        branchColorMap.delete(key);
       }
-      if (canonical === 'main' || canonical === 'master') {
-        return 1;
+    }
+
+    const PRIMARY_BRANCHES = new Set(['main', 'master', 'trunk']);
+    const SECONDARY_BRANCHES = new Set(['develop', 'development', 'dev', 'release']);
+
+    // Helper to get priority score for deterministic ordering
+    // Note: Deliberately independent of graph.currentBranch so switching branches
+    // never changes branch priority or reshuffles branch colors!
+    const getBranchPriorityScore = (bName: string): number => {
+      const canonical = getCanonicalBranchName(bName, knownRemotes).toLowerCase();
+      if (PRIMARY_BRANCHES.has(canonical)) {
+        return 0; // Primary trunk always has highest priority
+      }
+      if (SECONDARY_BRANCHES.has(canonical)) {
+        return 1; // Integration branch
       }
       if (!bName.includes('/')) {
         return 2; // Local branch
       }
-      return 3; // Remote branch
+      return 3; // Remote-only branch
     };
 
-    // Sort all branches deterministically: current branch -> main/master -> local -> remote -> alphabetical
+    // Sort all branches deterministically: primary (main/master) -> secondary (dev) -> local (alphabetical) -> remote (alphabetical)
     const sortedBranchNames = Array.from(allBranchNames).sort((a, b) => {
       const pA = getBranchPriorityScore(a);
       const pB = getBranchPriorityScore(b);
       if (pA !== pB) return pA - pB;
+      const cA = getCanonicalBranchName(a, knownRemotes);
+      const cB = getCanonicalBranchName(b, knownRemotes);
+      if (cA !== cB) return cA.localeCompare(cB);
       return a.localeCompare(b);
     });
 
@@ -332,17 +353,27 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
 
     const branchTips: BranchTip[] = [];
 
-    // 1. HEAD commit (highest priority: score 0)
+    // 1. Current branch or detached HEAD commit tip (with its true branch priority, NOT hardcoded 0 / Infinity)
     if (graph.headHash) {
-      const headBranchName = graph.currentBranch ?? 'main';
       const headNode = graphNodeMap.get(graph.headHash);
       const headData = headNode?.data as CommitNodeData | undefined;
-      branchTips.push({
-        commitHash: graph.headHash,
-        branchName: headBranchName,
-        priority: 0,
-        timestamp: headData?.timestamp ?? Infinity,
-      });
+      const headBranchName = graph.currentBranch;
+      if (!headBranchName) {
+        // Detached HEAD
+        branchTips.push({
+          commitHash: graph.headHash,
+          branchName: 'HEAD',
+          priority: 2,
+          timestamp: headData?.timestamp ?? 0,
+        });
+      } else {
+        branchTips.push({
+          commitHash: graph.headHash,
+          branchName: headBranchName,
+          priority: getBranchPriorityScore(headBranchName),
+          timestamp: headData?.timestamp ?? 0,
+        });
+      }
     }
 
     // 2. Branch-tip edges
@@ -375,7 +406,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
       }
     }
 
-    // Sort branch tips: primary branches first (currentBranch, main, master), then local, then remote, then timestamp
+    // Sort branch tips deterministically: primary branches first (main/master), then secondary, then local, then remote, then timestamp
     branchTips.sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       if (b.timestamp !== a.timestamp) return b.timestamp - a.timestamp;
