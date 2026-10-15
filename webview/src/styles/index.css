@@ -105,8 +105,12 @@ body,
   --node-border: #30363d;
   --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 
-  --head-glow: rgba(88, 166, 255, 0.4);
-  --head-ring: #58a6ff;
+  --head-glow: rgba(254, 240, 138, 0.45);
+  --head-glow-soft: rgba(250, 204, 21, 0.18);
+  --head-ring: #fef08a;
+  --head-node-border: rgba(254, 240, 138, 0.65);
+  --head-node-bg: rgba(254, 240, 138, 0.04);
+  --selection-glow: rgba(88, 166, 255, 0.4);
 
   --edge-default: #30363d;
   --edge-active: #58a6ff;
@@ -151,8 +155,12 @@ body,
   --node-border: #d0d7de;
   --node-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 
-  --head-glow: rgba(9, 105, 218, 0.25);
-  --head-ring: #0969da;
+  --head-glow: rgba(217, 119, 6, 0.35);
+  --head-glow-soft: rgba(245, 158, 11, 0.15);
+  --head-ring: #d97706;
+  --head-node-border: rgba(217, 119, 6, 0.6);
+  --head-node-bg: rgba(254, 249, 195, 0.35);
+  --selection-glow: rgba(9, 105, 218, 0.25);
 
   --edge-default: #d0d7de;
   --edge-active: #0969da;

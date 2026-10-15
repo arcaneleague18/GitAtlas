@@ -65,7 +65,7 @@ function CommitNodeComponent({ id, data }: NodeProps) {
 
   return (
     <motion.div
-      className={`commit-node ${nodeData.isSelected ? 'selected' : ''} ${nodeData.isOrphaned ? 'orphaned' : ''}`}
+      className={`commit-node ${nodeData.isSelected ? 'selected' : ''} ${nodeData.isOrphaned ? 'orphaned' : ''} ${nodeData.isHead ? 'is-head' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       initial={{ opacity: 0, scale: 0.8 }}
@@ -219,7 +219,7 @@ function CommitNodeComponent({ id, data }: NodeProps) {
             <>
               <div className="tooltip-separator" />
               <div className="tooltip-row">
-                <span className="tooltip-value" style={{ color: 'var(--text-success)' }}>
+                <span className="tooltip-value" style={{ color: 'var(--head-ring)' }}>
                   ● HEAD is here
                 </span>
               </div>

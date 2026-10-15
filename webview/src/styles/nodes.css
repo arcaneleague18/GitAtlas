@@ -29,7 +29,38 @@
 .commit-node.selected {
   border-color: var(--border-accent);
   background: var(--bg-active);
-  box-shadow: var(--node-shadow), 0 0 0 2px var(--head-glow);
+  box-shadow: var(--node-shadow), 0 0 0 2px var(--selection-glow);
+}
+
+/* HEAD commit node — pale yellow glow */
+.commit-node.is-head {
+  border-color: var(--head-node-border);
+  background: var(--head-node-bg);
+  box-shadow: var(--node-shadow), 0 0 0 1px var(--head-node-border), 0 0 14px var(--head-glow), 0 0 28px var(--head-glow-soft);
+  animation: head-node-glow-pulse 2.8s ease-in-out infinite;
+}
+
+.commit-node.is-head:hover {
+  border-color: var(--head-ring);
+  box-shadow: var(--node-shadow), 0 0 0 1.5px var(--head-ring), 0 0 20px var(--head-glow), 0 0 38px var(--head-glow-soft);
+  transform: translateY(-1px);
+}
+
+.commit-node.is-head.selected {
+  border-color: var(--head-ring);
+  background: var(--bg-active);
+  box-shadow: var(--node-shadow), 0 0 0 2px var(--head-ring), 0 0 22px var(--head-glow), 0 0 40px var(--head-glow-soft);
+}
+
+@keyframes head-node-glow-pulse {
+  0%, 100% {
+    box-shadow: var(--node-shadow), 0 0 0 1px var(--head-node-border), 0 0 12px var(--head-glow), 0 0 24px var(--head-glow-soft);
+    border-color: var(--head-node-border);
+  }
+  50% {
+    box-shadow: var(--node-shadow), 0 0 0 1.5px var(--head-ring), 0 0 22px var(--head-glow), 0 0 42px var(--head-glow-soft);
+    border-color: var(--head-ring);
+  }
 }
 
 .commit-node.orphaned {
@@ -72,6 +103,7 @@
   inset: -4px;
   border-radius: 50%;
   border: 2px solid var(--head-ring);
+  box-shadow: 0 0 8px var(--head-glow);
   animation: head-pulse 2s ease-in-out infinite;
 }
 
@@ -697,9 +729,9 @@
 }
 
 .popover-tag.head {
-  background: rgba(88, 166, 255, 0.2);
-  color: var(--text-accent);
-  border: 1px solid rgba(88, 166, 255, 0.3);
+  background: rgba(254, 240, 138, 0.15);
+  color: var(--head-ring);
+  border: 1px solid rgba(254, 240, 138, 0.35);
 }
 
 .popover-tag.remote {
