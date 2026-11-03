@@ -828,6 +828,318 @@
   line-height: 1.3;
 }
 
+/* ── Find Commits & Tags Search Popup ────────────────────── */
+.commit-search-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  overflow: hidden;
+}
+
+.commit-search-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-muted);
+  background: var(--bg-primary);
+}
+
+.commit-search-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.commit-search-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-muted);
+}
+
+.commit-search-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.commit-search-close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.commit-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.commit-search-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.commit-search-input:focus {
+  border-color: var(--border-accent);
+}
+
+.commit-search-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.commit-search-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  flex-shrink: 0;
+}
+
+.commit-search-clear-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-accent);
+}
+
+.commit-search-clear-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.commit-search-results {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.commit-search-subheader {
+  padding: 6px 14px 4px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.commit-search-subheader.head-subheader {
+  color: var(--head-ring, #fef08a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.commit-search-section + .commit-search-section {
+  margin-top: 4px;
+}
+
+.commit-search-section + .commit-search-section .commit-search-subheader {
+  border-top: 1px solid var(--border-muted);
+  padding-top: 8px;
+}
+
+.commit-search-list {
+  padding: 4px 0;
+}
+
+.commit-search-empty {
+  padding: 24px 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.commit-search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 14px;
+  cursor: pointer;
+  user-select: none;
+  border-left: 3px solid transparent;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.commit-search-item:hover {
+  background: var(--bg-hover);
+  border-left-color: var(--border-accent);
+}
+
+.commit-search-item.selected {
+  background: rgba(88, 166, 255, 0.15);
+  border-left-color: var(--border-accent);
+}
+
+.commit-search-item.is-head {
+  border-left-color: var(--head-ring, #fef08a);
+  background: var(--head-node-bg, rgba(254, 240, 138, 0.05));
+}
+
+.commit-search-item.is-head:hover {
+  background: var(--head-glow-soft, rgba(250, 204, 21, 0.15));
+  border-left-color: var(--head-ring, #fef08a);
+}
+
+.commit-search-item.is-head.selected {
+  background: var(--head-glow-soft, rgba(250, 204, 21, 0.22));
+  border-left-color: var(--head-ring, #fef08a);
+}
+
+.commit-search-item:active {
+  background: rgba(88, 166, 255, 0.25);
+}
+
+.commit-search-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.commit-search-item-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.commit-search-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.commit-search-hash {
+  font-family: var(--font-mono);
+  color: var(--branch-blue);
+  font-weight: 600;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.commit-search-item:hover .commit-search-hash,
+.commit-search-item.selected .commit-search-hash {
+  text-decoration: underline;
+  color: var(--link-hover, #79c0ff);
+}
+
+.commit-search-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.commit-search-badge.tag {
+  background: rgba(188, 140, 255, 0.15);
+  color: #bc8cff;
+  border: 1px solid rgba(188, 140, 255, 0.3);
+}
+
+.commit-search-badge.tag.highlight {
+  background: rgba(188, 140, 255, 0.3);
+  border-color: #bc8cff;
+  font-weight: 600;
+}
+
+.commit-search-badge.branch {
+  background: rgba(88, 166, 255, 0.12);
+  color: #58a6ff;
+  border: 1px solid rgba(88, 166, 255, 0.25);
+}
+
+.commit-search-badge.branch-more {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 9px;
+  padding: 1px 4px;
+}
+
+.commit-search-badge.head {
+  background: rgba(210, 153, 34, 0.2);
+  color: #e3b341;
+  border: 1px solid rgba(210, 153, 34, 0.4);
+  font-weight: 700;
+}
+
+.commit-search-date {
+  color: var(--text-secondary);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.commit-search-item-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 14px;
+}
+
+.commit-search-msg {
+  color: var(--text-primary);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.commit-search-author {
+  color: var(--text-secondary);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
 /* ── File History Search Popup ────────────────────────────── */
 .file-search-popup {
   position: absolute;
