@@ -2,6 +2,16 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [0.2.5] - 2026-11-03
+
+### Added
+- **Find Commits & Tags Search (`Ctrl+F` / `Cmd+F`):** Added a dedicated search button in the top toolbar and global keyboard shortcut (`Ctrl+F` / `Cmd+F`) to search across commit messages, full and short SHA hashes, tag names, and branch names in real time.
+- **Dedicated Checked-Out Commit (HEAD) Section:** The currently checked-out commit is now prominently separated into its own section above "Recent Commits", styled with gold accent borders and a `● HEAD` indicator. Older checked-out commits in history are cleanly distinguished from recent commits.
+- **Cinematic Zoom-Out Swoop Camera Flight:** Upgraded graph camera navigation with a frame-synced `requestAnimationFrame` flight controller using a quintic ease-in-out curve. During camera travel, the viewport smoothly pulls back along a parabolic swoop arc to give a panoramic overview of the surrounding branch graph before settling into the target commit.
+
+### Fixed
+- **Unix Timestamp Formatting:** Replaced raw seconds timestamp parsing with human-readable relative dates (`getCommitTimeAgo`, e.g. `23m ago`, `6d ago`, `2w ago`) and full datetime hover tooltips, resolving the `1/21/1970` epoch display issue.
+
 ## [0.2.4] - 2026-10-16
 
 ### Added
