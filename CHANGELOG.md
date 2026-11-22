@@ -2,7 +2,7 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
-## [Unreleased]
+## [0.2.6] - 2026-11-22
 
 ### Changed
 - **Shared AI Agent Runner:** Unified VS Code language models and compatible API providers behind the same validation, approval, execution, cancellation, and history policies. Every write now requires approval for its specific arguments.
