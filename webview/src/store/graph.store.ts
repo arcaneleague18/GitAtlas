@@ -11,7 +11,9 @@
 
 import { create } from 'zustand';
 import type { Node, Edge } from '@xyflow/react';
-import { computeLayout } from '../layouts/dagre';
+import { computeLayoutAsync } from '../layouts/async-layout';
+import { postMessage } from '../vscode';
+import { seedInitialGeometry } from '../layouts/initial-geometry';
 import type { LayoutOptions } from '../layouts/dagre';
 import type {
   SerializedGraph,
@@ -209,6 +211,9 @@ function getBranchColor(branchName: string, knownRemotes?: Set<string>): string 
   return color;
 }
 
+let layoutGeneration = 0;
+let latestGraph: SerializedGraph | undefined;
+
 export const useGraphStore = create<GraphStoreState>((set, get) => ({
   // Initial state
   nodes: [],
@@ -236,397 +241,406 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
   nodeSpacing: 360,
   rankSpacing: 60,
 
-  setGraph: (graph: SerializedGraph) => {
-    const graphNodeMap = new Map(graph.nodes);
+  setGraph: async (graph: SerializedGraph) => {
+    latestGraph = graph;
+    const generation = ++layoutGeneration;
+    try {
+      const graphNodeMap = new Map(graph.nodes);
 
-    const knownRemotes = new Set((graph.remotes ?? []).map((r) => r.name));
-    knownRemotes.add('origin');
-    knownRemotes.add('upstream');
+      const knownRemotes = new Set((graph.remotes ?? []).map((r) => r.name));
+      knownRemotes.add('origin');
+      knownRemotes.add('upstream');
 
-    // Filter to only commit nodes for the graph view
-    const commitNodes: [string, GraphNode][] = graph.nodes.filter(
-      ([, node]) => node.kind === 'commit'
-    );
+      // Filter to only commit nodes for the graph view
+      const commitNodes: [string, GraphNode][] = graph.nodes.filter(
+        ([, node]) => node.kind === 'commit'
+      );
 
-    // Filter to only parent edges (structural commit-to-commit)
-    const parentEdges = graph.edges.filter((e) => e.kind === 'parent');
+      // Filter to only parent edges (structural commit-to-commit)
+      const parentEdges = graph.edges.filter((e) => e.kind === 'parent');
 
-    // Collect all unique branch names across branch nodes and commit branch labels
-    const allBranchNames = new Set<string>();
-    if (graph.currentBranch) {
-      allBranchNames.add(graph.currentBranch);
-    }
-    for (const [, node] of graph.nodes) {
-      if (node.kind === 'branch' || node.kind === 'remote-branch') {
-        allBranchNames.add(node.label);
+      // Collect all unique branch names across branch nodes and commit branch labels
+      const allBranchNames = new Set<string>();
+      if (graph.currentBranch) {
+        allBranchNames.add(graph.currentBranch);
       }
-    }
-    for (const [, node] of commitNodes) {
-      if (node.data.kind === 'commit') {
-        const commitData = node.data as CommitNodeData;
-        for (const b of commitData.branches) {
-          allBranchNames.add(b);
+      for (const [, node] of graph.nodes) {
+        if (node.kind === 'branch' || node.kind === 'remote-branch') {
+          allBranchNames.add(node.label);
         }
       }
-    }
-
-    // Prune deleted branches from branchColorMap so their color slots are released,
-    // while keeping surviving branches locked to their assigned colors across refreshes and branch switches.
-    const allCanonicalNames = new Set<string>();
-    for (const b of allBranchNames) {
-      allCanonicalNames.add(b);
-      allCanonicalNames.add(getCanonicalBranchName(b, knownRemotes));
-    }
-    for (const key of Array.from(branchColorMap.keys())) {
-      if (!allCanonicalNames.has(key)) {
-        branchColorMap.delete(key);
+      for (const [, node] of commitNodes) {
+        if (node.data.kind === 'commit') {
+          const commitData = node.data as CommitNodeData;
+          for (const b of commitData.branches) {
+            allBranchNames.add(b);
+          }
+        }
       }
-    }
 
-    const PRIMARY_BRANCHES = new Set(['main', 'master', 'trunk']);
-    const SECONDARY_BRANCHES = new Set(['develop', 'development', 'dev', 'release']);
-
-    // Helper to get priority score for deterministic ordering
-    // Note: Deliberately independent of graph.currentBranch so switching branches
-    // never changes branch priority or reshuffles branch colors!
-    const getBranchPriorityScore = (bName: string): number => {
-      const canonical = getCanonicalBranchName(bName, knownRemotes).toLowerCase();
-      if (PRIMARY_BRANCHES.has(canonical)) {
-        return 0; // Primary trunk always has highest priority
+      // Prune deleted branches from branchColorMap so their color slots are released,
+      // while keeping surviving branches locked to their assigned colors across refreshes and branch switches.
+      const allCanonicalNames = new Set<string>();
+      for (const b of allBranchNames) {
+        allCanonicalNames.add(b);
+        allCanonicalNames.add(getCanonicalBranchName(b, knownRemotes));
       }
-      if (SECONDARY_BRANCHES.has(canonical)) {
-        return 1; // Integration branch
+      for (const key of Array.from(branchColorMap.keys())) {
+        if (!allCanonicalNames.has(key)) {
+          branchColorMap.delete(key);
+        }
       }
-      if (!bName.includes('/')) {
-        return 2; // Local branch
-      }
-      return 3; // Remote-only branch
-    };
 
-    // Sort all branches deterministically: primary (main/master) -> secondary (dev) -> local (alphabetical) -> remote (alphabetical)
-    const sortedBranchNames = Array.from(allBranchNames).sort((a, b) => {
-      const pA = getBranchPriorityScore(a);
-      const pB = getBranchPriorityScore(b);
-      if (pA !== pB) return pA - pB;
-      const cA = getCanonicalBranchName(a, knownRemotes);
-      const cB = getCanonicalBranchName(b, knownRemotes);
-      if (cA !== cB) return cA.localeCompare(cB);
-      return a.localeCompare(b);
-    });
+      const PRIMARY_BRANCHES = new Set(['main', 'master', 'trunk']);
+      const SECONDARY_BRANCHES = new Set(['develop', 'development', 'dev', 'release']);
 
-    // Pre-assign colors in deterministic priority order so color slots are stable
-    for (const bName of sortedBranchNames) {
-      getBranchColor(bName, knownRemotes);
-    }
+      // Helper to get priority score for deterministic ordering
+      // Note: Deliberately independent of graph.currentBranch so switching branches
+      // never changes branch priority or reshuffles branch colors!
+      const getBranchPriorityScore = (bName: string): number => {
+        const canonical = getCanonicalBranchName(bName, knownRemotes).toLowerCase();
+        if (PRIMARY_BRANCHES.has(canonical)) {
+          return 0; // Primary trunk always has highest priority
+        }
+        if (SECONDARY_BRANCHES.has(canonical)) {
+          return 1; // Integration branch
+        }
+        if (!bName.includes('/')) {
+          return 2; // Local branch
+        }
+        return 3; // Remote-only branch
+      };
 
-    // Build branch legend items
-    const branchColorsList: BranchLegendItem[] = [];
-    const seenLegendNames = new Set<string>();
-
-    for (const name of sortedBranchNames) {
-      const isRemote = name.includes('/');
-      const shortName = getCanonicalBranchName(name, knownRemotes);
-
-      if (isRemote && seenLegendNames.has(shortName)) {
-        continue;
-      }
-      if (seenLegendNames.has(name)) {
-        continue;
-      }
-      seenLegendNames.add(name);
-
-      branchColorsList.push({
-        name,
-        color: getBranchColor(name, knownRemotes),
-        isCurrent: name === graph.currentBranch || (!isRemote && shortName === graph.currentBranch),
-        isRemote,
+      // Sort all branches deterministically: primary (main/master) -> secondary (dev) -> local (alphabetical) -> remote (alphabetical)
+      const sortedBranchNames = Array.from(allBranchNames).sort((a, b) => {
+        const pA = getBranchPriorityScore(a);
+        const pB = getBranchPriorityScore(b);
+        if (pA !== pB) return pA - pB;
+        const cA = getCanonicalBranchName(a, knownRemotes);
+        const cB = getCanonicalBranchName(b, knownRemotes);
+        if (cA !== cB) return cA.localeCompare(cB);
+        return a.localeCompare(b);
       });
-    }
 
-    // Determine branch tips to start first-parent color propagation
-    interface BranchTip {
-      commitHash: string;
-      branchName: string;
-      priority: number;
-      timestamp: number;
-    }
+      // Pre-assign colors in deterministic priority order so color slots are stable
+      for (const bName of sortedBranchNames) {
+        getBranchColor(bName, knownRemotes);
+      }
 
-    const branchTips: BranchTip[] = [];
+      // Build branch legend items
+      const branchColorsList: BranchLegendItem[] = [];
+      const seenLegendNames = new Set<string>();
 
-    // 1. Current branch or detached HEAD commit tip (with its true branch priority, NOT hardcoded 0 / Infinity)
-    if (graph.headHash) {
-      const headNode = graphNodeMap.get(graph.headHash);
-      const headData = headNode?.data as CommitNodeData | undefined;
-      const headBranchName = graph.currentBranch;
-      if (!headBranchName) {
-        // Detached HEAD
-        branchTips.push({
-          commitHash: graph.headHash,
-          branchName: 'HEAD',
-          priority: 2,
-          timestamp: headData?.timestamp ?? 0,
-        });
-      } else {
-        branchTips.push({
-          commitHash: graph.headHash,
-          branchName: headBranchName,
-          priority: getBranchPriorityScore(headBranchName),
-          timestamp: headData?.timestamp ?? 0,
+      for (const name of sortedBranchNames) {
+        const isRemote = name.includes('/');
+        const shortName = getCanonicalBranchName(name, knownRemotes);
+
+        if (isRemote && seenLegendNames.has(shortName)) {
+          continue;
+        }
+        if (seenLegendNames.has(name)) {
+          continue;
+        }
+        seenLegendNames.add(name);
+
+        branchColorsList.push({
+          name,
+          color: getBranchColor(name, knownRemotes),
+          isCurrent: name === graph.currentBranch || (!isRemote && shortName === graph.currentBranch),
+          isRemote,
         });
       }
-    }
 
-    // 2. Branch-tip edges
-    for (const edge of graph.edges) {
-      if (edge.kind === 'branch-tip') {
-        const branchName = edge.label || edge.source.replace(/^branch:/, '');
-        const targetNode = graphNodeMap.get(edge.target);
-        const targetData = targetNode?.data as CommitNodeData | undefined;
-        branchTips.push({
-          commitHash: edge.target,
-          branchName,
-          priority: getBranchPriorityScore(branchName),
-          timestamp: targetData?.timestamp ?? 0,
-        });
+      // Determine branch tips to start first-parent color propagation
+      interface BranchTip {
+        commitHash: string;
+        branchName: string;
+        priority: number;
+        timestamp: number;
       }
-    }
 
-    // 3. Commits with branch labels
-    for (const [id, node] of commitNodes) {
-      if (node.data.kind === 'commit') {
-        const commitData = node.data as CommitNodeData;
-        for (const b of commitData.branches) {
+      const branchTips: BranchTip[] = [];
+
+      // 1. Current branch or detached HEAD commit tip (with its true branch priority, NOT hardcoded 0 / Infinity)
+      if (graph.headHash) {
+        const headNode = graphNodeMap.get(graph.headHash);
+        const headData = headNode?.data as CommitNodeData | undefined;
+        const headBranchName = graph.currentBranch;
+        if (!headBranchName) {
+          // Detached HEAD
           branchTips.push({
-            commitHash: id,
-            branchName: b,
-            priority: getBranchPriorityScore(b),
-            timestamp: commitData.timestamp ?? 0,
+            commitHash: graph.headHash,
+            branchName: 'HEAD',
+            priority: 2,
+            timestamp: headData?.timestamp ?? 0,
+          });
+        } else {
+          branchTips.push({
+            commitHash: graph.headHash,
+            branchName: headBranchName,
+            priority: getBranchPriorityScore(headBranchName),
+            timestamp: headData?.timestamp ?? 0,
           });
         }
       }
-    }
 
-    // Sort branch tips deterministically: primary branches first (main/master), then secondary, then local, then remote, then timestamp
-    branchTips.sort((a, b) => {
-      if (a.priority !== b.priority) return a.priority - b.priority;
-      if (b.timestamp !== a.timestamp) return b.timestamp - a.timestamp;
-      return a.branchName.localeCompare(b.branchName);
-    });
-
-    // Final color map for commits
-    const commitColorMap = new Map<string, string>();
-    const visited = new Set<string>();
-
-    // Propagate branch color down its first-parent chain until hitting an already-visited commit
-    function propagateColor(startHash: string, color: string) {
-      let curr: string | undefined = startHash;
-      while (curr) {
-        if (visited.has(curr)) {
-          break;
+      // 2. Branch-tip edges
+      for (const edge of graph.edges) {
+        if (edge.kind === 'branch-tip') {
+          const branchName = edge.label || edge.source.replace(/^branch:/, '');
+          const targetNode = graphNodeMap.get(edge.target);
+          const targetData = targetNode?.data as CommitNodeData | undefined;
+          branchTips.push({
+            commitHash: edge.target,
+            branchName,
+            priority: getBranchPriorityScore(branchName),
+            timestamp: targetData?.timestamp ?? 0,
+          });
         }
-        visited.add(curr);
-        commitColorMap.set(curr, color);
+      }
 
-        const node = graphNodeMap.get(curr);
-        if (node?.data.kind === 'commit') {
+      // 3. Commits with branch labels
+      for (const [id, node] of commitNodes) {
+        if (node.data.kind === 'commit') {
           const commitData = node.data as CommitNodeData;
-          curr = commitData.parentHashes?.[0];
-        } else {
-          curr = undefined;
+          for (const b of commitData.branches) {
+            branchTips.push({
+              commitHash: id,
+              branchName: b,
+              priority: getBranchPriorityScore(b),
+              timestamp: commitData.timestamp ?? 0,
+            });
+          }
         }
       }
-    }
 
-    // Propagate from prioritized branch tips
-    for (const tip of branchTips) {
-      if (!visited.has(tip.commitHash)) {
-        const color = getBranchColor(tip.branchName, knownRemotes);
-        propagateColor(tip.commitHash, color);
-      }
-    }
-
-    // Default color for any remaining unreachable commits
-    for (const [id] of commitNodes) {
-      if (!commitColorMap.has(id)) {
-        commitColorMap.set(id, BRANCH_COLORS[0]!);
-      }
-    }
-
-    // Build React Flow nodes
-    const flowNodes: Node[] = commitNodes.map(([id, node]) => {
-      const commitData = node.data as CommitNodeData;
-      const color = commitColorMap.get(id) ?? BRANCH_COLORS[0]!;
-
-      return {
-        id,
-        type: 'commit',
-        position: { x: 0, y: 0 }, // Will be set by layout
-        data: {
-          ...commitData,
-          color,
-          isHead: node.isHead,
-          isCurrentBranch: node.isCurrentBranch,
-          isSelected: id === get().selectedNodeId,
-        },
-      };
-    });
-
-    // Add Working Directory node if there are uncommitted changes
-    const wdGraphNode = graph.nodes.find(
-      ([, node]) => node.kind === 'working-directory'
-    );
-    if (wdGraphNode) {
-      const [wdId, wdNode] = wdGraphNode;
-      const wdData = wdNode.data as WorkingDirectoryNodeData;
-      const totalChanges =
-        (wdData.modified?.length ?? 0) +
-        (wdData.staged?.length ?? 0) +
-        (wdData.untracked?.length ?? 0);
-
-      if (totalChanges > 0) {
-        flowNodes.push({
-          id: wdId,
-          type: 'working-directory',
-          position: { x: 0, y: 0 },
-          data: {
-            ...wdData,
-            isSelected: wdId === get().selectedNodeId,
-          },
-        });
-      }
-    }
-
-    // Add Stash nodes
-    const stashGraphNodes = graph.nodes.filter(
-      ([, node]) => node.kind === 'stash'
-    );
-    for (const [stashId, stashNode] of stashGraphNodes) {
-      flowNodes.push({
-        id: stashId,
-        type: 'stash',
-        position: { x: 0, y: 0 },
-        data: {
-          ...stashNode.data,
-          isSelected: stashId === get().selectedNodeId,
-        },
+      // Sort branch tips deterministically: primary branches first (main/master), then secondary, then local, then remote, then timestamp
+      branchTips.sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        if (b.timestamp !== a.timestamp) return b.timestamp - a.timestamp;
+        return a.branchName.localeCompare(b.branchName);
       });
-    }
 
-    // Build React Flow edges
-    const flowEdges: Edge[] = parentEdges
-      .filter((e) => {
-        // Only include edges where both nodes exist
-        return graphNodeMap.has(e.source) && graphNodeMap.has(e.target);
-      })
-      .map((edge) => {
-        const isMerge = (() => {
-          const sourceNode = graphNodeMap.get(edge.source);
-          if (sourceNode?.data.kind === 'commit') {
-            const commitData = sourceNode.data as CommitNodeData;
-            // It's a merge edge if this is not the first parent
-            return commitData.parentHashes.indexOf(edge.target) > 0;
+      // Final color map for commits
+      const commitColorMap = new Map<string, string>();
+      const visited = new Set<string>();
+
+      // Propagate branch color down its first-parent chain until hitting an already-visited commit
+      function propagateColor(startHash: string, color: string) {
+        let curr: string | undefined = startHash;
+        while (curr) {
+          if (visited.has(curr)) {
+            break;
           }
-          return false;
-        })();
+          visited.add(curr);
+          commitColorMap.set(curr, color);
 
-        // Normal edges use the source (child) commit's color.
-        // Merge edges use the target (merged-in branch) commit's color
-        // so the line visually shows where the code came from.
-        const edgeColor = isMerge
-          ? (commitColorMap.get(edge.target) ?? BRANCH_COLORS[0]!)
-          : (commitColorMap.get(edge.source) ?? BRANCH_COLORS[0]!);
+          const node = graphNodeMap.get(curr);
+          if (node?.data.kind === 'commit') {
+            const commitData = node.data as CommitNodeData;
+            curr = commitData.parentHashes?.[0];
+          } else {
+            curr = undefined;
+          }
+        }
+      }
+
+      // Propagate from prioritized branch tips
+      for (const tip of branchTips) {
+        if (!visited.has(tip.commitHash)) {
+          const color = getBranchColor(tip.branchName, knownRemotes);
+          propagateColor(tip.commitHash, color);
+        }
+      }
+
+      // Default color for any remaining unreachable commits
+      for (const [id] of commitNodes) {
+        if (!commitColorMap.has(id)) {
+          commitColorMap.set(id, BRANCH_COLORS[0]!);
+        }
+      }
+
+      // Build React Flow nodes
+      const flowNodes: Node[] = commitNodes.map(([id, node]) => {
+        const commitData = node.data as CommitNodeData;
+        const color = commitColorMap.get(id) ?? BRANCH_COLORS[0]!;
 
         return {
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          type: 'dagre',
-          animated: isMerge,
-          className: isMerge ? 'merge-edge' : '',
-          style: {
-            stroke: edgeColor,
-            strokeWidth: isMerge ? 1.5 : 2,
-            opacity: isMerge ? 0.5 : 0.7,
+          id,
+          type: 'commit',
+          position: { x: 0, y: 0 }, // Will be set by layout
+          data: {
+            ...commitData,
+            color,
+            isHead: node.isHead,
+            isCurrentBranch: node.isCurrentBranch,
+            isSelected: id === get().selectedNodeId,
           },
         };
       });
 
-    // Add Stash edges
-    const stashEdges = graph.edges.filter((e) => e.kind === 'stash-parent');
-    for (const edge of stashEdges) {
-      if (graphNodeMap.has(edge.source) && graphNodeMap.has(edge.target)) {
-        const parentColor = commitColorMap.get(edge.target) ?? BRANCH_COLORS[0]!;
-        flowEdges.push({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          type: 'dagre',
-          animated: false,
-          className: 'stash-edge',
-          style: {
-            stroke: parentColor,
-            strokeWidth: 2,
-            strokeDasharray: '4 4',
-            opacity: 0.8,
+      // Add Working Directory node if there are uncommitted changes
+      const wdGraphNode = graph.nodes.find(
+        ([, node]) => node.kind === 'working-directory'
+      );
+      if (wdGraphNode) {
+        const [wdId, wdNode] = wdGraphNode;
+        const wdData = wdNode.data as WorkingDirectoryNodeData;
+        const totalChanges =
+          (wdData.modified?.length ?? 0) +
+          (wdData.staged?.length ?? 0) +
+          (wdData.untracked?.length ?? 0);
+
+        if (totalChanges > 0) {
+          flowNodes.push({
+            id: wdId,
+            type: 'working-directory',
+            position: { x: 0, y: 0 },
+            data: {
+              ...wdData,
+              isSelected: wdId === get().selectedNodeId,
+            },
+          });
+        }
+      }
+
+      // Add Stash nodes
+      const stashGraphNodes = graph.nodes.filter(
+        ([, node]) => node.kind === 'stash'
+      );
+      for (const [stashId, stashNode] of stashGraphNodes) {
+        flowNodes.push({
+          id: stashId,
+          type: 'stash',
+          position: { x: 0, y: 0 },
+          data: {
+            ...stashNode.data,
+            isSelected: stashId === get().selectedNodeId,
           },
         });
       }
-    }
 
-    // Add WD → HEAD edge if the WD node was added
-    if (
-      wdGraphNode &&
-      flowNodes.some((n) => n.id === 'working-directory') &&
-      graph.headHash
-    ) {
-      const headColor = commitColorMap.get(graph.headHash) ?? BRANCH_COLORS[0]!;
-      flowEdges.push({
-        id: 'wd->head',
-        source: 'working-directory',
-        target: graph.headHash,
-        type: 'dagre',
-        animated: true,
-        className: 'wd-edge',
-        style: {
-          stroke: headColor,
-          strokeWidth: 2,
-          strokeDasharray: '6 4',
-          opacity: 0.6,
-        },
+      // Build React Flow edges
+      const flowEdges: Edge[] = parentEdges
+        .filter((e) => {
+          // Only include edges where both nodes exist
+          return graphNodeMap.has(e.source) && graphNodeMap.has(e.target);
+        })
+        .map((edge) => {
+          const isMerge = (() => {
+            const sourceNode = graphNodeMap.get(edge.source);
+            if (sourceNode?.data.kind === 'commit') {
+              const commitData = sourceNode.data as CommitNodeData;
+              // It's a merge edge if this is not the first parent
+              return commitData.parentHashes.indexOf(edge.target) > 0;
+            }
+            return false;
+          })();
+
+          // Normal edges use the source (child) commit's color.
+          // Merge edges use the target (merged-in branch) commit's color
+          // so the line visually shows where the code came from.
+          const edgeColor = isMerge
+            ? (commitColorMap.get(edge.target) ?? BRANCH_COLORS[0]!)
+            : (commitColorMap.get(edge.source) ?? BRANCH_COLORS[0]!);
+
+          return {
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            type: 'dagre',
+            animated: isMerge,
+            className: isMerge ? 'merge-edge' : '',
+            style: {
+              stroke: edgeColor,
+              strokeWidth: isMerge ? 1.5 : 2,
+              opacity: isMerge ? 0.5 : 0.7,
+            },
+          };
+        });
+
+      // Add Stash edges
+      const stashEdges = graph.edges.filter((e) => e.kind === 'stash-parent');
+      for (const edge of stashEdges) {
+        if (graphNodeMap.has(edge.source) && graphNodeMap.has(edge.target)) {
+          const parentColor = commitColorMap.get(edge.target) ?? BRANCH_COLORS[0]!;
+          flowEdges.push({
+            id: edge.id,
+            source: edge.source,
+            target: edge.target,
+            type: 'dagre',
+            animated: false,
+            className: 'stash-edge',
+            style: {
+              stroke: parentColor,
+              strokeWidth: 2,
+              strokeDasharray: '4 4',
+              opacity: 0.8,
+            },
+          });
+        }
+      }
+
+      // Add WD → HEAD edge if the WD node was added
+      if (
+        wdGraphNode &&
+        flowNodes.some((n) => n.id === 'working-directory') &&
+        graph.headHash
+      ) {
+        const headColor = commitColorMap.get(graph.headHash) ?? BRANCH_COLORS[0]!;
+        flowEdges.push({
+          id: 'wd->head',
+          source: 'working-directory',
+          target: graph.headHash,
+          type: 'dagre',
+          animated: true,
+          className: 'wd-edge',
+          style: {
+            stroke: headColor,
+            strokeWidth: 2,
+            strokeDasharray: '6 4',
+            opacity: 0.6,
+          },
+        });
+      }
+
+      // Compute layout positions and edge routing
+      const layoutOptions: LayoutOptions = {
+        nodeSep: get().nodeSpacing,
+        rankSep: get().rankSpacing,
+      };
+      const { nodes: layoutedNodes, edges: layoutedEdges } = await computeLayoutAsync(flowNodes, flowEdges, layoutOptions);
+      if (generation !== layoutGeneration) return;
+
+      const currentSelectedId = get().selectedNodeId;
+      const isSelectedNodeDeleted = currentSelectedId && !graphNodeMap.has(currentSelectedId);
+
+      set({
+        nodes: seedInitialGeometry(layoutedNodes).map(node => ({ ...node, data: { ...node.data, isSelected: node.id === get().selectedNodeId } })),
+        edges: layoutedEdges,
+        headHash: graph.headHash,
+        currentBranch: graph.currentBranch,
+        repositoryState: graph.state,
+        rebaseProgress: graph.rebaseProgress,
+        isLoading: false,
+        commitCount: commitNodes.length,
+        branchCount: branchColorsList.length,
+        branchColors: branchColorsList,
+        remotes: graph.remotes ?? [],
+        hasMore: graph.hasMore ?? false,
+        graphNodes: graphNodeMap,
+        ...(isSelectedNodeDeleted && {
+          selectedNodeId: null,
+          isInspectorOpen: false,
+          selectedNodeDetails: null,
+          validActions: [],
+        }),
       });
+    } catch (error) {
+      if (generation !== layoutGeneration) return;
+      set({ isLoading: false });
+      postMessage({ type: 'layout-error', message: error instanceof Error ? error.message : String(error) });
     }
-
-    // Compute layout positions and edge routing
-    const layoutOptions: LayoutOptions = {
-      nodeSep: get().nodeSpacing,
-      rankSep: get().rankSpacing,
-    };
-    const { nodes: layoutedNodes, edges: layoutedEdges } = computeLayout(flowNodes, flowEdges, layoutOptions);
-
-    const currentSelectedId = get().selectedNodeId;
-    const isSelectedNodeDeleted = currentSelectedId && !graphNodeMap.has(currentSelectedId);
-
-    set({
-      nodes: layoutedNodes,
-      edges: layoutedEdges,
-      headHash: graph.headHash,
-      currentBranch: graph.currentBranch,
-      repositoryState: graph.state,
-      rebaseProgress: graph.rebaseProgress,
-      isLoading: false,
-      commitCount: commitNodes.length,
-      branchCount: branchColorsList.length,
-      branchColors: branchColorsList,
-      remotes: graph.remotes ?? [],
-      hasMore: graph.hasMore ?? false,
-      graphNodes: graphNodeMap,
-      ...(isSelectedNodeDeleted && {
-        selectedNodeId: null,
-        isInspectorOpen: false,
-        selectedNodeDetails: null,
-        validActions: [],
-      }),
-    });
   },
 
   selectNode: (nodeId: string | null) => {
@@ -704,15 +718,7 @@ export const useGraphStore = create<GraphStoreState>((set, get) => ({
     const prev = get();
     if (prev.nodeSpacing === settings.nodeSpacing && prev.rankSpacing === settings.rankSpacing) return;
     set({ nodeSpacing: settings.nodeSpacing, rankSpacing: settings.rankSpacing });
-    // Re-layout existing nodes with the new spacing
-    const { nodes, edges } = get();
-    if (nodes.length > 0) {
-      const layoutOptions: LayoutOptions = {
-        nodeSep: settings.nodeSpacing,
-        rankSep: settings.rankSpacing,
-      };
-      const { nodes: layoutedNodes, edges: layoutedEdges } = computeLayout(nodes, edges, layoutOptions);
-      set({ nodes: layoutedNodes, edges: layoutedEdges });
-    }
+    // Invalidate in-flight results and rebuild with the new spacing off-thread.
+    if (latestGraph) get().setGraph(latestGraph);
   },
 }));

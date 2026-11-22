@@ -166,6 +166,16 @@ export class GraphPanelProvider extends DisposableBase {
    */
   private async handleWebviewMessage(message: WebviewToExtensionMessage): Promise<void> {
     switch (message.type) {
+      case 'layout-error':
+        void vscode.window.showErrorMessage(
+          'Git Atlas: Unable to lay out graph — ' + message.message,
+          'Retry'
+        ).then(choice => {
+          if (choice === 'Retry' && this.stateEngine.graph) {
+            this.postMessage({ type: 'graph-update', graph: this.stateEngine.serializeGraph(this.stateEngine.graph) });
+          }
+        });
+        break;
       case 'ready':
         this.webviewReady = true;
         // Flush pending messages
@@ -948,6 +958,7 @@ export class GraphPanelProvider extends DisposableBase {
       `default-src 'none'`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
       `script-src 'nonce-${nonce}'`,
+      `worker-src blob:`,
       `font-src ${webview.cspSource} https://fonts.gstatic.com`,
       `img-src ${webview.cspSource} data:`,
       `connect-src https://fonts.googleapis.com https://fonts.gstatic.com`,

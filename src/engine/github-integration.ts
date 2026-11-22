@@ -27,6 +27,10 @@ export class GithubIntegrationEngine extends DisposableBase {
     this.register(
       this.stateEngine.onDidChangeGraph(() => this.updateGithubContext())
     );
+    // Unchanged local snapshots no longer emit graph events. Keep remote CI,
+    // PRs and issues fresh independently of local repository activity.
+    const timer = setInterval(() => void this.updateGithubContext(), 60000);
+    this.register({ dispose: () => clearInterval(timer) });
   }
 
   private authPrompted = false;

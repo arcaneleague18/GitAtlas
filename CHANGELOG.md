@@ -2,6 +2,25 @@
 
 All notable changes to the "git-atlas" extension will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **Large Repository Performance:** Moved Dagre layout calculations into a background worker and cached positions and edge routes when graph topology and spacing are unchanged. Preserved the existing graph design, controls, and animations.
+- **Efficient Refreshes:** Coalesced overlapping repository refresh requests and stopped broadcasting unchanged graph snapshots. GitHub issues, pull requests, and CI statuses refresh independently of local changes.
+- **Bounded History Loading:** "Load More" now adds 500 commits at a time, up to 10,000, instead of doubling the loaded history.
+
+### Fixed
+- **Large Graph Freezes and Crashes:** Replaced recursive Dagre and Graphlib traversals with iterative equivalents and indexed nodes by rank to avoid repeated full-graph scans. Verified layout with a 10,000-commit linear history and a 2,000-commit merge-heavy history.
+- **Initial Graph Rendering:** Prevented React Flow from mounting every offscreen commit card for measurement in large histories. Visible cards retain their existing styling and are measured normally.
+- **Layout Failure Recovery:** Layout errors and timeouts now clear the loading state, preserve the previous graph, and offer a Retry action. Outdated layout results cannot overwrite newer graph updates.
+- **Git Filename Handling:** Corrected status parsing for filenames containing spaces, Unicode, quotes, tabs, or newlines, including rename destinations and conflicted files.
+- **AI Response Streaming:** Buffered server-sent events across network chunks to prevent lost response text and incomplete tool-call arguments.
+- **Annotated Tag Placement:** Resolved annotated tags to their referenced commits so they attach to the correct graph nodes.
+- **HEAD CI Status:** Corrected the current-commit lookup used when fetching GitHub CI status.
+
+### Added
+- **Regression Tests:** Added coverage for Git status parsing, tag targets, AI streaming, Dagre layout parity, large histories, worker caching and scheduling, and repository refresh behavior. Publishing now runs extension type checks and regression tests before building.
+
 ## [0.2.5] - 2026-11-03
 
 ### Added

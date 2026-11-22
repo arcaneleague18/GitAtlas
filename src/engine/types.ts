@@ -393,6 +393,7 @@ export type ExtensionToWebviewMessage =
 /** Messages from Webview → Extension Host */
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
+  | { type: 'layout-error'; message: string }
   | { type: 'node-selected'; nodeId: string }
   | { type: 'request-details'; nodeId: string }
   | { type: 'action-requested'; action: EdgeKind; nodeId: string; args?: any }

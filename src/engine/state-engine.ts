@@ -86,19 +86,29 @@ export class RepositoryStateEngine extends DisposableBase {
 
   /** Increase the max commit count for "load more" and rebuild. */
   loadMore(): void {
-    this._currentMaxCount += this._currentMaxCount; // double it
+    this._currentMaxCount = Math.min(10000, this._currentMaxCount + 500);
   }
 
   /**
    * Build (or rebuild) the repository graph from fresh git data.
    * Returns the new immutable graph and fires `onDidChangeGraph`.
    */
-  private buildQueue: Promise<unknown> = Promise.resolve();
+  private activeBuild: Promise<RepositoryGraph> | null = null;
+  private pendingBuild: Promise<RepositoryGraph> | null = null;
+  private graphFingerprint = '';
 
   buildGraph(): Promise<RepositoryGraph> {
-    const build = this.buildQueue.then(() => this.buildSnapshot());
-    this.buildQueue = build.catch(() => undefined);
-    return build;
+    if (this.activeBuild) {
+      if (!this.pendingBuild) {
+        this.pendingBuild = this.activeBuild.catch(() => undefined).then(() => {
+          this.pendingBuild = null;
+          return this.buildGraph();
+        });
+      }
+      return this.pendingBuild;
+    }
+    this.activeBuild = this.buildSnapshot().finally(() => { this.activeBuild = null; });
+    return this.activeBuild;
   }
 
   private async buildSnapshot(): Promise<RepositoryGraph> {
@@ -394,7 +404,14 @@ export class RepositoryStateEngine extends DisposableBase {
     };
 
     this._graph = graph;
-    this._onDidChangeGraph.fire(graph);
+    const fingerprint = JSON.stringify([
+      Array.from(nodes.entries()), edges, head.hash, head.branch, repoState,
+      remotes, rebaseProgress, this._currentMaxCount, this._showLostCommits,
+    ]);
+    if (fingerprint !== this.graphFingerprint) {
+      this.graphFingerprint = fingerprint;
+      this._onDidChangeGraph.fire(graph);
+    }
     return graph;
   }
 
@@ -411,7 +428,7 @@ export class RepositoryStateEngine extends DisposableBase {
       state: graph.state,
       timestamp: graph.timestamp,
       remotes: graph.remotes,
-      hasMore: this._totalCommitsAvailable >= this._currentMaxCount,
+      hasMore: this._currentMaxCount < 10000 && this._totalCommitsAvailable >= this._currentMaxCount,
       rebaseProgress: graph.rebaseProgress,
     };
   }
