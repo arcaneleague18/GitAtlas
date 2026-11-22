@@ -16,6 +16,7 @@ import { GitService } from '../services/git.service.js';
 import { RepositoryStateEngine } from './state-engine.js';
 import { parseGitError, explainGitErrorWithAi } from './error-parser.js';
 import type { EdgeKind } from './types.js';
+import { commitStagedWithGuard } from './commit-guard.js';
 
 export class ActionExecutor {
   constructor(
@@ -142,6 +143,7 @@ export class ActionExecutor {
         vscode.window.showInformationMessage(`Successfully completed ${action}.`);
       }
     } catch (err: any) {
+      if (err?.message === 'Commit cancelled.') return { mergeConflicts: false };
       // Check if rebase paused due to conflicts
       let isRebaseConflict = false;
       if (action === 'rebase' || action === 'rebase-continue') {
@@ -531,7 +533,7 @@ export class ActionExecutor {
         break;
       }
       case 'commit':
-        await this.gitService.createCommit(node._tempCommitMessage);
+        if (!await commitStagedWithGuard(this.gitService, node._tempCommitMessage)) throw new Error('Commit cancelled.');
         break;
       case 'stash':
         await this.gitService.createStash(node._tempStashMessage);

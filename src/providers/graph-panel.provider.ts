@@ -15,6 +15,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { RepositoryStateEngine } from '../engine/state-engine.js';
 import { getValidActions } from '../engine/action-engine.js';
+import { commitStagedWithGuard } from '../engine/commit-guard.js';
 import { DisposableBase } from '../utils/disposable.js';
 import type { GitService } from '../services/git.service.js';
 import type { ActionExecutor } from '../engine/action-executor.js';
@@ -465,49 +466,11 @@ export class GraphPanelProvider extends DisposableBase {
       }
 
       case 'commit-staged': {
-        // Check for sensitive files before committing
-        const status = await this.gitService.getStatus();
-        const stagedPaths = status.staged.map(f => f.path);
-        const sensitiveWarnings = this.gitService.checkSensitiveFiles(stagedPaths);
-
-        if (sensitiveWarnings.length > 0) {
-          // Build warning message
-          const fileList = sensitiveWarnings
-            .map(w => `  • ${w.path} — ${w.description}`)
-            .join('\n');
-          const warningMsg =
-            `⚠️ You are about to commit ${sensitiveWarnings.length} sensitive file${sensitiveWarnings.length > 1 ? 's' : ''}:\n\n` +
-            fileList +
-            '\n\nThese files may contain secrets, credentials, or unnecessary build artifacts. ' +
-            'It is strongly recommended to add them to .gitignore instead.';
-
-          const choice = await vscode.window.showWarningMessage(
-            warningMsg,
-            { modal: true },
-            'Add to .gitignore',
-            'Continue Anyway'
-          );
-
-          if (choice === 'Add to .gitignore') {
-            // Add each sensitive file to .gitignore and unstage it
-            for (const w of sensitiveWarnings) {
-              await this.gitService.addToGitignore(w.path);
-            }
-            await this.stateEngine.buildGraph();
-            if (this.stateEngine.graph?.nodes.has('working-directory')) {
-              await this.handleNodeSelected('working-directory');
-            }
-            vscode.window.showInformationMessage(
-              `Git Atlas: Added ${sensitiveWarnings.length} file${sensitiveWarnings.length > 1 ? 's' : ''} to .gitignore and unstaged them.`
-            );
-            return; // Don't commit — let user re-stage and commit clean files
-          } else if (choice !== 'Continue Anyway') {
-            return; // User cancelled
-          }
-          // If "Continue Anyway" — fall through and commit
+        const committed = await commitStagedWithGuard(this.gitService, message.message, message.date);
+        if (!committed) {
+          await this.stateEngine.buildGraph();
+          return;
         }
-
-        await this.gitService.createCommit(message.message, message.date);
         await this.stateEngine.buildGraph();
         vscode.window.showInformationMessage('Git Atlas: Changes committed successfully.');
         break;

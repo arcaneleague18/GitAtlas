@@ -13,6 +13,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { postMessage } from './vscode';
+import { ChatMarkdown } from './components/ChatMarkdown';
 import { AiAssistantIcon, AiAgentIcon, AiChatIcon, userIcon } from '../../resources/icons';
 
 interface ChatMessage {
@@ -91,29 +92,6 @@ const TOOL_ICONS: Record<string, string> = {
   get_diff: '📝',
 };
 
-// Simple markdown-like rendering (bold, code, headers, lists)
-function renderMarkdown(text: string): string {
-  return text
-    // Code blocks
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="ai-code-block"><code>$2</code></pre>')
-    // Inline code
-    .replace(/`([^`]+)`/g, '<code class="ai-inline-code">$1</code>')
-    // Bold
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Headers
-    .replace(/^### (.+)$/gm, '<h4 class="ai-heading">$1</h4>')
-    .replace(/^## (.+)$/gm, '<h3 class="ai-heading">$1</h3>')
-    .replace(/^# (.+)$/gm, '<h2 class="ai-heading">$1</h2>')
-    // Bullet lists
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    // Wrap consecutive <li> in <ul>
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="ai-list">$&</ul>')
-    // Line breaks
-    .replace(/\n/g, '<br>');
-}
-
 /** Format tool args for display (excluding 'reason') */
 function formatToolArgs(args: Record<string, any>): [string, string][] {
   return Object.entries(args)
@@ -138,6 +116,8 @@ export function AiAssistantApp() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const streamBufferRef = useRef('');
+  const activeRunRef = useRef<string | null>(null);
+  const clearedRef = useRef(false);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -151,6 +131,17 @@ export function AiAssistantApp() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
+      if (!message || typeof message.type !== 'string') return;
+      if (message.type !== 'model-info' && (!activeRunRef.current || message.runId !== activeRunRef.current)) return;
+      if (message.type === 'run-completed') {
+        activeRunRef.current = null;
+        streamBufferRef.current = '';
+        setMessages(previous => previous.map(item => item.isStreaming ? { ...item, isStreaming: false } : item));
+        setIsLoading(false);
+        clearedRef.current = false;
+        return;
+      }
+      if (clearedRef.current && message.type !== 'model-info') return;
 
       switch (message.type) {
         case 'chat-response-chunk': {
@@ -169,7 +160,7 @@ export function AiAssistantApp() {
               }
               return updated;
             });
-            setIsLoading(false);
+
           } else {
             streamBufferRef.current += message.chunk;
             setMessages((prev) => {
@@ -233,13 +224,10 @@ export function AiAssistantApp() {
 
         case 'tool-call-executing': {
           const tc = message.toolCall as ToolCallData;
-          setMessages((prev) => {
-            // Replace the request card with executing state
-            return prev.map((m) =>
-              m.id === `tool-req-${tc.id}`
-                ? { ...m, role: 'tool-executing' as const }
-                : m
-            );
+          setMessages(previous => {
+            const id = 'tool-req-' + tc.id;
+            if (previous.some(item => item.id === id)) return previous.map(item => item.id === id ? { ...item, role: 'tool-executing' as const } : item);
+            return [...previous, { id, role: 'tool-executing', content: '', toolCall: tc }];
           });
           break;
         }
@@ -261,6 +249,7 @@ export function AiAssistantApp() {
           break;
         }
 
+        case 'chat-request-rejected':
         case 'chat-error': {
           setMessages((prev) => {
             const updated = prev.filter((m) => !m.isStreaming);
@@ -273,7 +262,7 @@ export function AiAssistantApp() {
               },
             ];
           });
-          setIsLoading(false);
+
           break;
         }
 
@@ -300,7 +289,10 @@ export function AiAssistantApp() {
 
   const handleSubmit = useCallback(() => {
     const text = input.trim();
-    if (!text || isLoading) return;
+    if (!text || isLoading || activeRunRef.current) return;
+    const runId = crypto.randomUUID();
+    activeRunRef.current = runId;
+    clearedRef.current = false;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
@@ -320,7 +312,7 @@ export function AiAssistantApp() {
     setInput('');
     setIsLoading(true);
 
-    postMessage({ type: 'chat-request', text } as any);
+    postMessage({ type: 'chat-request', text, runId } as any);
   }, [input, isLoading]);
 
   const handleKeyDown = useCallback(
@@ -336,7 +328,8 @@ export function AiAssistantApp() {
   const handleClear = useCallback(() => {
     setMessages([]);
     streamBufferRef.current = '';
-    postMessage({ type: 'clear-chat' } as any);
+    clearedRef.current = !!activeRunRef.current;
+    postMessage({ type: 'clear-chat', runId: activeRunRef.current } as any);
   }, []);
 
   return (
@@ -416,10 +409,9 @@ export function AiAssistantApp() {
                   {msg.role === 'assistant' ? (
                     <div
                       className={`ai-markdown ${msg.isStreaming ? 'streaming' : ''}`}
-                      dangerouslySetInnerHTML={{
-                        __html: renderMarkdown(msg.content || ''),
-                      }}
-                    />
+                    >
+                      <ChatMarkdown text={msg.content || ''} />
+                    </div>
                   ) : (
                     <div className="ai-user-text">{msg.content}</div>
                   )}
@@ -497,12 +489,12 @@ export function AiAssistantApp() {
           />
           <button
             className="ai-send-btn"
-            onClick={handleSubmit}
-            disabled={!input.trim() || isLoading}
-            title="Send message"
+            onClick={isLoading ? () => postMessage({ type: 'cancel-chat', runId: activeRunRef.current } as any) : handleSubmit}
+            disabled={!isLoading && !input.trim()}
+            title={isLoading ? 'Stop agent' : 'Send message'}
           >
             {isLoading ? (
-              <span className="ai-send-spinner" />
+              <span aria-label="Stop agent">■</span>
             ) : (
               '→'
             )}

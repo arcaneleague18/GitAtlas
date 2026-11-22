@@ -13,6 +13,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { commitStagedWithGuard } from './engine/commit-guard.js';
 import { GitService } from './services/git.service.js';
 import { RepositoryStateEngine } from './engine/state-engine.js';
 import { SidebarProvider } from './providers/sidebar.provider.js';
@@ -217,7 +218,8 @@ export async function activate(
       if (!message) return; // user cancelled
 
       try {
-        await gitService.createCommit(message);
+        await gitService.stageAll();
+        if (!await commitStagedWithGuard(gitService, message)) return;
         vscode.window.showInformationMessage(`Git Atlas: First commit created!`);
         await stateEngine.buildGraph();
       } catch (err) {

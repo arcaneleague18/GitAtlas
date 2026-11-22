@@ -1680,10 +1680,8 @@ export class GitService {
 
   async createCommit(message: string, date?: string): Promise<void> {
     const status = await this.getStatus();
-    // If nothing is staged yet, stage everything before committing
-    if (status.staged.length === 0) {
-      await this.exec(['add', '-A']);
-    }
+    if (status.staged.length === 0) throw new Error('No staged files. Stage the intended files before committing.');
+    if (status.conflicted.length > 0) throw new Error('Resolve conflicts before committing.');
     const extraEnv: Record<string, string> = {};
     if (date) {
       extraEnv.GIT_AUTHOR_DATE = date;
@@ -1697,14 +1695,14 @@ export class GitService {
   }
 
   async stageFile(relativePath: string): Promise<void> {
-    await this.exec(['add', relativePath]);
+    await this.exec(['--literal-pathspecs', 'add', '--', relativePath]);
   }
 
   async unstageFile(relativePath: string): Promise<void> {
     try {
-      await this.exec(['restore', '--staged', relativePath]);
+      await this.exec(['--literal-pathspecs', 'restore', '--staged', '--', relativePath]);
     } catch {
-      await this.exec(['reset', 'HEAD', '--', relativePath]);
+      await this.exec(['--literal-pathspecs', 'reset', 'HEAD', '--', relativePath]);
     }
   }
 
@@ -1723,10 +1721,10 @@ export class GitService {
   async discardFile(relativePath: string): Promise<void> {
     try {
       // Restore tracked file to HEAD state
-      await this.exec(['restore', relativePath]);
+      await this.exec(['--literal-pathspecs', 'restore', '--', relativePath]);
     } catch {
       // For untracked files, clean them
-      await this.exec(['clean', '-f', relativePath]);
+      await this.exec(['--literal-pathspecs', 'clean', '-f', '--', relativePath]);
     }
   }
 
@@ -1867,7 +1865,7 @@ export class GitService {
     // Step 2: Rewrite entire history to remove the file/folder from all commits
     // We must properly quote the file path so the shell eval inside filter-branch doesn't split it on spaces
     const escapedFilePath = filePath.replace(/'/g, "'\\''");
-    const filterCmd = `git rm -r --cached --ignore-unmatch '${escapedFilePath}'`;
+    const filterCmd = `git --literal-pathspecs rm -r --cached --ignore-unmatch -- '${escapedFilePath}'`;
     try {
       await execFileAsync(this.gitPath, [
         'filter-branch',
