@@ -3,6 +3,7 @@
 node_modules/**
 webview/**
 src/**
+tests/**
 .github/**
 .gitignore
 esbuild.js

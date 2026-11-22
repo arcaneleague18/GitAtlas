@@ -12,6 +12,7 @@
 
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { parseGitStatus } from '../utils/git-status.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -23,8 +24,6 @@ import type {
   RawRemote,
   RawStatus,
   RawHead,
-  FileChange,
-  FileChangeStatus,
   RepositoryState,
   DiffFileStat,
   PushStatusResult,
@@ -428,59 +427,14 @@ export class GitService {
       stdout = await this.exec([
         'status',
         '--porcelain=2',
+        '-z',
         '--untracked-files=all',
       ]);
     } catch {
       return { modified: [], staged: [], untracked: [], conflicted: [] };
     }
 
-    const modified: FileChange[] = [];
-    const staged: FileChange[] = [];
-    const untracked: string[] = [];
-    const conflicted: FileChange[] = [];
-
-    const lines = stdout.trim().split('\n').filter(Boolean);
-
-    for (const line of lines) {
-      if (line.startsWith('?')) {
-        // Untracked file
-        untracked.push(line.slice(2));
-      } else if (line.startsWith('1') || line.startsWith('2')) {
-        // Changed entry
-        const parts = line.split(' ');
-        const xy = parts[1] ?? '..';
-        const path = line.startsWith('2')
-          ? line.split('\t')[1]?.split('\t')[0] ?? parts[parts.length - 1] ?? ''
-          : parts[parts.length - 1] ?? '';
-
-        const indexStatus = xy[0] ?? '.';
-        const wtStatus = xy[1] ?? '.';
-
-        if (indexStatus !== '.') {
-          staged.push({
-            path: path.trim(),
-            status: parseFileStatus(indexStatus),
-          });
-        }
-
-        if (wtStatus !== '.') {
-          modified.push({
-            path: path.trim(),
-            status: parseFileStatus(wtStatus),
-          });
-        }
-      } else if (line.startsWith('u ')) {
-        // Unmerged entry (conflict)
-        const parts = line.split(' ');
-        const path = parts[parts.length - 1] ?? '';
-        conflicted.push({
-          path: path.trim(),
-          status: 'conflicted',
-        });
-      }
-    }
-
-    return { modified, staged, untracked, conflicted };
+    return parseGitStatus(stdout);
   }
 
   /**
@@ -530,7 +484,8 @@ export class GitService {
         '--format',
         [
           '%(refname:short)',
-          '%(objectname:short)',
+          '%(objectname)',
+          '%(*objectname)',
           '%(contents:subject)',
           '%(taggername)',
           '%(creatordate:unix)',
@@ -550,12 +505,12 @@ export class GitService {
       .filter(Boolean)
       .map((line) => {
         const fields = line.split(FIELD_SEP);
-        const dateStr = fields[4]?.trim();
+        const dateStr = fields[5]?.trim();
         return {
           name: fields[0]?.trim() ?? '',
-          targetHash: fields[1]?.trim() ?? '',
-          message: fields[2]?.trim() || null,
-          tagger: fields[3]?.trim() || null,
+          targetHash: fields[2]?.trim() || fields[1]?.trim() || '',
+          message: fields[3]?.trim() || null,
+          tagger: fields[4]?.trim() || null,
           date: dateStr ? parseInt(dateStr, 10) : null,
         };
       });
@@ -2437,25 +2392,5 @@ return `${prefix}: update ${basename}${files.length > 1 ? ` and ${files.length -
       }
       throw err;
     }
-  }
-}
-
-/**
- * Parse a single-character git status code to a FileChangeStatus.
- */
-function parseFileStatus(code: string): FileChangeStatus {
-  switch (code) {
-    case 'A':
-      return 'added';
-    case 'M':
-      return 'modified';
-    case 'D':
-      return 'deleted';
-    case 'R':
-      return 'renamed';
-    case 'C':
-      return 'copied';
-    default:
-      return 'modified';
   }
 }

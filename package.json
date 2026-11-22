@@ -176,7 +176,8 @@
     "watch": "node esbuild.js --watch",
     "build:webview": "cd webview && npm run build",
     "build": "npm run build:webview && npm run compile",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "node --test tests/*.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

@@ -93,7 +93,15 @@ export class RepositoryStateEngine extends DisposableBase {
    * Build (or rebuild) the repository graph from fresh git data.
    * Returns the new immutable graph and fires `onDidChangeGraph`.
    */
-  async buildGraph(): Promise<RepositoryGraph> {
+  private buildQueue: Promise<unknown> = Promise.resolve();
+
+  buildGraph(): Promise<RepositoryGraph> {
+    const build = this.buildQueue.then(() => this.buildSnapshot());
+    this.buildQueue = build.catch(() => undefined);
+    return build;
+  }
+
+  private async buildSnapshot(): Promise<RepositoryGraph> {
     // Fetch all raw data in parallel
     const [head, commits, branches, tags, stashes, remotes, status, repoState] =
       await Promise.all([

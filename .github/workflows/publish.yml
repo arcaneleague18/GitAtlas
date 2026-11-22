@@ -23,6 +23,12 @@ jobs:
 
       - name: Install webview dependencies
         run: cd webview && npm ci
+
+      - name: Type check extension
+        run: npm run lint
+
+      - name: Run regression tests
+        run: npm test
         
       - name: Build extension (Verify build)
         run: npm run build

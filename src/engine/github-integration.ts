@@ -23,6 +23,7 @@ export class GithubIntegrationEngine extends DisposableBase {
     private readonly stateEngine: RepositoryStateEngine
   ) {
     super();
+    this.register(this._onDidChangeContext);
     this.register(
       this.stateEngine.onDidChangeGraph(() => this.updateGithubContext())
     );
@@ -34,7 +35,23 @@ export class GithubIntegrationEngine extends DisposableBase {
    * Called automatically when the local Git Atlas Graph updates.
    * Fetches latest GitHub data and emits it to the webview.
    */
-  private async updateGithubContext() {
+  private updating = false;
+  private lastUpdate = 0;
+
+  private async updateGithubContext(force = false) {
+    if (this.updating || (!force && Date.now() - this.lastUpdate < 60000)) return;
+    this.updating = true;
+    try {
+      await this.fetchGithubContext();
+      this.lastUpdate = Date.now();
+    } catch (err) {
+      console.error('[GithubIntegrationEngine] Failed to initialize context', err);
+    } finally {
+      this.updating = false;
+    }
+  }
+
+  private async fetchGithubContext() {
     // Only prompt for auth once per session
     const shouldPrompt = !this.authPrompted;
     this.authPrompted = true;
@@ -64,10 +81,7 @@ export class GithubIntegrationEngine extends DisposableBase {
       // the tips of branches that have an associated PR.
       const commitHashesToFetch = new Set<string>();
 
-      const head = graph.nodes.get('HEAD');
-      if (head && 'hash' in head.data && typeof head.data.hash === 'string') {
-        commitHashesToFetch.add(head.data.hash);
-      }
+      if (graph.headHash) commitHashesToFetch.add(graph.headHash);
 
       // Find branch nodes that match PRs
       for (const [nodeId, node] of graph.nodes.entries()) {
@@ -102,7 +116,7 @@ export class GithubIntegrationEngine extends DisposableBase {
    * Allow forcing an update, e.g., if the user manually authenticates.
    */
   public async forceUpdate() {
-    await this.updateGithubContext();
+    await this.updateGithubContext(true);
   }
 
   public get context(): GitHubContext {

@@ -18,6 +18,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { readSseData } from '../utils/sse.js';
 import { RepositoryStateEngine } from '../engine/state-engine.js';
 import { GithubIntegrationEngine } from '../engine/github-integration.js';
 import { DisposableBase } from '../utils/disposable.js';
@@ -954,56 +955,44 @@ export class AiAssistantProvider
       let fullContent = '';
       let toolCalls: ToolCall[] = [];
       const toolCallBuffers: Map<number, { id: string; name: string; arguments: string }> = new Map();
-      const decoder = new TextDecoder();
+      for await (const data of readSseData(reader)) {
+        if (data === '[DONE]') continue;
 
-      // Stream the response
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.choices?.[0]?.delta;
+          if (!delta) continue;
 
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split('\n').filter((line) => line.startsWith('data: '));
-
-        for (const line of lines) {
-          const data = line.slice(6);
-          if (data === '[DONE]') continue;
-
-          try {
-            const parsed = JSON.parse(data);
-            const delta = parsed.choices?.[0]?.delta;
-            if (!delta) continue;
-
-            // Handle text content
-            const content = delta.content ?? '';
-            if (content) {
-              fullContent += content;
-              this.postToWebview({
-                type: 'chat-response-chunk',
-                chunk: content,
-                done: false,
-              });
-            }
-
-            // Handle tool calls
-            if (delta.tool_calls) {
-              for (const tc of delta.tool_calls) {
-                const idx = tc.index ?? 0;
-                if (!toolCallBuffers.has(idx)) {
-                  toolCallBuffers.set(idx, {
-                    id: tc.id ?? '',
-                    name: tc.function?.name ?? '',
-                    arguments: '',
-                  });
-                }
-                const buf = toolCallBuffers.get(idx)!;
-                if (tc.id) buf.id = tc.id;
-                if (tc.function?.name) buf.name = tc.function.name;
-                if (tc.function?.arguments) buf.arguments += tc.function.arguments;
-              }
-            }
-          } catch {
-            // Skip malformed chunks
+          // Handle text content
+          const content = delta.content ?? '';
+          if (content) {
+            fullContent += content;
+            this.postToWebview({
+              type: 'chat-response-chunk',
+              chunk: content,
+              done: false,
+            });
           }
+
+          // Handle tool calls
+          if (delta.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index ?? 0;
+              if (!toolCallBuffers.has(idx)) {
+                toolCallBuffers.set(idx, {
+                  id: tc.id ?? '',
+                  name: tc.function?.name ?? '',
+                  arguments: '',
+                });
+              }
+              const buf = toolCallBuffers.get(idx)!;
+              if (tc.id) buf.id = tc.id;
+              if (tc.function?.name) buf.name = tc.function.name;
+              if (tc.function?.arguments) buf.arguments += tc.function.arguments;
+            }
+          }
+        } catch {
+          // Skip malformed chunks
         }
       }
 
